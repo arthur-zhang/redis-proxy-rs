@@ -19,12 +19,12 @@ impl PathTrie {
         }
         Ok(trie)
     }
-    pub fn insert(&mut self, segs: &Vec<&str>) {
+    pub fn insert(&mut self, segs: &[&str]) {
         if segs.is_empty() {
             return;
         }
 
-        self.root.insert(segs, true);
+        self.root.insert(segs);
     }
     pub fn exists_path(&self, s: &str) -> bool {
         let seg_parts = self.get_seg_parts(s);
@@ -55,15 +55,14 @@ impl Node {
         }
     }
 
-    pub fn insert(&mut self, parts: &[&str], is_leaf: bool) {
-        if parts.is_empty() {
-            return;
-        }
-        // 如果是 **，后面的路径节点不用再插入了
+    pub fn insert(&mut self, parts: &[&str]) {
         if self.name.as_str() == "**" {
             return;
         }
-        let part = *parts.get(0).unwrap();
+        if parts.is_empty() {
+            return;
+        }
+        let part = *parts.first().unwrap();
 
         if !self.children.contains_key(part) {
             let new_node = Node::new(part);
@@ -72,7 +71,7 @@ impl Node {
 
         let mut matched_child = self.children.get_mut(part).expect("should not happen");
         if !parts.is_empty() {
-            matched_child.insert(&parts[1..], is_leaf);
+            matched_child.insert(&parts[1..]);
         }
     }
     fn exists(&self, parts: &[&str], level: usize) -> bool {
@@ -83,22 +82,15 @@ impl Node {
             return false;
         }
         let part = parts[level];
-        let mut n = self.children.get(part);
-        if n.is_none() {
-            n = self.children.get("*");
-        }
-        if n.is_none() {
-            n = self.children.get("**");
-            if n.is_some() {
-                return true;
+        let n = self.children.get(part).or_else(|| self.children.get("*"));
+        return match n {
+            None => {
+                self.children.contains_key("**")
             }
-        }
-        if n.is_none() {
-            return false;
-        }
-
-        let n = n.unwrap();
-        n.exists(parts, level + 1)
+            Some(n) => {
+                n.exists(parts, level + 1)
+            }
+        };
     }
     pub fn dump(&self, level: usize) {
         if level == 0 {
@@ -138,9 +130,10 @@ mod tests {
                         "/manage/faq/*",
                         "/v2/subCourses/share/*/comments",
                         "/api/v1/lms/**",
+                        "seewo:easicare:userinfo:*",
         ]
             .into_iter().map(|it| it.to_string()).collect::<Vec<_>>();
-        let trie = PathTrie::new(list, "[/]").unwrap();
+        let trie = PathTrie::new(list, "[/:]").unwrap();
 
         trie.dump();
 
@@ -149,5 +142,6 @@ mod tests {
         assert!(!trie.exists_path("/api/v1"));
         assert!(trie.exists_path("/v2/subCourses/share/111/comments"));
         assert!(!trie.exists_path("/v2/subCourses/share/111/111/comments"));
+        assert!(trie.exists_path("seewo:easicare:userinfo:123"));
     }
 }
