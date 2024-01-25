@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use regex::Regex;
 
+#[derive(Debug)]
 pub struct PathTrie {
     root: Node,
     cached_sep_regex: Regex,

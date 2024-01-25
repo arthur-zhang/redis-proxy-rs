@@ -1,1 +1,1 @@
-workspace = { members = ["redis-proxy-codec", "redis-proxy-server"] }
+workspace = { members = [ "redis-codec-core","redis-proxy-codec", "redis-proxy-server"] }
