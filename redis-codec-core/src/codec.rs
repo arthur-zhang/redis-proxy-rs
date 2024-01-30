@@ -9,17 +9,18 @@ use tokio_util::codec::Decoder;
 use crate::cmd::CmdType;
 
 pub struct PartialDecoder {
-    bulk_len: usize,
-    read_narg: usize,
     state: State,
+    // request bulk len
+    bulk_size: usize,
+    // current read arg count
+    read_narg: usize,
     cmd_type: CmdType,
-    eager_read: usize,
+    eager_mode: bool,
+    eager_read_size: usize,
     eager_read_list: Vec<Range<usize>>,
     arg_len: usize,
-    // tmp_eager_read: usize,
     tmp_token_size: usize,
 }
-
 
 pub enum State {
     SW_START,
@@ -69,7 +70,7 @@ impl Decoder for PartialDecoder {
                 }
                 State::SW_NARG => {
                     if is_digit(ch) {
-                        self.bulk_len = self.bulk_len * 10 + (ch - b'0') as usize;
+                        self.bulk_size = self.bulk_size * 10 + (ch - b'0') as usize;
                     } else if ch == CR {
                         self.state = State::SW_NARG_LF;
                     } else {
@@ -128,10 +129,10 @@ impl Decoder for PartialDecoder {
                     self.read_narg += 1;
 
                     // calc how many args should be read eagerly
-                    self.eager_read = self.eager_read_count();
+                    self.eager_read_size = self.eager_read_count();
 
                     token_started = false;
-                    if self.read_narg == self.bulk_len {
+                    if self.read_narg == self.bulk_size {
                         self.state = State::SW_DONE;
                         let bytes = src.split_to(p.consumed()).freeze();
                         return Ok(Some(PartialResp::Eager(bytes)));
@@ -177,9 +178,9 @@ impl Decoder for PartialDecoder {
                         if self.is_eager() {
                             return Ok(None);
                         }
-                        // lazy read mode, return raw data
+                        // lazy read mode, return total raw data of current BytesMut
                         let len = p.len();
-                        let bytes = src.split_to(p.consumed()).freeze();
+                        let bytes = src.split_to(p.consumed() + len).freeze();
                         self.tmp_token_size += len;
                         return Ok(Some(PartialResp::Lazy(bytes)));
                     }
@@ -196,22 +197,24 @@ impl Decoder for PartialDecoder {
                     self.state = State::SW_ARG_LF;
                 }
 
+                // *3\r\n$3\r\n$set\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n
+                //                                  ^^
                 State::SW_ARG_LF => {
                     debug!("SW_ARG_LF: {:?}", p);
                     if ch != LF {
                         return Err(DecodeError::InvalidProtocol);
                     }
                     self.read_narg += 1;
+
+
                     token_started = false;
 
-                    if self.read_narg <= self.eager_read {}
-
-                    if self.read_narg == self.bulk_len {
+                    if self.read_narg == self.bulk_size {
                         self.state = State::SW_DONE;
                         p.advance(1);
                         break;
                     } else {
-                        if self.read_narg == self.eager_read {
+                        if self.read_narg == self.eager_read_size {
                             if p.has_remaining() {
                                 // consume \n
                                 p.advance(1);
@@ -234,6 +237,7 @@ impl Decoder for PartialDecoder {
         let bytes = src.split_to(p.consumed()).freeze();
 
         if self.is_eager() {
+            self.eager_mode = false;
             return Ok(Some(PartialResp::Eager(bytes)));
         } else {
             return Ok(Some(PartialResp::Lazy(bytes)));
@@ -244,11 +248,12 @@ impl Decoder for PartialDecoder {
 impl PartialDecoder {
     pub fn new() -> Self {
         Self {
-            bulk_len: 0,
+            bulk_size: 0,
             read_narg: 0,
             state: State::SW_START,
             cmd_type: CmdType::UNKNOWN,
-            eager_read: 0,
+            eager_mode: true,
+            eager_read_size: 0,
             eager_read_list: vec![],
             arg_len: 0,
             tmp_token_size: 0,
@@ -257,13 +262,21 @@ impl PartialDecoder {
     pub fn eager_read_count(&self) -> usize {
         let key_count = self.cmd_type.redis_key_count();
         if key_count >= 2 {
-            return self.bulk_len;
+            return self.bulk_size;
         }
-        return min(key_count as usize + 1, self.bulk_len);
+        return min(key_count as usize + 1, self.bulk_size);
     }
 
     pub fn is_eager(&self) -> bool {
-        self.read_narg <= self.eager_read
+        self.read_narg <= self.eager_read_size && self.eager_mode
+    }
+    // pub fn set_eager_mode(&self, mode: bool) {
+    //     self.eager_mode = mode
+    // }
+    pub fn incr_read_narg(&mut self) {
+        if self.eager_mode {
+            self.read_narg += 1;
+        }
     }
 }
 
@@ -383,6 +396,66 @@ mod tests {
         }
         println!("ret: {:?}", ret);
         let ret = decoder.decode(&mut bytes_mut).unwrap();
+        println!("ret: {:?}", ret);
+    }
+
+    #[test]
+    fn test_set() {
+        env_logger::init();
+
+        let resp = "*8\r\n$3\r\nset\r\n$3\r\nfoo\r\n$23\r\nwill expire in a minute\r\n$7\r\nkeepttl\r\n$2\r\nex\r\n$2\r\n60\r\n$2\r\nNX\r\n$3\r\nget\r\n";
+        let mut decoder = PartialDecoder::new();
+        let mut bytes_mut = BytesMut::from(resp);
+        let ret = decoder.decode(&mut bytes_mut).unwrap().unwrap();
+        match &ret {
+            PartialResp::Eager(it) => {
+                for x in &decoder.eager_read_list {
+                    let data = &it[x.clone()];
+                    println!("x: {:?}", std::str::from_utf8(data));
+                }
+            }
+            PartialResp::Lazy(_) => {}
+        }
+        println!("ret: {:?}", ret);
+        let ret = decoder.decode(&mut bytes_mut).unwrap().unwrap();
+        println!("ret: {:?}", ret);
+    }
+
+    #[inline]
+    fn generate_a_string(n: usize) -> String {
+        std::iter::repeat('a').take(n).collect()
+    }
+
+    #[test]
+    fn test_big_req() {
+        std::env::set_var("RUST_LOG", "debug");
+        env_logger::init();
+        let content = generate_a_string(1024);
+        let resp = format!("*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n${}\r\n{}\r\n", content.len(), content);
+        let resp_bytes = resp.as_bytes();
+        let mut bytes_buf = BytesMut::from(&resp_bytes[0..128]);
+        let mut decoder = PartialDecoder::new();
+        let ret = decoder.decode(&mut bytes_buf).unwrap().unwrap();
+        match &ret {
+            PartialResp::Eager(it) => {
+                for x in &decoder.eager_read_list {
+                    let data = &it[x.clone()];
+                    println!("x: {:?}", std::str::from_utf8(data));
+                }
+            }
+            PartialResp::Lazy(_) => { panic!() }
+        }
+        println!("ret: {:?}", ret);
+        let ret = decoder.decode(&mut bytes_buf).unwrap();
+        println!("ret: {:?}", ret);
+        bytes_buf.extend_from_slice(&resp_bytes[128..256]);
+        let ret = decoder.decode(&mut bytes_buf).unwrap();
+        println!("ret: {:?}", ret);
+        bytes_buf.extend_from_slice(&resp_bytes[256..384]);
+        let ret = decoder.decode(&mut bytes_buf).unwrap();
+        println!("ret: {:?}", ret);
+        bytes_buf.extend_from_slice(&resp_bytes[384..resp_bytes.len()]);
+        let ret = decoder.decode(&mut bytes_buf).unwrap();
         println!("ret: {:?}", ret);
     }
 }
