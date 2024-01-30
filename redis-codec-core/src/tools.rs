@@ -1,4 +1,8 @@
-
+#[inline]
+pub fn offset_from(dst: *const u8, original: *const u8) -> usize {
+    debug_assert!(dst >= original);
+    dst as usize - original as usize
+}
 #[inline]
 pub fn str3icmp(str: &[u8], c0: u8, c1: u8, c2: u8) -> bool {
     (str[0] == c0 || str[0] == (c0 ^ 0x20))

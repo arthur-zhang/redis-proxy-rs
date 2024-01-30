@@ -1,5 +1,6 @@
 use std::cmp::min;
 use std::fmt::{Debug, Display, Formatter};
+use std::io::BufRead;
 use std::ops::Range;
 
 use bytes::{Buf, BytesMut};
@@ -7,30 +8,32 @@ use log::debug;
 use tokio_util::codec::Decoder;
 
 use crate::cmd::CmdType;
+use crate::tools::offset_from;
 
 pub struct PartialDecoder {
     state: State,
     // request bulk len
     bulk_size: usize,
     // current read arg count
-    read_narg: usize,
+    args_read: usize,
     cmd_type: CmdType,
     eager_mode: bool,
     eager_read_size: usize,
     eager_read_list: Vec<Range<usize>>,
     arg_len: usize,
-    tmp_token_size: usize,
+    partial_read_size: usize,
+    key_match: bool,
 }
 
+#[derive(Debug, PartialOrd, PartialEq)]
 pub enum State {
     SW_START,
     SW_NARG,
     SW_NARG_LF,
-    SW_REQ_TYPE_LEN,
-    SW_REQ_TYPE_LEN_LF,
-    SW_REQ_TYPE,
-    SW_REQ_TYPE_LF,
-    SW_REMAINING,
+    SW_CMD_LEN,
+    SW_CMD_LEN_LF,
+    SW_CMD,
+    SW_CMD_LF,
 
     SW_ARG_LEN,
     SW_ARG_LEN_LF,
@@ -52,20 +55,20 @@ impl Decoder for PartialDecoder {
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         debug!("---------------------------");
-        if src.is_empty() {
-            return Ok(None);
-        }
-        let mut p = MyPtr::new(src.as_ref());
+        if src.is_empty() { return Ok(None); }
+
+        self.reset_if_needed();
+
+        let src_ref = src.as_ref();
+        let mut p = src.as_ref();
 
         let mut tmp_len = 0usize;
         let mut token_started = false;
         while (p.has_remaining()) {
-            let ch = p.first();
+            let ch = p[0];
             match self.state {
                 State::SW_START => {
-                    if p.first() != b'*' {
-                        return Err(DecodeError::InvalidProtocol);
-                    }
+                    if ch != b'*' { return Err(DecodeError::InvalidProtocol); }
                     self.state = State::SW_NARG;
                 }
                 State::SW_NARG => {
@@ -78,64 +81,56 @@ impl Decoder for PartialDecoder {
                     }
                 }
                 State::SW_NARG_LF => {
-                    if ch != LF {
-                        return Err(DecodeError::InvalidProtocol);
-                    }
-                    self.state = State::SW_REQ_TYPE_LEN;
+                    if ch != LF { return Err(DecodeError::InvalidProtocol); }
+                    token_started = false;
+                    self.state = State::SW_CMD_LEN;
                 }
-                State::SW_REQ_TYPE_LEN => {
+                State::SW_CMD_LEN => {
                     if !token_started {
-                        if ch != b'$' {
-                            return Err(DecodeError::InvalidProtocol);
-                        }
+                        if ch != b'$' { return Err(DecodeError::InvalidProtocol); }
                         token_started = true;
                         tmp_len = 0;
                     } else if is_digit(ch) {
                         tmp_len = tmp_len * 10 + (ch - b'0') as usize;
                     } else if ch == CR {
                         token_started = false;
-                        self.state = State::SW_REQ_TYPE_LEN_LF;
+                        self.state = State::SW_CMD_LEN_LF;
                     } else {
                         return Err(DecodeError::InvalidProtocol);
                     }
                 }
-                State::SW_REQ_TYPE_LEN_LF => {
-                    if ch != LF {
-                        return Err(DecodeError::InvalidProtocol);
-                    }
-                    self.state = State::SW_REQ_TYPE;
+                State::SW_CMD_LEN_LF => {
+                    if ch != LF { return Err(DecodeError::InvalidProtocol); }
+                    self.state = State::SW_CMD;
                 }
-                State::SW_REQ_TYPE => {
-                    debug!("SW_REQ_TYPE: {:?}", p);
-                    if !token_started {
-                        token_started = true;
-                    }
-                    if p.len() < tmp_len {
-                        return Ok(None);
-                    }
+                State::SW_CMD => {
+                    debug!("SW_CMD: {:?}", p);
+                    if !token_started { token_started = true; }
+                    // eager read mode, return none to wait for more data
+                    if p.len() < tmp_len { return Ok(None); }
 
-                    let cmd_type = CmdType::from(&p.inner[0..tmp_len]);
+                    let cmd_type = CmdType::from(&p[0..tmp_len]);
                     self.cmd_type = cmd_type;
-
                     p.advance(tmp_len);
+
                     token_started = false;
-                    self.state = State::SW_REQ_TYPE_LF;
+                    self.state = State::SW_CMD_LF;
                 }
-                State::SW_REQ_TYPE_LF => {
-                    debug!("SW_REQ_TYPE_LF: {:?}", p);
+                State::SW_CMD_LF => {
+                    debug!("SW_CMD_LF: {:?}", p);
                     if ch != LF {
                         return Err(DecodeError::InvalidProtocol);
                     }
-                    self.read_narg += 1;
+                    token_started = false;
 
                     // calc how many args should be read eagerly
                     self.eager_read_size = self.eager_read_count();
+                    self.args_read = 1;
 
-                    token_started = false;
-                    if self.read_narg == self.bulk_size {
+                    if self.args_read == self.bulk_size {
+                        p.advance(1);
                         self.state = State::SW_DONE;
-                        let bytes = src.split_to(p.consumed()).freeze();
-                        return Ok(Some(PartialResp::Eager(bytes)));
+                        break;
                     } else {
                         self.state = State::SW_ARG_LEN;
                     }
@@ -173,27 +168,24 @@ impl Decoder for PartialDecoder {
                         token_started = true;
                     }
 
-                    if p.len() + self.tmp_token_size < self.arg_len {
+                    if p.len() + self.partial_read_size < self.arg_len {
                         // eager read mode, return none to wait for more data
                         if self.is_eager() {
                             return Ok(None);
                         }
                         // lazy read mode, return total raw data of current BytesMut
-                        let len = p.len();
-                        let bytes = src.split_to(p.consumed() + len).freeze();
-                        self.tmp_token_size += len;
-                        return Ok(Some(PartialResp::Lazy(bytes)));
+                        p.advance(p.len());
+                        break;
                     }
 
                     if self.is_eager() {
-                        let consumed = p.consumed();
+                        let consumed = offset_from(p.as_ptr(), src_ref.as_ptr());
                         let range = consumed..(consumed + self.arg_len);
                         self.eager_read_list.push(range);
                     }
 
-
-                    p.advance(self.arg_len - self.tmp_token_size);
-                    self.tmp_token_size = 0;
+                    p.advance(self.arg_len - self.partial_read_size);
+                    self.partial_read_size = 0;
                     self.state = State::SW_ARG_LF;
                 }
 
@@ -201,25 +193,18 @@ impl Decoder for PartialDecoder {
                 //                                  ^^
                 State::SW_ARG_LF => {
                     debug!("SW_ARG_LF: {:?}", p);
-                    if ch != LF {
-                        return Err(DecodeError::InvalidProtocol);
-                    }
-                    self.read_narg += 1;
-
+                    if ch != LF { return Err(DecodeError::InvalidProtocol); }
 
                     token_started = false;
+                    self.args_read += 1;
 
-                    if self.read_narg == self.bulk_size {
+                    if self.args_read == self.bulk_size {
                         self.state = State::SW_DONE;
                         p.advance(1);
                         break;
                     } else {
-                        if self.read_narg == self.eager_read_size {
-                            if p.has_remaining() {
-                                // consume \n
-                                p.advance(1);
-                            }
-
+                        if self.args_read == self.eager_read_size {
+                            p.advance(1);
                             self.state = State::SW_ARG_LEN;
                             break;
                         }
@@ -229,19 +214,19 @@ impl Decoder for PartialDecoder {
                 State::SW_DONE => {
                     break;
                 }
-
-                _ => {}
             }
             p.advance(1);
         }
-        let bytes = src.split_to(p.consumed()).freeze();
 
-        if self.is_eager() {
+        let consumed = offset_from(p.as_ptr(), src_ref.as_ptr());
+        let bytes = src.split_to(consumed).freeze();
+
+        return if self.is_eager() {
             self.eager_mode = false;
-            return Ok(Some(PartialResp::Eager(bytes)));
+            Ok(Some(PartialResp::Eager(bytes)))
         } else {
-            return Ok(Some(PartialResp::Lazy(bytes)));
-        }
+            Ok(Some(PartialResp::Lazy(bytes)))
+        };
     }
 }
 
@@ -249,14 +234,26 @@ impl PartialDecoder {
     pub fn new() -> Self {
         Self {
             bulk_size: 0,
-            read_narg: 0,
+            args_read: 0,
             state: State::SW_START,
             cmd_type: CmdType::UNKNOWN,
             eager_mode: true,
             eager_read_size: 0,
             eager_read_list: vec![],
             arg_len: 0,
-            tmp_token_size: 0,
+            partial_read_size: 0,
+            key_match: false,
+        }
+    }
+    pub fn reset_if_needed(&mut self) {
+        if self.state == State::SW_DONE {
+            self.state = State::SW_START;
+            self.bulk_size = 0;
+            self.args_read = 0;
+            self.eager_read_size = 0;
+            self.eager_read_list.clear();
+            self.arg_len = 0;
+            self.partial_read_size = 0;
         }
     }
     pub fn eager_read_count(&self) -> usize {
@@ -267,15 +264,27 @@ impl PartialDecoder {
         return min(key_count as usize + 1, self.bulk_size);
     }
 
+    pub fn is_key_match(&self) -> bool {
+        self.key_match
+    }
+    pub fn set_key_match(&mut self, key_match: bool) {
+        self.key_match = key_match;
+    }
+    pub fn get_cmd(&self) -> &CmdType {
+        &self.cmd_type
+    }
+    pub fn get_eager_read_list(&self) -> &Vec<Range<usize>> {
+        &self.eager_read_list
+    }
     pub fn is_eager(&self) -> bool {
-        self.read_narg <= self.eager_read_size && self.eager_mode
+        self.args_read <= self.eager_read_size && self.eager_mode
     }
     // pub fn set_eager_mode(&self, mode: bool) {
     //     self.eager_mode = mode
     // }
     pub fn incr_read_narg(&mut self) {
         if self.eager_mode {
-            self.read_narg += 1;
+            self.args_read += 1;
         }
     }
 }
@@ -298,30 +307,6 @@ impl<'a> Debug for MyPtr<'a> {
     }
 }
 
-impl<'a> MyPtr<'a> {
-    pub fn new(inner: &'a [u8]) -> Self {
-        Self {
-            inner,
-            advance_count: 0,
-        }
-    }
-    fn has_remaining(&self) -> bool {
-        !self.inner.is_empty()
-    }
-    fn advance(&mut self, cnt: usize) {
-        self.advance_count += cnt;
-        self.inner = &self.inner[cnt..];
-    }
-    fn first(&self) -> u8 {
-        self.inner[0]
-    }
-    fn len(&self) -> usize {
-        self.inner.len()
-    }
-    fn consumed(&self) -> usize {
-        self.advance_count
-    }
-}
 
 const CR: u8 = b'\r';
 const LF: u8 = b'\n';
@@ -354,6 +339,19 @@ impl From<anyhow::Error> for DecodeError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_ping() {
+        std::env::set_var("RUST_LOG", "debug");
+        env_logger::init();
+
+        let resp = "*1\r\n$4\r\nping\r\n*1\r\n$4\r\nping\r\n";
+        let mut decoder = PartialDecoder::new();
+        let mut bytes_mut = BytesMut::from(resp);
+        while let Some(ret) = decoder.decode(&mut bytes_mut).unwrap() {
+            debug!("ret: {:?}", ret);
+        }
+    }
 
     #[test]
     fn test_parse() {

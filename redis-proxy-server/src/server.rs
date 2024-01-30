@@ -7,8 +7,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use redis_proxy_codec::codec::{MyClientCodec, ParseError};
-use redis_proxy_codec::command::Command;
+use redis_codec_core::codec::{PartialDecoder, PartialResp};
 
 use crate::path_trie::PathTrie;
 
@@ -55,28 +54,39 @@ impl UpstreamPair {
             let mut reader = FramedRead::new(self.remote2_read_half, BytesCodec::new());
             while let Some(it) = reader.next().await {}
         });
-        let mut reader = FramedRead::new(self.c2p_read_half, MyClientCodec::new());
+        let mut reader = FramedRead::new(self.c2p_read_half, PartialDecoder::new());
         while let Some(it) = reader.next().await {
             match it {
-                Ok(resp) => {
-                    let command = Command::new(resp);
-                    println!("command: {:?}", command);
-                    println!("command name: {:?}", command.get_command_name());
-                    let key = command.get_key().map(|it| std::str::from_utf8(it)).transpose()
-                        .ok().flatten().map(|it|it.to_string());
-                    let packet = Arc::new(command.into_packet().data);
-                    if let Some(key) = key {
-                        if self.trie.exists_path(&key) {
-                            println!("key>>>>>>>>>..exists, {}", key);
-                            let _ = tx.send(packet.clone());
+                Ok(partial_resp) => {
+                    match partial_resp {
+                        PartialResp::Eager(resp) => {
+                            reader.decoder_mut().set_key_match(false);
+                            let d = reader.decoder();
+                            let cmd = d.get_cmd();
+                            let eager_read_list = d.get_eager_read_list();
+                            let key = eager_read_list.first().map(|it| &resp[it.start..it.end]);
+                            match key {
+                                None => {
+                                    self.p2b_write_half.write_all(&resp).await.unwrap();
+                                }
+                                Some(key) => {
+                                    self.p2b_write_half.write_all(resp.as_ref()).await.unwrap();
+                                    if self.trie.exists_path(key) {
+                                        reader.decoder_mut().set_key_match(true);
+                                        tx.send(Arc::new(resp)).unwrap();
+                                    }
+                                }
+                            }
+                        }
+                        PartialResp::Lazy(resp) => {
+                            self.p2b_write_half.write_all(resp.as_ref()).await.unwrap();
+                            if reader.decoder().is_key_match() {
+                                tx.send(Arc::new(resp)).unwrap();
+                            }
                         }
                     }
-                    self.p2b_write_half.write_all(&packet).await.unwrap();
                 }
-                Err(ParseError::NotEnoughData) => {
-                    continue;
-                }
-                _ => {
+                Err(_) => {
                     break;
                 }
             }

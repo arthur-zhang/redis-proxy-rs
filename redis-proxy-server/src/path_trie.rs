@@ -27,8 +27,12 @@ impl PathTrie {
 
         self.root.insert(segs);
     }
-    pub fn exists_path(&self, s: &str) -> bool {
-        let seg_parts = self.get_seg_parts(s);
+    pub fn exists_path(&self, s: &[u8]) -> bool {
+        let s = std::str::from_utf8(s);
+        if s.is_err() {
+            return false;
+        }
+        let seg_parts = self.get_seg_parts(s.unwrap());
         self.root.exists(&seg_parts, 0)
     }
 
@@ -138,11 +142,11 @@ mod tests {
 
         trie.dump();
 
-        assert!(trie.exists_path("/account/login"));
-        assert!(trie.exists_path("/api/v1/lms/123"));
-        assert!(!trie.exists_path("/api/v1"));
-        assert!(trie.exists_path("/v2/subCourses/share/111/comments"));
-        assert!(!trie.exists_path("/v2/subCourses/share/111/111/comments"));
-        assert!(trie.exists_path("seewo:easicare:userinfo:123"));
+        assert!(trie.exists_path(b"/account/login"));
+        assert!(trie.exists_path(b"/api/v1/lms/123"));
+        assert!(!trie.exists_path(b"/api/v1"));
+        assert!(trie.exists_path(b"/v2/subCourses/share/111/comments"));
+        assert!(!trie.exists_path(b"/v2/subCourses/share/111/111/comments"));
+        assert!(trie.exists_path(b"seewo:easicare:userinfo:123"));
     }
 }
