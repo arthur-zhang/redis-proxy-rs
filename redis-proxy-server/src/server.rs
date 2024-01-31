@@ -8,7 +8,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use redis_codec_core::req_codec::{PartialDecoder, ReqDecodedFrame};
+use redis_codec_core::req_codec::{ReqPartialDecoder, ReqDecodedFrame};
 
 use crate::path_trie::PathTrie;
 
@@ -55,7 +55,7 @@ impl UpstreamPair {
             let mut reader = FramedRead::new(self.remote2_read_half, BytesCodec::new());
             while let Some(it) = reader.next().await {}
         });
-        let mut reader = FramedRead::new(self.c2p_read_half, PartialDecoder::new());
+        let mut reader = FramedRead::new(self.c2p_read_half, ReqPartialDecoder::new());
         let mut key_match = false;
         while let Some(it) = reader.next().await {
             match it {

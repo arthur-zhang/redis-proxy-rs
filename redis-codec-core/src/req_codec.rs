@@ -10,7 +10,7 @@ use tokio_util::codec::Decoder;
 use crate::cmd::CmdType;
 use crate::tools::offset_from;
 
-pub struct PartialDecoder {
+pub struct ReqPartialDecoder {
     state: State,
     // request bulk len
     bulk_size: usize,
@@ -77,7 +77,7 @@ impl ReqDecodedFrame {
     }
 }
 
-impl Decoder for PartialDecoder {
+impl Decoder for ReqPartialDecoder {
     type Item = ReqDecodedFrame;
     type Error = DecodeError;
 
@@ -256,7 +256,7 @@ impl Decoder for PartialDecoder {
     }
 }
 
-impl PartialDecoder {
+impl ReqPartialDecoder {
     pub fn new() -> Self {
         Self {
             bulk_size: 0,
@@ -372,7 +372,7 @@ mod tests {
         env_logger::init();
 
         let resp = "*1\r\n$4\r\nping\r\n*1\r\n$4\r\nping\r\n";
-        let mut decoder = PartialDecoder::new();
+        let mut decoder = ReqPartialDecoder::new();
         let mut bytes_mut = BytesMut::from(resp);
         while let Some(ret) = decoder.decode(&mut bytes_mut).unwrap() {
             debug!("ret: {:?}", ret);
@@ -384,7 +384,7 @@ mod tests {
         env_logger::init();
 
         let resp = "*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n";
-        let mut decoder = PartialDecoder::new();
+        let mut decoder = ReqPartialDecoder::new();
         let mut bytes_mut = BytesMut::from(resp);
         let ret = decoder.decode(&mut bytes_mut).unwrap().unwrap();
         match &ret {
@@ -406,7 +406,7 @@ mod tests {
         env_logger::init();
 
         let resp = "*5\r\n$3\r\nDEL\r\n$1\r\na\r\n$1\r\nb\r\n$1\r\nc\r\n$1\r\nd\r\n";
-        let mut decoder = PartialDecoder::new();
+        let mut decoder = ReqPartialDecoder::new();
         let mut bytes_mut = BytesMut::from(resp);
         let ret = decoder.decode(&mut bytes_mut).unwrap().unwrap();
         match &ret {
@@ -428,7 +428,7 @@ mod tests {
         env_logger::init();
 
         let resp = "*8\r\n$3\r\nset\r\n$3\r\nfoo\r\n$23\r\nwill expire in a minute\r\n$7\r\nkeepttl\r\n$2\r\nex\r\n$2\r\n60\r\n$2\r\nNX\r\n$3\r\nget\r\n";
-        let mut decoder = PartialDecoder::new();
+        let mut decoder = ReqPartialDecoder::new();
         let mut bytes_mut = BytesMut::from(resp);
         let ret = decoder.decode(&mut bytes_mut).unwrap().unwrap();
         match &ret {
@@ -458,7 +458,7 @@ mod tests {
         let resp = format!("*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n${}\r\n{}\r\n", content.len(), content);
         let resp_bytes = resp.as_bytes();
         let mut bytes_buf = BytesMut::from(&resp_bytes[0..128]);
-        let mut decoder = PartialDecoder::new();
+        let mut decoder = ReqPartialDecoder::new();
         let ret = decoder.decode(&mut bytes_buf).unwrap().unwrap();
         match &ret {
             PartialResp::Eager(it) => {
