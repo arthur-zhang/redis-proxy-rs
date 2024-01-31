@@ -8,7 +8,8 @@ use log::debug;
 use tokio_util::codec::Decoder;
 
 use crate::cmd::CmdType;
-use crate::tools::offset_from;
+use crate::error::DecodeError;
+use crate::tools::{CR, is_digit, LF, offset_from};
 
 pub struct ReqPartialDecoder {
     state: State,
@@ -49,6 +50,7 @@ pub enum PartialResp {
     Lazy(bytes::Bytes),
 }
 
+#[derive(Debug)]
 pub struct ReqDecodedFrame {
     pub raw_bytes: bytes::Bytes,
     pub is_eager: bool,
@@ -316,52 +318,6 @@ impl ReqPartialDecoder {
 }
 
 
-pub struct MyPtr<'a> {
-    inner: &'a [u8],
-    advance_count: usize,
-}
-
-impl<'a> Display for MyPtr<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", std::str::from_utf8(self.inner))
-    }
-}
-
-impl<'a> Debug for MyPtr<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", std::str::from_utf8(self.inner))
-    }
-}
-
-
-const CR: u8 = b'\r';
-const LF: u8 = b'\n';
-
-#[inline]
-fn is_digit(b: u8) -> bool {
-    b >= b'0' && b <= b'9'
-}
-
-#[derive(Debug, PartialEq)]
-pub enum DecodeError {
-    InvalidProtocol,
-    NotEnoughData,
-    UnexpectedErr,
-    IOError,
-}
-
-impl From<std::io::Error> for DecodeError {
-    fn from(e: std::io::Error) -> Self {
-        DecodeError::IOError
-    }
-}
-
-impl From<anyhow::Error> for DecodeError {
-    fn from(e: anyhow::Error) -> Self {
-        DecodeError::UnexpectedErr
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -387,18 +343,6 @@ mod tests {
         let mut decoder = ReqPartialDecoder::new();
         let mut bytes_mut = BytesMut::from(resp);
         let ret = decoder.decode(&mut bytes_mut).unwrap().unwrap();
-        match &ret {
-            PartialResp::Eager(it) => {
-                for x in &decoder.eager_read_list {
-                    let data = &it[x.clone()];
-                    println!("x: {:?}", std::str::from_utf8(data));
-                }
-            }
-            PartialResp::Lazy(_) => {}
-        }
-        println!("ret: {:?}", ret);
-        let ret = decoder.decode(&mut bytes_mut).unwrap().unwrap();
-        println!("ret: {:?}", ret);
     }
 
     #[test]
@@ -409,18 +353,6 @@ mod tests {
         let mut decoder = ReqPartialDecoder::new();
         let mut bytes_mut = BytesMut::from(resp);
         let ret = decoder.decode(&mut bytes_mut).unwrap().unwrap();
-        match &ret {
-            PartialResp::Eager(it) => {
-                for x in &decoder.eager_read_list {
-                    let data = &it[x.clone()];
-                    println!("x: {:?}", std::str::from_utf8(data));
-                }
-            }
-            PartialResp::Lazy(_) => {}
-        }
-        println!("ret: {:?}", ret);
-        let ret = decoder.decode(&mut bytes_mut).unwrap();
-        println!("ret: {:?}", ret);
     }
 
     #[test]
@@ -431,16 +363,6 @@ mod tests {
         let mut decoder = ReqPartialDecoder::new();
         let mut bytes_mut = BytesMut::from(resp);
         let ret = decoder.decode(&mut bytes_mut).unwrap().unwrap();
-        match &ret {
-            PartialResp::Eager(it) => {
-                for x in &decoder.eager_read_list {
-                    let data = &it[x.clone()];
-                    println!("x: {:?}", std::str::from_utf8(data));
-                }
-            }
-            PartialResp::Lazy(_) => {}
-        }
-        println!("ret: {:?}", ret);
         let ret = decoder.decode(&mut bytes_mut).unwrap().unwrap();
         println!("ret: {:?}", ret);
     }
@@ -460,15 +382,6 @@ mod tests {
         let mut bytes_buf = BytesMut::from(&resp_bytes[0..128]);
         let mut decoder = ReqPartialDecoder::new();
         let ret = decoder.decode(&mut bytes_buf).unwrap().unwrap();
-        match &ret {
-            PartialResp::Eager(it) => {
-                for x in &decoder.eager_read_list {
-                    let data = &it[x.clone()];
-                    println!("x: {:?}", std::str::from_utf8(data));
-                }
-            }
-            PartialResp::Lazy(_) => { panic!() }
-        }
         println!("ret: {:?}", ret);
         let ret = decoder.decode(&mut bytes_buf).unwrap();
         println!("ret: {:?}", ret);

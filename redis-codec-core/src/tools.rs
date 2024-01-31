@@ -1,3 +1,10 @@
+pub const CR: u8 = b'\r';
+pub const LF: u8 = b'\n';
+
+#[inline]
+pub fn is_digit(b: u8) -> bool {
+    b >= b'0' && b <= b'9'
+}
 #[inline]
 pub fn offset_from(dst: *const u8, original: *const u8) -> usize {
     debug_assert!(dst >= original);
