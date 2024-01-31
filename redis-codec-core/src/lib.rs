@@ -1,6 +1,5 @@
 extern crate core;
 
-// pub mod client_codec;
-pub mod codec;
+pub mod req_codec;
 mod tools;
 mod cmd;

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use log::debug;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
@@ -7,7 +8,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use redis_codec_core::codec::{PartialDecoder, PartialResp};
+use redis_codec_core::req_codec::{PartialDecoder, ReqDecodedFrame};
 
 use crate::path_trie::PathTrie;
 
@@ -43,7 +44,7 @@ impl DownstreamPair {
 
 impl UpstreamPair {
     pub async fn pipe(mut self) {
-        let (tx, mut rx): (UnboundedSender<Arc<bytes::Bytes>>, UnboundedReceiver<Arc<bytes::Bytes>>) = tokio::sync::mpsc::unbounded_channel();
+        let (tx, mut rx): (UnboundedSender<bytes::Bytes>, UnboundedReceiver<bytes::Bytes>) = tokio::sync::mpsc::unbounded_channel();
         tokio::spawn(async move {
             while let Some(it) = rx.recv().await {
                 let bytes = it;
@@ -55,34 +56,38 @@ impl UpstreamPair {
             while let Some(it) = reader.next().await {}
         });
         let mut reader = FramedRead::new(self.c2p_read_half, PartialDecoder::new());
+        let mut key_match = false;
         while let Some(it) = reader.next().await {
             match it {
-                Ok(partial_resp) => {
-                    match partial_resp {
-                        PartialResp::Eager(resp) => {
-                            reader.decoder_mut().set_key_match(false);
-                            let d = reader.decoder();
-                            let cmd = d.get_cmd();
-                            let eager_read_list = d.get_eager_read_list();
-                            let key = eager_read_list.first().map(|it| &resp[it.start..it.end]);
-                            match key {
-                                None => {
-                                    self.p2b_write_half.write_all(&resp).await.unwrap();
-                                }
-                                Some(key) => {
-                                    self.p2b_write_half.write_all(resp.as_ref()).await.unwrap();
-                                    if self.trie.exists_path(key) {
-                                        reader.decoder_mut().set_key_match(true);
-                                        tx.send(Arc::new(resp)).unwrap();
-                                    }
+                Ok(ReqDecodedFrame { raw_bytes, is_eager, is_done, }) => {
+                    debug!("is_eager: {}, is_done: {}, raw_bytes:{:?}", is_eager, is_done, std::str::from_utf8(raw_bytes.as_ref()));
+                    if is_done {
+                        key_match = false;
+                    }
+
+                    let raw_data = raw_bytes.as_ref();
+                    if is_eager {
+                        reader.decoder_mut().set_key_match(false);
+                        let d = reader.decoder();
+                        let cmd = d.get_cmd();
+                        let eager_read_list = d.get_eager_read_list();
+                        let key = eager_read_list.first().map(|it| &raw_data[it.start..it.end]);
+                        match key {
+                            None => {
+                                self.p2b_write_half.write_all(raw_data).await.unwrap();
+                            }
+                            Some(key) => {
+                                self.p2b_write_half.write_all(raw_data).await.unwrap();
+                                if self.trie.exists_path(key) {
+                                    reader.decoder_mut().set_key_match(true);
+                                    tx.send(raw_bytes).unwrap();
                                 }
                             }
                         }
-                        PartialResp::Lazy(resp) => {
-                            self.p2b_write_half.write_all(resp.as_ref()).await.unwrap();
-                            if reader.decoder().is_key_match() {
-                                tx.send(Arc::new(resp)).unwrap();
-                            }
+                    } else {
+                        self.p2b_write_half.write_all(raw_data).await.unwrap();
+                        if reader.decoder().is_key_match() {
+                            tx.send(raw_bytes).unwrap();
                         }
                     }
                 }

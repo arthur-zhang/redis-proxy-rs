@@ -49,8 +49,36 @@ pub enum PartialResp {
     Lazy(bytes::Bytes),
 }
 
+pub struct ReqDecodedFrame {
+    pub raw_bytes: bytes::Bytes,
+    pub is_eager: bool,
+    pub is_done: bool,
+}
+
+impl ReqDecodedFrame {
+    pub fn new(raw_data: bytes::Bytes, is_eager: bool, is_done: bool) -> Self {
+        Self {
+            raw_bytes: raw_data,
+            is_eager,
+            is_done,
+        }
+    }
+    pub fn is_eager(&self) -> bool {
+        self.is_eager
+    }
+    pub fn is_done(&self) -> bool {
+        self.is_done
+    }
+    pub fn get_raw_data(&self) -> &bytes::Bytes {
+        &self.raw_bytes
+    }
+    pub fn take_raw_data(self) -> bytes::Bytes {
+        self.raw_bytes
+    }
+}
+
 impl Decoder for PartialDecoder {
-    type Item = PartialResp;
+    type Item = ReqDecodedFrame;
     type Error = DecodeError;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -220,13 +248,11 @@ impl Decoder for PartialDecoder {
 
         let consumed = offset_from(p.as_ptr(), src_ref.as_ptr());
         let bytes = src.split_to(consumed).freeze();
-
-        return if self.is_eager() {
+        let is_eager = self.is_eager();
+        if is_eager {
             self.eager_mode = false;
-            Ok(Some(PartialResp::Eager(bytes)))
-        } else {
-            Ok(Some(PartialResp::Lazy(bytes)))
-        };
+        }
+        return Ok(Some(ReqDecodedFrame::new(bytes, is_eager, self.state == State::SW_DONE)));
     }
 }
 
