@@ -332,7 +332,7 @@ impl CmdType {
 
             CmdType::HMSET => 2,
             CmdType::EVAL | CmdType::EVALSHA => 2,
-            CmdType::UNKNOWN => 2
+            CmdType::UNKNOWN => 0
         }
     }
     pub fn redis_arg0(&self) -> bool {

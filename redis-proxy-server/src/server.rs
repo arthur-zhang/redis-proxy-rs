@@ -9,7 +9,7 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use redis_codec_core::decoder::MyDecoder;
-use redis_codec_core::req_codec::{ReqDecodedFrame, ReqPartialDecoder};
+use redis_codec_core::key_aware_decoder::{DecodedFrame, KeyAwareDecoder};
 
 use crate::path_trie::PathTrie;
 
@@ -57,22 +57,18 @@ impl UpstreamPair {
             let mut reader = FramedRead::new(self.remote2_read_half, BytesCodec::new());
             while let Some(it) = reader.next().await {}
         });
-        let mut reader = FramedRead::new(self.c2p_read_half, ReqPartialDecoder::new());
+        let mut reader = FramedRead::new(self.c2p_read_half, KeyAwareDecoder::new());
         let mut key_match = false;
         while let Some(it) = reader.next().await {
             match it {
-                Ok(ReqDecodedFrame { raw_bytes, is_eager, is_done, }) => {
+                Ok(DecodedFrame { raw_bytes, is_eager, is_done, }) => {
                     debug!("is_eager: {}, is_done: {}, raw_bytes:{:?}", is_eager, is_done, std::str::from_utf8(raw_bytes.as_ref()));
-                    if is_done {
-                        key_match = false;
-                    }
 
                     let raw_data = raw_bytes.as_ref();
                     if is_eager {
-                        reader.decoder_mut().set_key_match(false);
                         let d = reader.decoder();
-                        let cmd = d.get_cmd();
-                        let eager_read_list = d.get_eager_read_list();
+                        let cmd = d.cmd_type();
+                        let eager_read_list = d.eager_read_list();
                         let key = eager_read_list.first().map(|it| &raw_data[it.start..it.end]);
                         match key {
                             None => {
@@ -81,16 +77,19 @@ impl UpstreamPair {
                             Some(key) => {
                                 self.p2b_write_half.write_all(raw_data).await.unwrap();
                                 if self.trie.exists_path(key) {
-                                    reader.decoder_mut().set_key_match(true);
+                                    key_match = true;
                                     tx.send(raw_bytes).unwrap();
                                 }
                             }
                         }
                     } else {
                         self.p2b_write_half.write_all(raw_data).await.unwrap();
-                        if reader.decoder().is_key_match() {
+                        if key_match {
                             tx.send(raw_bytes).unwrap();
                         }
+                    }
+                    if is_done {
+                        key_match = false;
                     }
                 }
                 Err(_) => {
