@@ -1,6 +1,15 @@
 pub const CR: u8 = b'\r';
 pub const LF: u8 = b'\n';
 
+#[macro_export]
+macro_rules! ensure {
+    ($condition:expr, $err:expr) => {
+        if !$condition {
+            return Err($err.into());
+        }
+    };
+}
+
 #[inline]
 pub fn is_digit(b: u8) -> bool {
     b >= b'0' && b <= b'9'

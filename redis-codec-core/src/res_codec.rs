@@ -210,6 +210,7 @@ mod tests {
             has_token: false,
             integer: 0,
             negative_: false,
+            v_len: 0,
         };
         {
             let bytes = "+OK\r\n";
