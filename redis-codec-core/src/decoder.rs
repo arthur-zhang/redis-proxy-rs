@@ -35,7 +35,7 @@ impl Decoder for MyDecoder {
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if src.is_empty() { return Ok(None); }
-        println!(">>>>>>>>>>>>>>decode, len: {}", src.len());
+        // println!(">>>>>>>>>>>>>>decode, len: {}", src.len());
         let mut p = src.as_ref();
         let mut is_done = false;
         while p.has_remaining() || self.state == State::ValueComplete {

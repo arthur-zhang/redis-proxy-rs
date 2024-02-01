@@ -33,12 +33,12 @@ pub struct DownstreamPair {
 impl DownstreamPair {
     pub async fn pipe(mut self) {
         let mut reader = FramedRead::new(self.b2p_read_half, MyDecoder::new());
-        loop {
-            while let Some(it) = reader.next().await {
-                if let Ok(mut it) = it {
-                    println!("is_done: {:?}", it.is_done);
-                    self.p2c_write_half.write_all(&it.data).await.unwrap();
-                }
+        while let Some(it) = reader.next().await {
+            if let Ok(mut it) = it {
+                // println!("is_done: {:?}", it.is_done);
+                self.p2c_write_half.write_all(&it.data).await.unwrap();
+            } else {
+                break;
             }
         }
     }

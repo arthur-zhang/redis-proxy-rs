@@ -41,6 +41,9 @@ pub enum State {
     SW_ARG,
     SW_ARG_LF,
 
+    SW_INLINE,
+    SW_INLINE_RUN_TO_LF,
+
     SW_DONE,
 }
 
@@ -98,7 +101,11 @@ impl Decoder for ReqPartialDecoder {
             let ch = p[0];
             match self.state {
                 State::SW_START => {
-                    if ch != b'*' { return Err(DecodeError::InvalidProtocol); }
+                    if ch != b'*' {
+                        // return Err(DecodeError::InvalidProtocol);
+                        self.state = State::SW_INLINE;
+                        continue
+                    }
                     self.state = State::SW_NARG;
                 }
                 State::SW_NARG => {
@@ -242,6 +249,15 @@ impl Decoder for ReqPartialDecoder {
                     }
                 }
                 State::SW_DONE => {
+                    break;
+                }
+                State::SW_INLINE => {
+                    if ch == CR {
+                        self.state = State::SW_INLINE_RUN_TO_LF;
+                    }
+                }
+                State::SW_INLINE_RUN_TO_LF => {
+                    p.advance(1);
                     break;
                 }
             }
@@ -394,5 +410,18 @@ mod tests {
         bytes_buf.extend_from_slice(&resp_bytes[384..resp_bytes.len()]);
         let ret = decoder.decode(&mut bytes_buf).unwrap();
         println!("ret: {:?}", ret);
+    }
+
+    #[test]
+    fn test_inline() {
+        std::env::set_var("RUST_LOG", "debug");
+        env_logger::init();
+
+        let resp = "ping\r\n";
+        let mut decoder = ReqPartialDecoder::new();
+        let mut bytes_mut = BytesMut::from(resp);
+        while let Some(ret) = decoder.decode(&mut bytes_mut).unwrap() {
+            debug!("ret: {:?}", ret);
+        }
     }
 }
