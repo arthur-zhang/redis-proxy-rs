@@ -8,7 +8,8 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use redis_codec_core::req_codec::{ReqPartialDecoder, ReqDecodedFrame};
+use redis_codec_core::decoder::MyDecoder;
+use redis_codec_core::req_codec::{ReqDecodedFrame, ReqPartialDecoder};
 
 use crate::path_trie::PathTrie;
 
@@ -31,11 +32,12 @@ pub struct DownstreamPair {
 
 impl DownstreamPair {
     pub async fn pipe(mut self) {
-        let mut reader = FramedRead::new(self.b2p_read_half, BytesCodec::new());
+        let mut reader = FramedRead::new(self.b2p_read_half, MyDecoder::new());
         loop {
             while let Some(it) = reader.next().await {
                 if let Ok(mut it) = it {
-                    self.p2c_write_half.write_buf(&mut it).await.unwrap();
+                    println!("is_done: {:?}", it.is_done);
+                    self.p2c_write_half.write_all(&it.data).await.unwrap();
                 }
             }
         }

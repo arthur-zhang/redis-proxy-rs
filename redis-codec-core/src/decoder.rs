@@ -38,7 +38,14 @@ impl Decoder for MyDecoder {
         let mut p = src.as_ref();
         let mut is_done = false;
         while p.has_remaining() || self.state == State::ValueComplete {
-            println!(">>>> {:?}", std::str::from_utf8(p));
+
+            if (p.has_remaining()){
+                let len = std::cmp::min(12, p.len());
+                println!(">>>> {:?}", std::str::from_utf8(&p[0..len]));
+                if &p[0..len]==b"\r\n$6\r\nlolwut"{
+                    println!(">>>> {:?}", std::str::from_utf8(&p[0..len]));
+                }
+            }
             match self.state {
                 State::ValueRootStart => {
                     self.stack.push(RespType::Null);
@@ -142,7 +149,7 @@ impl Decoder for MyDecoder {
                 }
                 State::SimpleString => {
                     if p[0] == CR {
-                        self.state = State::CR;
+                        self.state = State::LF;
                     }
                     p.advance(1);
                 }
@@ -352,5 +359,28 @@ mod tests {
         let result = decoder.decode(&mut buf).unwrap().unwrap();
         println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
         println!("decoder: {:?}", decoder);
+    }
+    #[test]
+    fn test_continuous_resp() {
+        let bytes = "$-1\r\n$-1\r\n".as_bytes();
+        let mut decoder = MyDecoder::new();
+        let mut buf = BytesMut::from(bytes);
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
+        println!("decoder: {:?}", decoder);
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
+        println!("decoder: {:?}", decoder);
+    }
+
+    #[test]
+    fn test_array(){
+        let content = include_bytes!("/Users/arthur/Downloads/resp.txt.pcapng").as_ref();
+
+        let mut bytes_mut = BytesMut::from(content);
+        let mut decoder = MyDecoder::new();
+        let result = decoder.decode(&mut bytes_mut).unwrap().unwrap();
+        println!("result: {:?}", std::str::from_utf8(&result.data[0..100]));
+
     }
 }
