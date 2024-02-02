@@ -10,9 +10,9 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
+use redis_proxy_filter::traits::{Filter, FilterStatus};
 
 use crate::path_trie::PathTrie;
-use crate::traits::{Filter, FilterStatus};
 
 pub struct MirrorFilter {
     path_trie: PathTrie,

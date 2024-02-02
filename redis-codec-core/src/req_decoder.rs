@@ -181,12 +181,15 @@ impl Decoder for ReqPktDecoder {
 
         let is_done = self.bulk_read_index == self.bulk_size;
 
+        let list = self.eager_read_list.take();
+        self.eager_read_list = Some(Vec::new());
+
         Ok(Some(DecodedFrame {
             raw_bytes: bytes,
             is_eager,
             is_done,
             cmd_type: Some(self.cmd_type.clone()),
-            eager_read_list: self.eager_read_list.take(),
+            eager_read_list: list,
         }))
     }
 }

@@ -11,8 +11,8 @@ use tokio_util::codec::FramedRead;
 use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::RespPktDecoder;
 use redis_proxy_common::DecodedFrame;
-use redis_proxy_filter::mirror::MirrorFilter;
 use redis_proxy_filter::traits::{Filter, FilterStatus};
+use crate::mirror::MirrorFilter;
 
 pub struct ProxyServer {}
 
