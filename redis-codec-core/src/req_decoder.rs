@@ -5,6 +5,7 @@ use std::ops::Range;
 use bytes::{Buf, BytesMut};
 use log::debug;
 use tokio_util::codec::Decoder;
+use redis_proxy_common::DecodedFrame;
 
 use crate::cmd::CmdType;
 use crate::error::DecodeError;
@@ -248,20 +249,20 @@ enum State {
 }
 
 
-pub struct DecodedFrame {
-    pub raw_bytes: bytes::Bytes,
-    pub is_eager: bool,
-    pub is_done: bool,
-}
-
-impl Debug for DecodedFrame {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DecodedFrame")
-            .field("data", &std::str::from_utf8(&self.raw_bytes))
-            .field("is_eager", &self.is_eager)
-            .finish()
-    }
-}
+// pub struct DecodedFrame {
+//     pub raw_bytes: bytes::Bytes,
+//     pub is_eager: bool,
+//     pub is_done: bool,
+// }
+//
+// impl Debug for DecodedFrame {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//         f.debug_struct("DecodedFrame")
+//             .field("data", &std::str::from_utf8(&self.raw_bytes))
+//             .field("is_eager", &self.is_eager)
+//             .finish()
+//     }
+// }
 
 
 #[cfg(test)]

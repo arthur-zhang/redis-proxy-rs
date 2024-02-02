@@ -1,7 +1,7 @@
 extern crate core;
 
 mod tools;
-mod cmd;
+pub mod cmd;
 mod error;
-pub mod decoder;
-pub mod key_aware_decoder;
+pub mod resp_decoder;
+pub mod req_decoder;

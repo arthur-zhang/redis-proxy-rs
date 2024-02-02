@@ -13,3 +13,4 @@ anyhow = "1.0.79"
 thiserror = "1.0.56"
 log = "0.4.20"
 env_logger = "0.11.0"
+redis-proxy-common = { path = "../redis-proxy-common" }

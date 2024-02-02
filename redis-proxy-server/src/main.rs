@@ -1,5 +1,4 @@
 mod server;
-mod path_trie;
 
 #[tokio::main]
 async fn main() {

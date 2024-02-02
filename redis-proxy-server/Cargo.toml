@@ -15,5 +15,6 @@ anyhow = "1.0.79"
 bytes = "1.5.0"
 #redis-proxy-codec = { path = "../redis-proxy-codec" }
 redis-codec-core = { path = "../redis-codec-core" }
-regex = "1.10.3"
 env_logger = "0.11.0"
+redis-proxy-filter = { path = "../redis-proxy-filter" }
+redis-proxy-common = { path = "../redis-proxy-common" }
