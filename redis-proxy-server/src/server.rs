@@ -8,8 +8,8 @@ use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 
-use redis_codec_core::req_decoder::KeyAwareDecoder;
-use redis_codec_core::resp_decoder::MyDecoder;
+use redis_codec_core::req_decoder::ReqPktDecoder;
+use redis_codec_core::resp_decoder::RespPktDecoder;
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::mirror::MirrorFilter;
 use redis_proxy_filter::traits::{Filter, FilterStatus};
@@ -54,7 +54,7 @@ impl ProxyServer {
                 tokio::spawn({
                     let read_half = c2p_r;
                     async move {
-                        let mut reader = FramedRead::new(read_half, KeyAwareDecoder::new());
+                        let mut reader = FramedRead::new(read_half, ReqPktDecoder::new());
                         while let Some(Ok(data)) = reader.next().await {
                             for filter in filter_chain.iter_mut() {
                                 let res = filter.on_data(&data).await;
@@ -94,7 +94,7 @@ impl UpstreamFilter {
         tokio::spawn({
             let read_half = p2b_r;
             async move {
-                let mut reader = FramedRead::new(read_half, MyDecoder::new());
+                let mut reader = FramedRead::new(read_half, RespPktDecoder::new());
                 while let Some(Ok(it)) = reader.next().await {
                     tx.send(it.data).await.unwrap();
                 }

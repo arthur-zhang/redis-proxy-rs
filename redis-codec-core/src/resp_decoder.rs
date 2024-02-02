@@ -6,14 +6,14 @@ use redis_proxy_common::tools::{CR, is_digit, LF, offset_from};
 use crate::error::DecodeError;
 
 #[derive(Debug)]
-pub struct MyDecoder {
+pub struct RespPktDecoder {
     state: State,
     pending_integer: PendingInteger,
     stack: Vec<RespType>,
 }
 
-impl MyDecoder {
-    pub fn new() -> MyDecoder {
+impl RespPktDecoder {
+    pub fn new() -> RespPktDecoder {
         Self {
             state: State::ValueRootStart,
             pending_integer: PendingInteger::new(),
@@ -28,7 +28,7 @@ impl MyDecoder {
 }
 
 
-impl Decoder for MyDecoder {
+impl Decoder for RespPktDecoder {
     type Item = FramedData;
     type Error = DecodeError;
 
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let bytes = "*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n".as_bytes();
-        let mut decoder = MyDecoder {
+        let mut decoder = RespPktDecoder {
             state: State::ValueRootStart,
             pending_integer: PendingInteger::new(),
             stack: Vec::new(),
@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn test_parse_string() {
         let bytes = "$5\r\nhello\r\n".as_bytes();
-        let mut decoder = MyDecoder {
+        let mut decoder = RespPktDecoder {
             state: State::ValueRootStart,
             pending_integer: PendingInteger::new(),
             stack: Vec::new(),
@@ -317,7 +317,7 @@ mod tests {
     #[test]
     fn test_ping() {
         let bytes = "*1\r\n$".as_bytes();
-        let mut decoder = MyDecoder {
+        let mut decoder = RespPktDecoder {
             state: State::ValueRootStart,
             pending_integer: PendingInteger::new(),
             stack: Vec::new(),
@@ -335,7 +335,7 @@ mod tests {
     #[test]
     fn test_empty_array() {
         let bytes = "*0\r\n".as_bytes();
-        let mut decoder = MyDecoder::new();
+        let mut decoder = RespPktDecoder::new();
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
         println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
@@ -345,7 +345,7 @@ mod tests {
     #[test]
     fn test_integer_resp() {
         let bytes = ":2\r\n".as_bytes();
-        let mut decoder = MyDecoder::new();
+        let mut decoder = RespPktDecoder::new();
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
         println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
@@ -355,7 +355,7 @@ mod tests {
     #[test]
     fn test_null_bulk_string() {
         let bytes = "$-1\r\n".as_bytes();
-        let mut decoder = MyDecoder::new();
+        let mut decoder = RespPktDecoder::new();
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
         println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
@@ -364,7 +364,7 @@ mod tests {
     #[test]
     fn test_continuous_resp() {
         let bytes = "$-1\r\n$-1\r\n".as_bytes();
-        let mut decoder = MyDecoder::new();
+        let mut decoder = RespPktDecoder::new();
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
         println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
@@ -379,7 +379,7 @@ mod tests {
         let content = include_bytes!("/Users/arthur/Downloads/resp.txt.pcapng").as_ref();
 
         let mut bytes_mut = BytesMut::from(content);
-        let mut decoder = MyDecoder::new();
+        let mut decoder = RespPktDecoder::new();
         let result = decoder.decode(&mut bytes_mut).unwrap().unwrap();
         println!("result: {:?}", std::str::from_utf8(&result.data[0..100]));
 

@@ -7,7 +7,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use redis_codec_core::req_decoder::KeyAwareDecoder;
+use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
 

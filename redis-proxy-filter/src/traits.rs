@@ -1,4 +1,3 @@
-use redis_codec_core::req_decoder::KeyAwareDecoder;
 use redis_proxy_common::DecodedFrame;
 
 #[async_trait::async_trait]

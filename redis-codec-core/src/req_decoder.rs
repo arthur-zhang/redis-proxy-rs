@@ -12,7 +12,7 @@ use redis_proxy_common::tools::{CR, is_digit, LF, offset_from};
 
 use crate::error::DecodeError;
 
-pub struct KeyAwareDecoder {
+pub struct ReqPktDecoder {
     state: State,
     cmd_type: CmdType,
     bulk_size: u64,
@@ -24,7 +24,7 @@ pub struct KeyAwareDecoder {
 
 }
 
-impl Decoder for KeyAwareDecoder {
+impl Decoder for ReqPktDecoder {
     type Item = DecodedFrame;
     type Error = DecodeError;
 
@@ -191,7 +191,7 @@ impl Decoder for KeyAwareDecoder {
     }
 }
 
-impl KeyAwareDecoder {
+impl ReqPktDecoder {
     pub fn new() -> Self {
         Self {
             state: State::ValueRootStart,
@@ -286,7 +286,7 @@ mod tests {
         env_logger::init();
 
         let resp = "*1\r\n$4\r\nping\r\n*1\r\n$4\r\nping\r\n";
-        let mut decoder = KeyAwareDecoder::new();
+        let mut decoder = ReqPktDecoder::new();
         let mut bytes_mut = BytesMut::from(resp);
         while let Some(ret) = decoder.decode(&mut bytes_mut).unwrap() {
             debug!("ret: {:?}", ret);
@@ -300,7 +300,7 @@ mod tests {
         env_logger::init();
 
         let resp = "*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n";
-        let mut decoder = KeyAwareDecoder::new();
+        let mut decoder = ReqPktDecoder::new();
         let mut bytes_mut = BytesMut::from(resp);
         while let Some(ret) = decoder.decode(&mut bytes_mut).unwrap() {
             debug!("ret: {:?}", ret);
