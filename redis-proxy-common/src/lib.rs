@@ -1,11 +1,13 @@
-use std::any::Any;
 use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
+use std::ops::Range;
+use crate::cmd::CmdType;
 
-
+pub mod cmd;
+pub mod tools;
 
 pub struct DecodedFrame {
-    // pub eager_read_list: Option<Vec<Range<usize>>>,
+    pub cmd_type: Option<CmdType>,
+    pub eager_read_list: Option<Vec<Range<usize>>>,
     pub raw_bytes: bytes::Bytes,
     pub is_eager: bool,
     pub is_done: bool,

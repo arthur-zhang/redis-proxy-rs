@@ -7,8 +7,8 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use redis_codec_core::cmd::CmdType;
 use redis_codec_core::req_decoder::KeyAwareDecoder;
+use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
 
 use crate::path_trie::PathTrie;
@@ -43,8 +43,8 @@ impl MirrorFilter {
         return Ok(ret);
     }
 
-    fn should_mirror(&self, cmd: &CmdType, eager_read_list: &Vec<Range<usize>>, raw_data: &[u8]) -> bool {
-        let key = eager_read_list.first().map(|it| &raw_data[it.start..it.end]);
+    fn should_mirror(&self, cmd: &Option<CmdType>, eager_read_list: &Option<Vec<Range<usize>>>, raw_data: &[u8]) -> bool {
+        let key = eager_read_list.as_ref().map(|it| it.first().map(|it| &raw_data[it.start..it.end])).flatten();
         return match key {
             None => {
                 false
@@ -82,12 +82,11 @@ impl Filter for MirrorFilter {
     }
 
 
-    async fn on_data(&mut self, decoder: &KeyAwareDecoder, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
-        let raw_bytes = &data.raw_bytes;
+    async fn on_data(&mut self,data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         let raw_data = data.raw_bytes.as_ref();
-
+        let DecodedFrame { cmd_type, eager_read_list, raw_bytes, is_eager, is_done } = &data;
         if data.is_eager {
-            self.should_mirror = self.should_mirror(decoder.cmd_type(), &decoder.eager_read_list(), raw_data);
+            self.should_mirror = self.should_mirror(cmd_type, &eager_read_list, raw_data);
         }
 
         if self.should_mirror {

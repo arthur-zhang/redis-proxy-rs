@@ -1,6 +1,6 @@
 use crate::tools::{str3icmp, str4icmp};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CmdType {
     UNKNOWN,
 

@@ -1,15 +1,16 @@
 use std::cmp::min;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Display};
 use std::ops::Range;
 
 use bytes::{Buf, BytesMut};
 use log::debug;
 use tokio_util::codec::Decoder;
-use redis_proxy_common::DecodedFrame;
 
-use crate::cmd::CmdType;
+use redis_proxy_common::cmd::CmdType;
+use redis_proxy_common::DecodedFrame;
+use redis_proxy_common::tools::{CR, is_digit, LF, offset_from};
+
 use crate::error::DecodeError;
-use crate::tools::{CR, is_digit, LF, offset_from};
 
 pub struct KeyAwareDecoder {
     state: State,
@@ -19,7 +20,7 @@ pub struct KeyAwareDecoder {
 
     eager_read_size: u64,
     bulk_read_index: u64,
-    eager_read_list: Vec<Range<usize>>,
+    eager_read_list: Option<Vec<Range<usize>>>,
 
 }
 
@@ -137,7 +138,9 @@ impl Decoder for KeyAwareDecoder {
                         }
                         let start_index = offset_from(p.as_ptr(), src.as_ptr());
                         let end_index = start_index + self.pending_integer as usize;
-                        self.eager_read_list.push(start_index..end_index);
+                        if let Some(ref mut it) = self.eager_read_list {
+                            it.push(start_index..end_index);
+                        }
                     }
                     let n = min(p.len(), self.pending_integer as usize);
                     self.pending_integer -= n as u64;
@@ -178,7 +181,13 @@ impl Decoder for KeyAwareDecoder {
 
         let is_done = self.bulk_read_index == self.bulk_size;
 
-        Ok(Some(DecodedFrame { raw_bytes: bytes, is_eager, is_done }))
+        Ok(Some(DecodedFrame {
+            raw_bytes: bytes,
+            is_eager,
+            is_done,
+            cmd_type: Some(self.cmd_type.clone()),
+            eager_read_list: self.eager_read_list.take(),
+        }))
     }
 }
 
@@ -191,7 +200,7 @@ impl KeyAwareDecoder {
             pending_integer: 0,
             eager_read_size: 0,
             bulk_read_index: 0,
-            eager_read_list: Vec::new(),
+            eager_read_list: Some(Vec::new()),
         }
     }
     pub fn reset(&mut self) {
@@ -201,7 +210,7 @@ impl KeyAwareDecoder {
         self.pending_integer = 0;
         self.eager_read_size = 0;
         self.bulk_read_index = 0;
-        self.eager_read_list.clear();
+        self.eager_read_list.as_mut().map(Vec::clear);
     }
 
     fn eager_read_count(&self) -> u64 {
@@ -221,7 +230,7 @@ impl KeyAwareDecoder {
     pub fn cmd_type(&self) -> &CmdType {
         &self.cmd_type
     }
-    pub fn eager_read_list(&self) -> &Vec<Range<usize>> {
+    pub fn eager_read_list(&self) -> &Option<Vec<Range<usize>>> {
         &self.eager_read_list
     }
 }

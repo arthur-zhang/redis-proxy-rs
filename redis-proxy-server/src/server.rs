@@ -1,8 +1,7 @@
 use bytes::Bytes;
-use log::debug;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
+use tokio::net::tcp::OwnedWriteHalf;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task::JoinHandle;
@@ -16,56 +15,6 @@ use redis_proxy_filter::mirror::MirrorFilter;
 use redis_proxy_filter::traits::{Filter, FilterStatus};
 
 pub struct ProxyServer {}
-
-// client->proxy->backend
-pub struct UpstreamPair {
-    c2p_read_half: OwnedReadHalf,
-    p2b_write_half: OwnedWriteHalf,
-    // remote2_read_half: OwnedReadHalf,
-    // remote2_write_half: OwnedWriteHalf,
-    // trie: Arc<PathTrie>,
-    mirror_filter: MirrorFilter,
-}
-
-// backend->proxy->client
-pub struct DownstreamPair {
-    p2c_write_half: OwnedWriteHalf,
-    b2p_read_half: OwnedReadHalf,
-}
-
-impl DownstreamPair {
-    pub async fn pipe(mut self) {
-        let mut reader = FramedRead::new(self.b2p_read_half, MyDecoder::new());
-        while let Some(it) = reader.next().await {
-            if let Ok(mut it) = it {
-                self.p2c_write_half.write_all(&it.data).await.unwrap();
-            } else {
-                break;
-            }
-        }
-    }
-}
-
-impl UpstreamPair {
-    pub async fn pipe(mut self) {
-        let mut reader = FramedRead::new(self.c2p_read_half, KeyAwareDecoder::new());
-        while let Some(it) = reader.next().await {
-            match it {
-                Ok(it) => {
-                    self.mirror_filter.on_data(&reader.decoder(), &it).await.unwrap();
-                    let DecodedFrame { raw_bytes, is_eager, is_done } = &it;
-                    let raw_data = raw_bytes.as_ref();
-                    self.p2b_write_half.write_all(raw_data).await.unwrap();
-
-                    debug!("is_eager: {}, is_done: {}, raw_bytes:{:?}", is_eager, is_done, std::str::from_utf8(raw_bytes.as_ref()));
-                }
-                Err(_) => {
-                    break;
-                }
-            }
-        }
-    }
-}
 
 impl ProxyServer {
     pub fn new() -> Self {
@@ -108,7 +57,7 @@ impl ProxyServer {
                         let mut reader = FramedRead::new(read_half, KeyAwareDecoder::new());
                         while let Some(Ok(data)) = reader.next().await {
                             for filter in filter_chain.iter_mut() {
-                                let res = filter.on_data(&reader.decoder(), &data).await;
+                                let res = filter.on_data(&data).await;
                                 match res {
                                     Ok(FilterStatus::Continue) => {}
                                     Ok(FilterStatus::StopIteration) => {
@@ -165,7 +114,7 @@ impl Filter for UpstreamFilter {
         Ok(())
     }
 
-    async fn on_data(&mut self, decoder: &KeyAwareDecoder, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+    async fn on_data(&mut self, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         self.p2b_write_half.write_all(&data.raw_bytes).await?;
         Ok(FilterStatus::Continue)
     }
@@ -189,14 +138,14 @@ impl Filter for BlackListFilter {
         Ok(())
     }
 
-    async fn on_data(&mut self, decoder: &KeyAwareDecoder, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+    async fn on_data(&mut self, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         if self.blocked && !data.is_done {
             return Ok(FilterStatus::StopIteration);
         }
 
-        let DecodedFrame { raw_bytes, is_eager, is_done } = &data;
+        let DecodedFrame { cmd_type, eager_read_list, raw_bytes, is_eager, is_done } = &data;
         if *is_eager {
-            let key = decoder.eager_read_list().first().map(|it| &raw_bytes[it.start..it.end]);
+            let key = eager_read_list.as_ref().and_then(|it| it.first().map(|it| &raw_bytes[it.start..it.end]));
             if let Some(key) = key {
                 if self.black_list.contains(&std::str::from_utf8(key).unwrap().to_string()) {
                     self.blocked = true;
