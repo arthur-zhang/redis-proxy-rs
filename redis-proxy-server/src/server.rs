@@ -13,7 +13,7 @@ use redis_codec_core::req_decoder::KeyAwareDecoder;
 use redis_codec_core::resp_decoder::MyDecoder;
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::mirror::MirrorFilter;
-use redis_proxy_filter::traits::Filter;
+use redis_proxy_filter::traits::{Filter, FilterStatus};
 
 pub struct ProxyServer {}
 
@@ -79,22 +79,18 @@ impl ProxyServer {
         let listener = TcpListener::bind(addr).await?;
         loop {
             let (mut c2p_conn, _) = listener.accept().await?;
-            let _: JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
-                // let mut p2b_conn = TcpStream::connect(&remote).await?;
-
-                // let (p2b_r, mut p2b_w) = p2b_conn.into_split();
+            let _: JoinHandle<Result<(), anyhow::Error>> = tokio::spawn(async move {
                 let (c2p_r, mut c2p_w) = c2p_conn.into_split();
 
                 let (tx, rx): (Sender<Bytes>, Receiver<Bytes>) = mpsc::channel(100);
 
                 let mirror_filter = MirrorFilter::new(remote2).await?;
                 let upstream_filter = UpstreamFilter::new(remote, tx.clone()).await?;
+                let black_list_filter = BlackListFilter::new(vec!["a".into(), "b".into()], tx.clone());
 
-                let mut filter_chain: Vec<Box<dyn Filter>> = vec![Box::new(upstream_filter), Box::new(mirror_filter)];
-                // let mut filter_chain: Vec<Box<dyn Filter>> = Vec::new();
-
-                // let mut filter_chain = vec![upstream_filter];
-                // let mut filter_chain = vec![mirror_filter];
+                let mut filter_chain: Vec<Box<dyn Filter>> = vec![
+                    Box::new(black_list_filter),
+                    Box::new(upstream_filter), Box::new(mirror_filter)];
 
                 tokio::spawn({
                     let mut rx = rx;
@@ -112,14 +108,25 @@ impl ProxyServer {
                         let mut reader = FramedRead::new(read_half, KeyAwareDecoder::new());
                         while let Some(Ok(data)) = reader.next().await {
                             for filter in filter_chain.iter_mut() {
-                                filter.on_data(&reader.decoder(), &data).await.unwrap();
+                                let res = filter.on_data(&reader.decoder(), &data).await;
+                                match res {
+                                    Ok(FilterStatus::Continue) => {}
+                                    Ok(FilterStatus::StopIteration) => {
+                                        break;
+                                    }
+                                    Err(e) => {
+                                        println!("error: {:?}", e);
+                                        break;
+                                    }
+                                }
                             }
                         }
                     }
                 });
+
                 Ok(())
             });
-        }
+        };
     }
 }
 
@@ -152,15 +159,58 @@ impl UpstreamFilter {
     }
 }
 
-
 #[async_trait::async_trait]
 impl Filter for UpstreamFilter {
     async fn init(&mut self) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn on_data(&mut self, decoder: &KeyAwareDecoder, data: &DecodedFrame) -> anyhow::Result<()> {
+    async fn on_data(&mut self, decoder: &KeyAwareDecoder, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         self.p2b_write_half.write_all(&data.raw_bytes).await?;
+        Ok(FilterStatus::Continue)
+    }
+}
+
+pub struct BlackListFilter {
+    blocked: bool,
+    black_list: Vec<String>,
+    tx: Sender<Bytes>,
+}
+
+impl BlackListFilter {
+    pub fn new(black_list: Vec<String>, tx: Sender<Bytes>) -> Self {
+        BlackListFilter { blocked: false, black_list, tx }
+    }
+}
+
+#[async_trait::async_trait]
+impl Filter for BlackListFilter {
+    async fn init(&mut self) -> anyhow::Result<()> {
         Ok(())
+    }
+
+    async fn on_data(&mut self, decoder: &KeyAwareDecoder, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+        if self.blocked && !data.is_done {
+            return Ok(FilterStatus::StopIteration);
+        }
+
+        let DecodedFrame { raw_bytes, is_eager, is_done } = &data;
+        if *is_eager {
+            let key = decoder.eager_read_list().first().map(|it| &raw_bytes[it.start..it.end]);
+            if let Some(key) = key {
+                if self.black_list.contains(&std::str::from_utf8(key).unwrap().to_string()) {
+                    self.blocked = true;
+                    if *is_done {
+                        self.blocked = false;
+                    }
+                    self.tx.send(Bytes::from_static(b"-ERR blocked\r\n")).await.unwrap();
+                    return Ok(FilterStatus::StopIteration);
+                }
+            }
+        }
+        if data.is_done {
+            self.blocked = false;
+        }
+        Ok(FilterStatus::Continue)
     }
 }

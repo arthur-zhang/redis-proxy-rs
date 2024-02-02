@@ -12,7 +12,7 @@ use redis_codec_core::req_decoder::KeyAwareDecoder;
 use redis_proxy_common::DecodedFrame;
 
 use crate::path_trie::PathTrie;
-use crate::traits::Filter;
+use crate::traits::{Filter, FilterStatus};
 
 pub struct MirrorFilter {
     path_trie: PathTrie,
@@ -82,7 +82,7 @@ impl Filter for MirrorFilter {
     }
 
 
-    async fn on_data(&mut self, decoder: &KeyAwareDecoder, data: &DecodedFrame) -> anyhow::Result<()> {
+    async fn on_data(&mut self, decoder: &KeyAwareDecoder, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         let raw_bytes = &data.raw_bytes;
         let raw_data = data.raw_bytes.as_ref();
 
@@ -97,6 +97,6 @@ impl Filter for MirrorFilter {
         if data.is_done {
             self.should_mirror = false;
         }
-        Ok(())
+        Ok(FilterStatus::Continue)
     }
 }
