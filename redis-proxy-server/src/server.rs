@@ -34,7 +34,6 @@ impl DownstreamPair {
         let mut reader = FramedRead::new(self.b2p_read_half, MyDecoder::new());
         while let Some(it) = reader.next().await {
             if let Ok(mut it) = it {
-                // println!("is_done: {:?}", it.is_done);
                 self.p2c_write_half.write_all(&it.data).await.unwrap();
             } else {
                 break;
@@ -72,7 +71,6 @@ impl ProxyServer {
         let addr = "127.0.0.1:16379";
         let remote = "127.0.0.1:6379";
         let remote2 = "127.0.0.1:9001";
-
 
         let listener = TcpListener::bind(addr).await?;
         loop {
