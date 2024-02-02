@@ -17,7 +17,6 @@ pub struct ReqPktDecoder {
     cmd_type: CmdType,
     bulk_size: u64,
     pending_integer: u64,
-
     eager_read_size: u64,
     bulk_read_index: u64,
     eager_read_list: Option<Vec<Range<usize>>>,
