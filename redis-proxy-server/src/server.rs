@@ -1,7 +1,11 @@
+use bytes::Bytes;
 use log::debug;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 
@@ -75,30 +79,88 @@ impl ProxyServer {
         let listener = TcpListener::bind(addr).await?;
         loop {
             let (mut c2p_conn, _) = listener.accept().await?;
-            tokio::spawn(async move {
-                let mut p2b_conn = TcpStream::connect(&remote).await.unwrap();
+            let _: JoinHandle<anyhow::Result<()>> = tokio::spawn(async move {
+                // let mut p2b_conn = TcpStream::connect(&remote).await?;
 
-                let mirror_filter = MirrorFilter::new(remote2).await.unwrap();
-
-                let (p2b_r, mut p2b_w) = p2b_conn.into_split();
+                // let (p2b_r, mut p2b_w) = p2b_conn.into_split();
                 let (c2p_r, mut c2p_w) = c2p_conn.into_split();
 
-                let downstream_pair = DownstreamPair {
-                    p2c_write_half: c2p_w,
-                    b2p_read_half: p2b_r,
-                };
-                let upstream_pair = UpstreamPair {
-                    c2p_read_half: c2p_r,
-                    p2b_write_half: p2b_w,
-                    mirror_filter,
-                };
-                tokio::spawn(async move {
-                    upstream_pair.pipe().await;
+                let (tx, rx): (Sender<Bytes>, Receiver<Bytes>) = mpsc::channel(100);
+
+                let mirror_filter = MirrorFilter::new(remote2).await?;
+                let upstream_filter = UpstreamFilter::new(remote, tx.clone()).await?;
+
+                let mut filter_chain: Vec<Box<dyn Filter>> = vec![Box::new(upstream_filter), Box::new(mirror_filter)];
+                // let mut filter_chain: Vec<Box<dyn Filter>> = Vec::new();
+
+                // let mut filter_chain = vec![upstream_filter];
+                // let mut filter_chain = vec![mirror_filter];
+
+                tokio::spawn({
+                    let mut rx = rx;
+                    let mut write_half = c2p_w;
+                    async move {
+                        while let Some(it) = rx.recv().await {
+                            let bytes = it;
+                            write_half.write_all(&bytes).await.unwrap();
+                        }
+                    }
                 });
-                tokio::spawn(async move {
-                    downstream_pair.pipe().await;
+                tokio::spawn({
+                    let read_half = c2p_r;
+                    async move {
+                        let mut reader = FramedRead::new(read_half, KeyAwareDecoder::new());
+                        while let Some(Ok(data)) = reader.next().await {
+                            for filter in filter_chain.iter_mut() {
+                                filter.on_data(&reader.decoder(), &data).await.unwrap();
+                            }
+                        }
+                    }
                 });
+                Ok(())
             });
         }
+    }
+}
+
+pub struct UpstreamFilter {
+    // b2p_read_half: OwnedReadHalf,
+    p2b_write_half: OwnedWriteHalf,
+}
+
+impl UpstreamFilter {
+    async fn new(remote: &str, tx: Sender<Bytes>) -> anyhow::Result<Self> {
+        let mut p2b_conn = TcpStream::connect(&remote).await?;
+
+        let (p2b_r, mut p2b_w) = p2b_conn.into_split();
+
+
+        tokio::spawn({
+            let read_half = p2b_r;
+            async move {
+                let mut reader = FramedRead::new(read_half, MyDecoder::new());
+                while let Some(Ok(it)) = reader.next().await {
+                    tx.send(it.data).await.unwrap();
+                }
+            }
+        });
+
+        Ok(UpstreamFilter {
+            // b2p_read_half: p2b_r,
+            p2b_write_half: p2b_w,
+        })
+    }
+}
+
+
+#[async_trait::async_trait]
+impl Filter for UpstreamFilter {
+    async fn init(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn on_data(&mut self, decoder: &KeyAwareDecoder, data: &DecodedFrame) -> anyhow::Result<()> {
+        self.p2b_write_half.write_all(&data.raw_bytes).await?;
+        Ok(())
     }
 }

@@ -57,6 +57,7 @@ impl MirrorFilter {
 }
 
 
+#[async_trait::async_trait]
 impl Filter for MirrorFilter {
     async fn init(&mut self) -> anyhow::Result<()> {
         tokio::spawn({
