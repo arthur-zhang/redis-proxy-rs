@@ -1,4 +1,5 @@
 use bytes::Bytes;
+use log::error;
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::net::tcp::OwnedWriteHalf;
@@ -12,6 +13,8 @@ use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::RespPktDecoder;
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{Filter, FilterStatus};
+
+use crate::log_filter::LogFilter;
 use crate::mirror::MirrorFilter;
 
 pub struct ProxyServer {}
@@ -37,9 +40,19 @@ impl ProxyServer {
                 let upstream_filter = UpstreamFilter::new(remote, tx.clone()).await?;
                 let black_list_filter = BlackListFilter::new(vec!["a".into(), "b".into()], tx.clone());
 
+                let log_filter = LogFilter::new();
+                // let mut filter_chain: Vec<Box<dyn Filter>> = vec![
+                //     Box::new(black_list_filter),
+                //     Box::new(upstream_filter),
+                //     Box::new(mirror_filter)];
+                // filter_chain.clear();
                 let mut filter_chain: Vec<Box<dyn Filter>> = vec![
-                    Box::new(black_list_filter),
-                    Box::new(upstream_filter), Box::new(mirror_filter)];
+                    // Box::new(black_list_filter),
+                    Box::new(log_filter),
+                    Box::new(upstream_filter),
+                    Box::new(mirror_filter),
+                ];
+
 
                 tokio::spawn({
                     let mut rx = rx;
@@ -47,7 +60,13 @@ impl ProxyServer {
                     async move {
                         while let Some(it) = rx.recv().await {
                             let bytes = it;
-                            write_half.write_all(&bytes).await.unwrap();
+                            match write_half.write_all(&bytes).await {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!("error: {:?}", err);
+                                    break;
+                                }
+                            };
                         }
                     }
                 });

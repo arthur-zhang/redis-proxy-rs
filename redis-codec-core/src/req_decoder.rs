@@ -6,7 +6,7 @@ use bytes::{Buf, BytesMut};
 use log::debug;
 use tokio_util::codec::Decoder;
 
-use redis_proxy_common::cmd::CmdType;
+use redis_proxy_common::cmd::{CmdType, KeyInfo};
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_common::tools::{CR, is_digit, LF, offset_from};
 
@@ -161,6 +161,8 @@ impl Decoder for ReqPktDecoder {
 
                     if self.bulk_read_index == self.eager_read_size || self.bulk_read_index == self.bulk_size {
                         self.state = State::ValueComplete;
+                    } else {
+                        self.state = State::IntegerStart;
                     }
                 }
                 State::ValueComplete => {
@@ -216,14 +218,25 @@ impl ReqPktDecoder {
     }
 
     fn eager_read_count(&self) -> u64 {
-        let key_count = self.cmd_type.redis_key_count();
-        if key_count == 0 {
-            return 0;
+
+        let key_info = self.cmd_type.redis_key_info();
+        match key_info {
+            KeyInfo::NoKey => {
+                return 0;
+            }
+            KeyInfo::OneKey => {
+                return 2;
+            }
+            KeyInfo::MultiKey => {
+                return self.bulk_size;
+            }
+            KeyInfo::Whatever => {
+                return self.bulk_size;
+            }
+            KeyInfo::Special => {
+                return self.bulk_size;
+            }
         }
-        if key_count >= 2 {
-            return self.bulk_size;
-        }
-        return min(key_count as u64 + 1, self.bulk_size);
     }
 
     // pub fn is_eager(&self) -> bool {
@@ -258,23 +271,6 @@ enum State {
     ArgLF,
     ValueComplete,
 }
-
-
-// pub struct DecodedFrame {
-//     pub raw_bytes: bytes::Bytes,
-//     pub is_eager: bool,
-//     pub is_done: bool,
-// }
-//
-// impl Debug for DecodedFrame {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-//         f.debug_struct("DecodedFrame")
-//             .field("data", &std::str::from_utf8(&self.raw_bytes))
-//             .field("is_eager", &self.is_eager)
-//             .finish()
-//     }
-// }
-
 
 #[cfg(test)]
 mod tests {
