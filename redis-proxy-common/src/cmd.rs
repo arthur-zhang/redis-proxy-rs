@@ -494,209 +494,12 @@ impl CmdType {
             }
         }
     }
-// pub fn redis_key_count(&self) -> u8 {
-//     match self {
-//         // connection
-//         CmdType::AUTH |
-//         CmdType::ECHO |
-//         CmdType::PING |
-//         CmdType::QUIT |
-//         CmdType::SELECT |
-//         CmdType::SWAPDB => 0,
-//
-//         // server
-//         CmdType::BGREWRITEAOF |
-//         CmdType::BGSAVE |
-//         CmdType::CLIENT |
-//         CmdType::COMMAND |
-//         CmdType::CONFIG |
-//         CmdType::DBSIZE |
-//         CmdType::DEBUG |
-//         CmdType::FLUSHALL |
-//         CmdType::FLUSHDB |
-//         CmdType::INFO |
-//         CmdType::LASTSAVE |
-//         CmdType::MEMORY |
-//         CmdType::MONITOR |
-//         CmdType::REPLICAOF |
-//         CmdType::ROLE |
-//         CmdType::SAVE |
-//         CmdType::SHUTDOWN |
-//         CmdType::SLAVEOF |
-//         CmdType::SLOWLOG |
-//         CmdType::SYNC |
-//         CmdType::TIME => 0,
-//
-//         CmdType::LOLWUT => 0,
-//
-//
-//         // --------------- only key
-//         CmdType::DECR |
-//         CmdType::DUMP |
-//         CmdType::GET |
-//         CmdType::HGETALL |
-//         CmdType::HKEYS |
-//         CmdType::HLEN |
-//         CmdType::HVALS |
-//         CmdType::INCR |
-//         CmdType::LLEN |
-//         CmdType::LPOP |
-//         CmdType::PERSIST |
-//         CmdType::PTTL |
-//         CmdType::RPOP |
-//         CmdType::SCARD |
-//         CmdType::SMEMBERS |
-//         CmdType::STRLEN |
-//         CmdType::TTL |
-//         CmdType::TYPE |
-//         CmdType::ZCARD => 1,
-//
-//         CmdType::EXPIRE |
-//         CmdType::EXPIREAT |
-//         CmdType::PEXPIRE |
-//         CmdType::PEXPIREAT |
-//         CmdType::MOVE |
-//
-//         CmdType::APPEND |
-//         CmdType::DECRBY |
-//         CmdType::GETBIT |
-//         CmdType::GETSET |
-//         CmdType::INCRBY |
-//         CmdType::INCRBYFLOAT |
-//         CmdType::SETNX |
-//
-//         CmdType::HEXISTS |
-//         CmdType::HGET |
-//         CmdType::HSTRLEN |
-//
-//         CmdType::LINDEX |
-//         CmdType::RPOPLPUSH |
-//
-//         CmdType::SISMEMBER |
-//
-//         CmdType::ZRANK |
-//         CmdType::ZREVRANK |
-//         CmdType::ZSCORE => 1,
-//
-//         CmdType::GETRANGE |
-//         CmdType::PSETEX |
-//         CmdType::SETBIT |
-//         CmdType::SETEX |
-//         CmdType::SETRANGE |
-//
-//         CmdType::HINCRBY |
-//         CmdType::HINCRBYFLOAT |
-//         CmdType::HSETNX |
-//
-//         CmdType::LRANGE |
-//         CmdType::LREM |
-//         CmdType::LSET |
-//         CmdType::LTRIM |
-//
-//         CmdType::SMOVE |
-//         CmdType::ZCOUNT |
-//         CmdType::ZLEXCOUNT |
-//         CmdType::ZINCRBY |
-//         CmdType::ZREMRANGEBYLEX |
-//         CmdType::ZREMRANGEBYRANK |
-//         CmdType::ZREMRANGEBYSCORE => 1,
-//
-//         CmdType::LINSERT => 1,
-//
-//         CmdType::SORT |
-//         CmdType::BITCOUNT |
-//         CmdType::BITPOS |
-//         CmdType::BITFIELD |
-//         CmdType::EXISTS |
-//         CmdType::SET |
-//         CmdType::HDEL |
-//         CmdType::HMGET |
-//         CmdType::HMSET |
-//         CmdType::HSCAN |
-//         CmdType::HSET |
-//         CmdType::LPUSH |
-//         CmdType::LPUSHX |
-//         CmdType::RPUSH |
-//         CmdType::RPUSHX |
-//         CmdType::SADD |
-//         CmdType::SDIFF |
-//         CmdType::SDIFFSTORE |
-//         CmdType::SINTER |
-//         CmdType::SINTERSTORE |
-//         CmdType::SREM |
-//         CmdType::SUNION |
-//         CmdType::SUNIONSTORE |
-//         CmdType::SRANDMEMBER |
-//         CmdType::SSCAN |
-//         CmdType::SPOP |
-//         CmdType::PFADD |
-//         CmdType::PFMERGE |
-//         CmdType::PFCOUNT |
-//         CmdType::ZADD |
-//         CmdType::ZINTERSTORE |
-//         CmdType::ZPOPMAX |
-//         CmdType::ZPOPMIN |
-//         CmdType::ZRANGE |
-//         CmdType::ZRANGEBYLEX |
-//         CmdType::ZRANGEBYSCORE |
-//         CmdType::ZREM |
-//         CmdType::ZREVRANGE |
-//         CmdType::ZREVRANGEBYLEX |
-//         CmdType::ZREVRANGEBYSCORE |
-//         CmdType::ZSCAN |
-//         CmdType::ZUNIONSTORE |
-//         CmdType::GEODIST |
-//         CmdType::GEOPOS |
-//         CmdType::GEOHASH |
-//         CmdType::GEOADD |
-//         CmdType::GEORADIUS |
-//         CmdType::GEORADIUSBYMEMBER |
-//         CmdType::RESTORE => 1,
-//
-//         CmdType::MGET | CmdType::MSET | CmdType::DEL | CmdType::UNLINK | CmdType::TOUCH => 2,
-//
-//         CmdType::HMSET => 2,
-//         CmdType::EVAL | CmdType::EVALSHA => 2,
-//         CmdType::UNKNOWN => 0,
-//
-//         CmdType::BITOP => {}
-//         CmdType::BLPOP => {}
-//         CmdType::BRPOP => {}
-//         CmdType::BRPOPLPUSH => {}
-//         CmdType::BZPOPMAX => {}
-//         CmdType::BZPOPMIN => {}
-//         CmdType::CLUSTER => {}
-//         CmdType::DISCARD => {}
-//         CmdType::EXEC => {}
-//         CmdType::KEYS => {}
-//         CmdType::MIGRATE => {}
-//         CmdType::MSETNX => {}
-//         CmdType::MULTI => {}
-//         CmdType::OBJECT => {}
-//         CmdType::PSUBSCRIBE => {}
-//         CmdType::PUBLISH => {}
-//         CmdType::PUBSUB => {}
-//         CmdType::PUNSUBSCRIBE => {}
-//         CmdType::RANDOMKEY => {}
-//         CmdType::READONLY => {}
-//         CmdType::READWRITE => {}
-//         CmdType::RENAME => {}
-//         CmdType::RENAMENX => {}
-//         CmdType::SCAN => {}
-//         CmdType::SCRIPT => {}
-//         CmdType::SUBSCRIBE => {}
-//         CmdType::UNSUBSCRIBE => {}
-//         CmdType::UNWATCH => {}
-//         CmdType::WAIT => {}
-//         CmdType::WATCH => {}
-//     }
-// }
 }
 
 impl From<&[u8]> for CmdType {
     fn from(cmd: &[u8]) -> Self {
         let len = cmd.len();
-        match len {
+        return match len {
             3 => {
                 if str3icmp(cmd, b'g', b'e', b't') {
                     return CmdType::GET;
@@ -710,7 +513,7 @@ impl From<&[u8]> for CmdType {
                 if str3icmp(cmd, b't', b't', b'l') {
                     return CmdType::TTL;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             4 => {
                 if str4icmp(cmd, b'd', b'e', b'c', b'r') {
@@ -824,7 +627,7 @@ impl From<&[u8]> for CmdType {
                 if str4icmp(cmd, b'a', b'u', b't', b'h') {
                     return CmdType::AUTH;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             5 => {
                 if str5icmp(cmd, b'b', b'i', b't', b'o', b'p') {
@@ -902,7 +705,7 @@ impl From<&[u8]> for CmdType {
                 if str5icmp(cmd, b'z', b's', b'c', b'a', b'n') {
                     return CmdType::ZSCAN;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             6 => {
                 if str6icmp(cmd, b'a', b'p', b'p', b'e', b'n', b'd') {
@@ -1016,7 +819,7 @@ impl From<&[u8]> for CmdType {
                 if str6icmp(cmd, b'z', b's', b'c', b'o', b'r', b'e') {
                     return CmdType::ZSCORE;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             7 => {
                 if str7icmp(cmd, b'c', b'l', b'u', b's', b't', b'e', b'r') {
@@ -1100,7 +903,7 @@ impl From<&[u8]> for CmdType {
                 if str7icmp(cmd, b'z', b'p', b'o', b'p', b'm', b'i', b'n') {
                     return CmdType::ZPOPMIN;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             8 => {
                 if str8icmp(cmd, b'b', b'i', b't', b'c', b'o', b'u', b'n', b't') {
@@ -1145,7 +948,7 @@ impl From<&[u8]> for CmdType {
                 if str8icmp(cmd, b'z', b'r', b'e', b'v', b'r', b'a', b'n', b'k') {
                     return CmdType::ZREVRANK;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             9 => {
                 if str9icmp(cmd, b'g', b'e', b'o', b'r', b'a', b'd', b'i', b'u', b's') {
@@ -1178,7 +981,7 @@ impl From<&[u8]> for CmdType {
                 if str9icmp(cmd, b'z', b'r', b'e', b'v', b'r', b'a', b'n', b'g', b'e') {
                     return CmdType::ZREVRANGE;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             10 => {
                 if str10icmp(cmd, b'b', b'r', b'p', b'o', b'p', b'l', b'p', b'u', b's', b'h') {
@@ -1190,7 +993,7 @@ impl From<&[u8]> for CmdType {
                 if str10icmp(cmd, b's', b'd', b'i', b'f', b'f', b's', b't', b'o', b'r', b'e') {
                     return CmdType::SDIFFSTORE;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             11 => {
                 if str11icmp(cmd, b'i', b'n', b'c', b'r', b'b', b'y', b'f', b'l', b'o', b'a', b't') {
@@ -1217,7 +1020,7 @@ impl From<&[u8]> for CmdType {
                 if str11icmp(cmd, b'z', b'u', b'n', b'i', b'o', b'n', b's', b't', b'o', b'r', b'e') {
                     return CmdType::ZUNIONSTORE;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             12 => {
                 if str12icmp(cmd, b'b', b'g', b'r', b'e', b'w', b'r', b'i', b't', b'e', b'a', b'o', b'f') {
@@ -1229,13 +1032,13 @@ impl From<&[u8]> for CmdType {
                 if str12icmp(cmd, b'p', b'u', b'n', b's', b'u', b'b', b's', b'c', b'r', b'i', b'b', b'e') {
                     return CmdType::PUNSUBSCRIBE;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             13 => {
                 if str13icmp(cmd, b'z', b'r', b'a', b'n', b'g', b'e', b'b', b'y', b's', b'c', b'o', b'r', b'e') {
                     return CmdType::ZRANGEBYSCORE;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             14 => {
                 if str14icmp(cmd, b'z', b'r', b'e', b'm', b'r', b'a', b'n', b'g', b'e', b'b', b'y', b'l', b'e', b'x') {
@@ -1244,13 +1047,13 @@ impl From<&[u8]> for CmdType {
                 if str14icmp(cmd, b'z', b'r', b'e', b'v', b'r', b'a', b'n', b'g', b'e', b'b', b'y', b'l', b'e', b'x') {
                     return CmdType::ZREVRANGEBYLEX;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             15 => {
                 if str15icmp(cmd, b'z', b'r', b'e', b'm', b'r', b'a', b'n', b'g', b'e', b'b', b'y', b'r', b'a', b'n', b'k') {
                     return CmdType::ZREMRANGEBYRANK;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             16 => {
                 if str16icmp(cmd, b'z', b'r', b'e', b'm', b'r', b'a', b'n', b'g', b'e', b'b', b'y', b's', b'c', b'o', b'r', b'e') {
@@ -1259,15 +1062,15 @@ impl From<&[u8]> for CmdType {
                 if str16icmp(cmd, b'z', b'r', b'e', b'v', b'r', b'a', b'n', b'g', b'e', b'b', b'y', b's', b'c', b'o', b'r', b'e') {
                     return CmdType::ZREVRANGEBYSCORE;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
             17 => {
                 if str17icmp(cmd, b'g', b'e', b'o', b'r', b'a', b'd', b'i', b'u', b's', b'b', b'y', b'm', b'e', b'm', b'b', b'e', b'r') {
                     return CmdType::GEORADIUSBYMEMBER;
                 }
-                return CmdType::UNKNOWN;
+                CmdType::UNKNOWN
             }
-            _ => { return CmdType::UNKNOWN; }
+            _ => { CmdType::UNKNOWN }
         }
     }
 }
