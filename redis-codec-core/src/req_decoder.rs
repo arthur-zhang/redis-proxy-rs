@@ -218,7 +218,6 @@ impl ReqPktDecoder {
     }
 
     fn eager_read_count(&self) -> u64 {
-
         let key_info = self.cmd_type.redis_key_info();
         match key_info {
             KeyInfo::NoKey => {
@@ -231,10 +230,10 @@ impl ReqPktDecoder {
                 return self.bulk_size;
             }
             KeyInfo::Whatever => {
-                return self.bulk_size;
+                return 0;
             }
             KeyInfo::Special => {
-                return self.bulk_size;
+                return 0;
             }
         }
     }

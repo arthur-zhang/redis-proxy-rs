@@ -4,7 +4,7 @@ use server::ProxyServer;
 
 mod server;
 
-mod mirror;
+mod mirror_filter;
 mod path_trie;
 mod log_filter;
 

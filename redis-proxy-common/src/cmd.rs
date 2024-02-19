@@ -3,6 +3,7 @@ use enum_iterator::Sequence;
 use crate::cmd::KeyInfo::NoKey;
 use crate::tools::{str10icmp, str11icmp, str12icmp, str13icmp, str14icmp, str15icmp, str16icmp, str17icmp, str3icmp, str4icmp, str5icmp, str6icmp, str7icmp, str8icmp, str9icmp};
 
+#[derive(Debug)]
 pub enum KeyInfo {
     NoKey,
     OneKey,
@@ -1071,7 +1072,7 @@ impl From<&[u8]> for CmdType {
                 CmdType::UNKNOWN
             }
             _ => { CmdType::UNKNOWN }
-        }
+        };
     }
 }
 

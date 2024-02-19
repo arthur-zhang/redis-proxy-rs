@@ -15,7 +15,7 @@ use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{Filter, FilterStatus};
 
 use crate::log_filter::LogFilter;
-use crate::mirror::MirrorFilter;
+use crate::mirror_filter::MirrorFilter;
 
 pub struct ProxyServer {}
 
