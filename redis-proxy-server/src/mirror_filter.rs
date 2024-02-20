@@ -7,7 +7,6 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{Filter, FilterStatus};
@@ -82,9 +81,9 @@ impl Filter for MirrorFilter {
     }
 
 
-    async fn on_data(&mut self,data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+    async fn on_data(&mut self, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         let raw_data = data.raw_bytes.as_ref();
-        let DecodedFrame { cmd_type, eager_read_list, raw_bytes, is_eager, is_done } = &data;
+        let DecodedFrame { frame_start, cmd_type, eager_read_list, raw_bytes, is_eager, is_done } = &data;
         if data.is_eager {
             self.should_mirror = self.should_mirror(cmd_type, &eager_read_list, raw_data);
         }

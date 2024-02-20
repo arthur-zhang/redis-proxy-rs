@@ -4,7 +4,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::net::tcp::OwnedWriteHalf;
 use tokio::sync::mpsc;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender, unbounded_channel};
 use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
@@ -14,6 +14,7 @@ use redis_codec_core::resp_decoder::RespPktDecoder;
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{Filter, FilterStatus};
 
+use crate::blacklist_filter::BlackListFilter;
 use crate::log_filter::LogFilter;
 use crate::mirror_filter::MirrorFilter;
 
@@ -88,6 +89,7 @@ impl ProxyServer {
                                     }
                                 }
                             }
+                            if data.is_done {}
                         }
                     }
                 });
@@ -109,12 +111,13 @@ impl UpstreamFilter {
 
         let (p2b_r, mut p2b_w) = p2b_conn.into_split();
 
-
         tokio::spawn({
             let read_half = p2b_r;
             async move {
                 let mut reader = FramedRead::new(read_half, RespPktDecoder::new());
                 while let Some(Ok(it)) = reader.next().await {
+                    println!("resp>>>> is_done: {} , data: {:?}", it.is_done, std::str::from_utf8(it.data.as_ref())
+                        .map(|it| truncate_str(it, 100)));
                     tx.send(it.data).await.unwrap();
                 }
             }
@@ -124,6 +127,17 @@ impl UpstreamFilter {
             // b2p_read_half: p2b_r,
             p2b_write_half: p2b_w,
         })
+    }
+}
+
+fn truncate_str(s: &str, max_chars: usize) -> &str {
+    if s.chars().count() <= max_chars {
+        s
+    } else {
+        match s.char_indices().nth(max_chars) {
+            Some((idx, _)) => &s[..idx],
+            None => s,
+        }
     }
 }
 
@@ -139,46 +153,3 @@ impl Filter for UpstreamFilter {
     }
 }
 
-pub struct BlackListFilter {
-    blocked: bool,
-    black_list: Vec<String>,
-    tx: Sender<Bytes>,
-}
-
-impl BlackListFilter {
-    pub fn new(black_list: Vec<String>, tx: Sender<Bytes>) -> Self {
-        BlackListFilter { blocked: false, black_list, tx }
-    }
-}
-
-#[async_trait::async_trait]
-impl Filter for BlackListFilter {
-    async fn init(&mut self) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn on_data(&mut self, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
-        if self.blocked && !data.is_done {
-            return Ok(FilterStatus::StopIteration);
-        }
-
-        let DecodedFrame { cmd_type, eager_read_list, raw_bytes, is_eager, is_done } = &data;
-        if *is_eager {
-            let key = eager_read_list.as_ref().and_then(|it| it.first().map(|it| &raw_bytes[it.start..it.end]));
-            if let Some(key) = key {
-                if self.black_list.contains(&std::str::from_utf8(key).unwrap().to_string()) {
-                    self.blocked = true;
-                    if *is_done {
-                        self.blocked = false;
-                    }
-                    self.tx.send(Bytes::from_static(b"-ERR blocked\r\n")).await.unwrap();
-                    return Ok(FilterStatus::StopIteration);
-                }
-            }
-        }
-        if data.is_done {
-            self.blocked = false;
-        }
-        Ok(FilterStatus::Continue)
-    }
-}

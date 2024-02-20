@@ -188,7 +188,6 @@ impl Decoder for RespPktDecoder {
 pub struct FramedData {
     pub data: bytes::Bytes,
     pub is_done: bool,
-
 }
 
 #[derive(Debug, PartialOrd, PartialEq)]

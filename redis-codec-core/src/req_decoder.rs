@@ -31,6 +31,7 @@ impl Decoder for ReqPktDecoder {
         if src.is_empty() { return Ok(None); }
         let mut p = src.as_ref();
 
+        let mut frame_start = false;
         debug!("------------------------------------");
         while (p.has_remaining() || self.state == State::ValueComplete) {
             debug!("state: {:?}, p: {:?}", self.state, std::str::from_utf8(p));
@@ -97,6 +98,7 @@ impl Decoder for ReqPktDecoder {
                     self.bulk_read_index = 1;
                     self.pending_integer = 0;
                     p.advance(1);
+                    frame_start = true;
 
                     if self.bulk_read_index == self.bulk_size {
                         self.state = State::ValueComplete;
@@ -186,6 +188,7 @@ impl Decoder for ReqPktDecoder {
         self.eager_read_list = Some(Vec::new());
 
         Ok(Some(DecodedFrame {
+            frame_start,
             raw_bytes: bytes,
             is_eager,
             is_done,

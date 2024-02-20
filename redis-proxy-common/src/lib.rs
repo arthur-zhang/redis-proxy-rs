@@ -6,6 +6,7 @@ pub mod cmd;
 pub mod tools;
 
 pub struct DecodedFrame {
+    pub frame_start: bool,
     pub cmd_type: Option<CmdType>,
     pub eager_read_list: Option<Vec<Range<usize>>>,
     pub raw_bytes: bytes::Bytes,

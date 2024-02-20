@@ -7,6 +7,7 @@ mod server;
 mod mirror_filter;
 mod path_trie;
 mod log_filter;
+mod blacklist_filter;
 
 #[tokio::main]
 async fn main() {
