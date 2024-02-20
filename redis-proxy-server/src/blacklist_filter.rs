@@ -6,12 +6,12 @@ use redis_proxy_filter::traits::{Filter, FilterStatus};
 pub struct BlackListFilter {
     blocked: bool,
     black_list: Vec<String>,
-    tx: Sender<Bytes>,
+    // tx: Sender<Bytes>,
 }
 
 impl BlackListFilter {
-    pub fn new(black_list: Vec<String>, tx: Sender<Bytes>) -> Self {
-        BlackListFilter { blocked: false, black_list, tx }
+    pub fn new(black_list: Vec<String>) -> Self {
+        BlackListFilter { blocked: false, black_list }
     }
 }
 
@@ -43,7 +43,7 @@ impl Filter for BlackListFilter {
                     if *is_done {
                         self.blocked = false;
                     }
-                    self.tx.send(Bytes::from_static(b"-ERR blocked\r\n")).await.unwrap();
+                    // self.tx.send(Bytes::from_static(b"-ERR blocked\r\n")).await.unwrap();
                     return Ok(FilterStatus::StopIteration);
                 }
             }

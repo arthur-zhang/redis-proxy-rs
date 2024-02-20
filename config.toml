@@ -1,0 +1,17 @@
+[server]
+address = "0.0.0.0:16379"
+
+[upstream]
+address = "0.0.0.0:6379"
+
+[filter_chain]
+filters = ["blacklist", "mirror", "log"]
+
+[filter_chain.blacklist]
+block_patterns = ["foo:bar:*", "x:*:y:z", "hello"]
+
+[filter_chain.mirror]
+address = "0.0.0.0:9001"
+pattern = ".*"
+
+[filter_chain.log]

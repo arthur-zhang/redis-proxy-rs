@@ -1,5 +1,7 @@
+use std::sync::Arc;
 use std::time::Instant;
 
+use anyhow::bail;
 use bytes::Bytes;
 use log::{debug, error, info};
 use tokio::io::AsyncWriteExt;
@@ -17,122 +19,134 @@ use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{Filter, FilterStatus};
 
 use crate::blacklist_filter::BlackListFilter;
+use crate::config::{Blacklist, Config, Mirror};
 use crate::log_filter::LogFilter;
 use crate::mirror_filter::MirrorFilter;
 
-pub struct ProxyServer {}
+pub struct ProxyServer {
+    config: Arc<Config>,
+}
 
 impl ProxyServer {
-    pub fn new() -> Self {
-        ProxyServer {}
+    pub fn new(config: Config) -> Self {
+        ProxyServer { config: Arc::new(config) }
     }
-    pub async fn start(&self) -> anyhow::Result<()> {
-        let addr = "127.0.0.1:16379";
-        let remote = "127.0.0.1:6379";
-        let remote2 = "127.0.0.1:9001";
 
-        let listener = TcpListener::bind(addr).await?;
+    pub async fn handle_new_session(config: Arc<Config>, c2p_conn: TcpStream) -> anyhow::Result<()> {
+        let filter_chain = Self::get_filters(config.clone())?;
+        let mut filter_chains = FilterChains(filter_chain);
+        filter_chains.init().await?;
+
+        let (c2p_r, mut c2p_w) = c2p_conn.into_split();
+        let mut req_pkt_reader = FramedRead::new(c2p_r, ReqPktDecoder::new());
+
+        // connect to backend upstream server
+        let (p2b_r, mut p2b_w) = TcpStream::connect(&config.upstream.address).await?.into_split();
+        let mut res_pkt_reader = FramedRead::new(p2b_r, RespPktDecoder::new());
+
         loop {
-            let (mut c2p_conn, _) = listener.accept().await?;
-            let _: JoinHandle<Result<(), anyhow::Error>> = tokio::spawn(async move {
-                let (c2p_r, mut c2p_w) = c2p_conn.into_split();
+            info!("in loop.........");
+            // 1. read from client
+            while let Some(Ok(data)) = req_pkt_reader.next().await {
+                if data.frame_start {
+                    filter_chains.pre_handle().await?;
+                }
+                let status = filter_chains.on_data(&data).await?;
+                if status == FilterStatus::StopIteration {
+                    break;
+                }
 
-                let (tx, rx): (Sender<Bytes>, Receiver<Bytes>) = mpsc::channel(100);
+                // 2. write to backend upstream server
+                p2b_w.write_all(&data.raw_bytes).await?;
+                if data.is_done {
+                    break;
+                }
+            }
 
-                let mirror_filter = MirrorFilter::new(remote2).await?;
-                // let upstream_filter = UpstreamFilter::new(remote, tx.clone()).await?;
-                let black_list_filter = BlackListFilter::new(vec!["a".into(), "b".into()], tx.clone());
-
-                let log_filter = LogFilter::new();
-                // let mut filter_chain: Vec<Box<dyn Filter>> = vec![
-                //     Box::new(black_list_filter),
-                //     Box::new(upstream_filter),
-                //     Box::new(mirror_filter)];
-                // filter_chain.clear();
-                let mut filter_chain: Vec<Box<dyn Filter>> = vec![
-                    // Box::new(black_list_filter),
-                    Box::new(log_filter),
-                    // Box::new(upstream_filter),
-                    // Box::new(mirror_filter),
-                ];
-
-                tokio::spawn({
-                    let read_half = c2p_r;
-                    let mut p2b_conn = TcpStream::connect(&remote).await?;
-                    let (p2b_r, mut p2b_w) = p2b_conn.into_split();
-                    let mut resp_reader = FramedRead::new(p2b_r, RespPktDecoder::new());
-
-                    async move {
-                        let mut reader = FramedRead::new(read_half, ReqPktDecoder::new());
-                        loop {
-                            info!("in loop.........");
-
-                            while let Some(Ok(data)) = reader.next().await {
-                                if data.frame_start {
-                                    for filter in filter_chain.iter_mut() {
-                                        filter.pre_handle().await.unwrap();
-                                    }
-                                }
-                                let mut status = FilterStatus::StopIteration;
-                                for filter in filter_chain.iter_mut() {
-                                    let res = filter.on_data(&data).await;
-                                    match res {
-                                        Ok(FilterStatus::Continue) => {
-                                            status = FilterStatus::Continue;
-                                        }
-                                        Ok(FilterStatus::StopIteration) => {
-                                            status = FilterStatus::StopIteration;
-                                            break;
-                                        }
-                                        Err(e) => {
-                                            status = FilterStatus::StopIteration;
-                                            debug!("error: {:?}", e);
-                                            break;
-                                        }
-                                    }
-                                }
-                                if status == FilterStatus::StopIteration {
-                                    break;
-                                }
-                                p2b_w.write_all(&data.raw_bytes).await;
-                                if data.is_done {
-                                    break;
-                                }
-                            }
-
-                            info!(">>>>>>>>>>>>.");
-                            {
-                                while let Some(Ok(it)) = resp_reader.next().await {
-                                    debug!("resp>>>> is_done: {} , data: {:?}", it.is_done, std::str::from_utf8(it.data.as_ref())
+            info!(">>>>>>>>>>>>.");
+            // 3. read from backend upstream server
+            while let Some(Ok(it)) = res_pkt_reader.next().await {
+                debug!("resp>>>> is_done: {} , data: {:?}", it.is_done, std::str::from_utf8(it.data.as_ref())
                                         .map(|it| truncate_str(it, 100)));
 
-                                    let bytes = it.data;
-                                    match c2p_w.write_all(&bytes).await {
-                                        Ok(_) => {}
-                                        Err(err) => {
-                                            error!("error: {:?}", err);
-                                            break;
-                                        }
-                                    };
-                                    if it.is_done {
-                                        break;
-                                    }
-                                }
-                            }
-
-
-                            for filter in filter_chain.iter_mut() {
-                                filter.post_handle().await.unwrap();
-                            }
-                        }
+                let bytes = it.data;
+                // 4. write to client
+                match c2p_w.write_all(&bytes).await {
+                    Ok(_) => {}
+                    Err(err) => {
+                        error!("error: {:?}", err);
+                        break;
                     }
-                });
+                };
+                if it.is_done {
+                    break;
+                }
+            }
 
-                Ok(())
+            filter_chains.post_handle().await?;
+        }
+    }
+
+    pub async fn start(self) -> anyhow::Result<()> {
+        let listener = TcpListener::bind(&self.config.server.address).await.map_err(|e| {
+            error!("bind error: {:?}", e);
+            e
+        })?;
+
+        loop {
+            tokio::spawn({
+                let (c2p_conn, _) = listener.accept().await?;
+                let config = self.config.clone();
+                // one connection per task
+                async move {
+                    let _ = Self::handle_new_session(config, c2p_conn).await;
+                }
             });
         };
     }
 }
+
+impl ProxyServer {
+    fn get_filters(config: Arc<Config>) -> anyhow::Result<Vec<Box<dyn Filter>>> {
+        let mut filters: Vec<Box<dyn Filter>> = vec![];
+        let mut filter_chain_conf = config.filter_chain.clone();
+
+        for filter_name in &config.filter_chain.filters {
+            let filter: Box<dyn Filter> = match filter_name.as_str() {
+                "blacklist" => {
+                    match filter_chain_conf.blacklist.take() {
+                        None => {
+                            bail!("blacklist filter config is required")
+                        }
+                        Some(blacklist) => {
+                            Box::new(BlackListFilter::new(blacklist.block_patterns))
+                        }
+                    }
+                }
+                "log" => {
+                    Box::new(LogFilter::new())
+                }
+                "mirror" => {
+                    match filter_chain_conf.mirror.take() {
+                        None => {
+                            bail!("mirror filter config is required")
+                        }
+                        Some(mirror) => {
+                            Box::new(MirrorFilter::new(mirror.address.as_str()))
+                        }
+                    }
+                }
+                _ => {
+                    bail!("unknown filter: {}", filter_name)
+                }
+            };
+            filters.push(filter);
+        }
+
+        Ok(filters)
+    }
+}
+
 
 fn truncate_str(s: &str, max_chars: usize) -> &str {
     if s.chars().count() <= max_chars {
@@ -146,4 +160,39 @@ fn truncate_str(s: &str, max_chars: usize) -> &str {
 }
 
 
+pub struct FilterChains(Vec<Box<dyn Filter>>);
+
+#[async_trait::async_trait]
+impl Filter for FilterChains {
+    async fn init(&mut self) -> anyhow::Result<()> {
+        for filter in self.0.iter_mut() {
+            filter.init().await?;
+        }
+        Ok(())
+    }
+
+    async fn pre_handle(&mut self) -> anyhow::Result<()> {
+        for filter in self.0.iter_mut() {
+            filter.pre_handle().await?;
+        }
+        Ok(())
+    }
+
+    async fn post_handle(&mut self) -> anyhow::Result<()> {
+        for filter in self.0.iter_mut() {
+            filter.post_handle().await?;
+        }
+        Ok(())
+    }
+
+    async fn on_data(&mut self, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+        for filter in self.0.iter_mut() {
+            let status = filter.on_data(data).await?;
+            if status == FilterStatus::StopIteration {
+                return Ok(FilterStatus::StopIteration);
+            }
+        }
+        Ok(FilterStatus::Continue)
+    }
+}
 

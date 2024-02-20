@@ -14,32 +14,29 @@ use redis_proxy_filter::traits::{Filter, FilterStatus};
 use crate::path_trie::PathTrie;
 
 pub struct MirrorFilter {
+    mirror: String,
     path_trie: PathTrie,
     remote2_read_half: Option<OwnedReadHalf>,
     remote2_write_half: Option<OwnedWriteHalf>,
 
-    tx: UnboundedSender<bytes::Bytes>,
+    tx: Option< UnboundedSender<bytes::Bytes>>,
     rx: Option<UnboundedReceiver<bytes::Bytes>>,
     should_mirror: bool,
 }
 
 impl MirrorFilter {
-    pub async fn new(mirror: &str) -> anyhow::Result<Self> {
-        let mut remote2_conn = TcpStream::connect(&mirror).await?;
-        let (remote2_r, remote2_w) = remote2_conn.into_split();
-        let (tx, mut rx): (UnboundedSender<bytes::Bytes>, UnboundedReceiver<bytes::Bytes>) = tokio::sync::mpsc::unbounded_channel();
-        let trie = PathTrie::new(vec!["foo:uc:*:token".into(), "foo:care:score:*".into()], r"[:]")?;
-        // let trie = Arc::new(trie);
+    pub fn new(mirror: &str) -> Self {
+        let trie = PathTrie::new(vec!["foo:uc:*:token".into(), "foo:care:score:*".into()], r"[:]").unwrap();
         let mut ret = Self {
+            mirror: mirror.to_string(),
             path_trie: trie,
-            remote2_read_half: Some(remote2_r),
-            remote2_write_half: Some(remote2_w),
-            tx,
-            rx: Some(rx),
+            remote2_read_half: None,
+            remote2_write_half: None,
+            tx:None,
+            rx: None,
             should_mirror: false,
         };
-        let _ = ret.init().await?;
-        return Ok(ret);
+        return ret;
     }
 
     fn should_mirror(&self, cmd: &Option<CmdType>, eager_read_list: &Option<Vec<Range<usize>>>, raw_data: &[u8]) -> bool {
@@ -59,6 +56,16 @@ impl MirrorFilter {
 #[async_trait::async_trait]
 impl Filter for MirrorFilter {
     async fn init(&mut self) -> anyhow::Result<()> {
+        let mut remote2_conn = TcpStream::connect(&self.mirror).await?;
+        let (remote2_r, remote2_w) = remote2_conn.into_split();
+        let (tx, mut rx): (UnboundedSender<bytes::Bytes>, UnboundedReceiver<bytes::Bytes>) = tokio::sync::mpsc::unbounded_channel();
+        let trie = PathTrie::new(vec!["foo:uc:*:token".into(), "foo:care:score:*".into()], r"[:]")?;
+        self.remote2_read_half = Some(remote2_r);
+        self.remote2_write_half = Some(remote2_w);
+        self.tx = Some(tx);
+        self.rx = Some(rx);
+
+
         tokio::spawn({
             let mut rx = self.rx.take().unwrap();
             let mut write_half = self.remote2_write_half.take().unwrap();
@@ -97,7 +104,7 @@ impl Filter for MirrorFilter {
         }
 
         if self.should_mirror {
-            self.tx.send(raw_bytes.clone()).unwrap();
+            self.tx.as_ref().unwrap().send(raw_bytes.clone()).unwrap();
         }
 
         if data.is_done {
