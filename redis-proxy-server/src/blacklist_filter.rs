@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use tokio::sync::mpsc::Sender;
 use redis_proxy_common::DecodedFrame;
-use redis_proxy_filter::traits::{Filter, FilterStatus};
+use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus};
 
 pub struct BlackListFilter {
     blocked: bool,
@@ -17,19 +17,19 @@ impl BlackListFilter {
 
 #[async_trait::async_trait]
 impl Filter for BlackListFilter {
-    async fn init(&mut self) -> anyhow::Result<()> {
+    async fn init(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn pre_handle(&mut self) -> anyhow::Result<()> {
+    async fn pre_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn post_handle(&mut self) -> anyhow::Result<()> {
+    async fn post_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn on_data(&mut self, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+    async fn on_data(&mut self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
         if self.blocked && !data.is_done {
             return Ok(FilterStatus::StopIteration);
         }

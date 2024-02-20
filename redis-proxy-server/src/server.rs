@@ -16,7 +16,7 @@ use tokio_util::codec::FramedRead;
 use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::RespPktDecoder;
 use redis_proxy_common::DecodedFrame;
-use redis_proxy_filter::traits::{Filter, FilterStatus};
+use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus};
 
 use crate::blacklist_filter::BlackListFilter;
 use crate::config::{Blacklist, Config, Mirror};
@@ -33,9 +33,11 @@ impl ProxyServer {
     }
 
     pub async fn handle_new_session(config: Arc<Config>, c2p_conn: TcpStream) -> anyhow::Result<()> {
+        let mut filter_context = FilterContext::new();
         let filter_chain = Self::get_filters(config.clone())?;
-        let mut filter_chains = FilterChains(filter_chain);
-        filter_chains.init().await?;
+
+        let mut filter_chains = FilterChains::new(filter_chain);
+        filter_chains.init(&mut filter_context).await?;
 
         let (c2p_r, mut c2p_w) = c2p_conn.into_split();
         let mut req_pkt_reader = FramedRead::new(c2p_r, ReqPktDecoder::new());
@@ -49,9 +51,9 @@ impl ProxyServer {
             // 1. read from client
             while let Some(Ok(data)) = req_pkt_reader.next().await {
                 if data.frame_start {
-                    filter_chains.pre_handle().await?;
+                    filter_chains.pre_handle(&mut filter_context).await?;
                 }
-                let status = filter_chains.on_data(&data).await?;
+                let status = filter_chains.on_data(&data, &mut filter_context).await?;
                 if status == FilterStatus::StopIteration {
                     break;
                 }
@@ -83,7 +85,7 @@ impl ProxyServer {
                 }
             }
 
-            filter_chains.post_handle().await?;
+            filter_chains.post_handle(&mut filter_context).await?;
         }
     }
 
@@ -160,34 +162,45 @@ fn truncate_str(s: &str, max_chars: usize) -> &str {
 }
 
 
-pub struct FilterChains(Vec<Box<dyn Filter>>);
+pub struct FilterChains {
+    filters: Vec<Box<dyn Filter>>,
+}
+
+impl FilterChains {
+    pub fn new(filters: Vec<Box<dyn Filter>>) -> Self {
+        FilterChains {
+            filters,
+        }
+    }
+}
+
 
 #[async_trait::async_trait]
 impl Filter for FilterChains {
-    async fn init(&mut self) -> anyhow::Result<()> {
-        for filter in self.0.iter_mut() {
-            filter.init().await?;
+    async fn init(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
+        for filter in self.filters.iter_mut() {
+            filter.init(context).await?;
         }
         Ok(())
     }
 
-    async fn pre_handle(&mut self) -> anyhow::Result<()> {
-        for filter in self.0.iter_mut() {
-            filter.pre_handle().await?;
+    async fn pre_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
+        for filter in self.filters.iter_mut() {
+            filter.pre_handle(context).await?;
         }
         Ok(())
     }
 
-    async fn post_handle(&mut self) -> anyhow::Result<()> {
-        for filter in self.0.iter_mut() {
-            filter.post_handle().await?;
+    async fn post_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
+        for filter in self.filters.iter_mut() {
+            filter.post_handle(context).await?;
         }
         Ok(())
     }
 
-    async fn on_data(&mut self, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
-        for filter in self.0.iter_mut() {
-            let status = filter.on_data(data).await?;
+    async fn on_data(&mut self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
+        for filter in self.filters.iter_mut() {
+            let status = filter.on_data(data, context).await?;
             if status == FilterStatus::StopIteration {
                 return Ok(FilterStatus::StopIteration);
             }
