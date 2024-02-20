@@ -12,6 +12,7 @@ pub struct RespPktDecoder {
     pending_integer: PendingInteger,
     stack: Vec<RespType>,
     is_done: bool,
+    is_error: bool,
 }
 
 impl RespPktDecoder {
@@ -21,6 +22,7 @@ impl RespPktDecoder {
             pending_integer: PendingInteger::new(),
             stack: Vec::new(),
             is_done: false,
+            is_error: false,
         }
     }
     fn update_top_resp_type(&mut self, resp_type: RespType) {
@@ -53,6 +55,7 @@ impl Decoder for RespPktDecoder {
                 State::ValueRootStart => {
                     self.stack.push(RespType::Null);
                     self.state = State::ValueStart;
+                    self.is_error = false;
                     is_done = false;
                 }
                 State::ValueStart => {
@@ -69,6 +72,7 @@ impl Decoder for RespPktDecoder {
                         b'-' => {
                             self.update_top_resp_type(RespType::Error);
                             self.state = State::SimpleString;
+                            self.is_error = true;
                         }
                         b'+' => {
                             self.update_top_resp_type(RespType::SimpleString);
@@ -184,13 +188,14 @@ impl Decoder for RespPktDecoder {
 
         let consumed = offset_from(p.as_ptr(), src.as_ptr());
         let data = src.split_to(consumed).freeze();
-        Ok(Some(FramedData { data, is_done }))
+        Ok(Some(FramedData { data, is_done, is_error: self.is_error }))
     }
 }
 
 pub struct FramedData {
     pub data: bytes::Bytes,
     pub is_done: bool,
+    pub is_error: bool,
 }
 
 #[derive(Debug, PartialOrd, PartialEq)]
@@ -289,6 +294,7 @@ impl PendingInteger {
 #[cfg(test)]
 mod tests {
     use log::debug;
+
     use super::*;
 
     #[test]

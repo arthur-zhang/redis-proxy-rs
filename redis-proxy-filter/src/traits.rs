@@ -9,11 +9,12 @@ pub enum ContextValue {
 
 pub struct FilterContext {
     attrs: std::collections::HashMap<String, ContextValue>,
+    pub is_error: bool,
 }
 
 impl FilterContext {
     pub fn new() -> Self {
-        FilterContext { attrs: std::collections::HashMap::new() }
+        FilterContext { attrs: std::collections::HashMap::new(), is_error: false }
     }
     pub fn set_attr(&mut self, key: &str, value: ContextValue) {
         self.attrs.insert(key.to_string(), value);

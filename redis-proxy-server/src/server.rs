@@ -80,7 +80,9 @@ impl ProxyServer {
                         break;
                     }
                 };
+
                 if it.is_done {
+                    filter_context.is_error = it.is_error;
                     break;
                 }
             }

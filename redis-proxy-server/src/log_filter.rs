@@ -30,7 +30,7 @@ impl Filter for LogFilter {
 
         if let ContextValue::Instant(start) = start {
             let elapsed = start.elapsed();
-            error!("elapsed: {:?}", elapsed);
+            error!("elapsed: {:?}, response is_error: {}", elapsed, context.is_error);
             return Ok(());
         }
 
