@@ -80,6 +80,14 @@ impl Filter for MirrorFilter {
         Ok(())
     }
 
+    async fn pre_handle(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn post_handle(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
 
     async fn on_data(&mut self, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         let raw_data = data.raw_bytes.as_ref();

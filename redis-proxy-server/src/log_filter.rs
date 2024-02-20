@@ -1,19 +1,34 @@
-use log::{info, log};
+use std::time::Instant;
+
+use log::{error, info, log};
 
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{Filter, FilterStatus};
 
-pub struct LogFilter {}
+pub struct LogFilter {
+    start: Instant,
+}
 
 impl LogFilter {
     pub fn new() -> Self {
-        LogFilter {}
+        LogFilter { start: Instant::now() }
     }
 }
 
 #[async_trait::async_trait]
 impl Filter for LogFilter {
     async fn init(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn pre_handle(&mut self) -> anyhow::Result<()> {
+        self.start = Instant::now();
+        Ok(())
+    }
+
+    async fn post_handle(&mut self) -> anyhow::Result<()> {
+        let elapsed = self.start.elapsed();
+        error!("elapsed: {:?}", elapsed);
         Ok(())
     }
 

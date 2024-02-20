@@ -1,5 +1,6 @@
 use bytes::{Buf, BytesMut};
 use tokio_util::codec::Decoder;
+
 use redis_proxy_common::ensure;
 use redis_proxy_common::tools::{CR, is_digit, LF, offset_from};
 
@@ -10,6 +11,7 @@ pub struct RespPktDecoder {
     state: State,
     pending_integer: PendingInteger,
     stack: Vec<RespType>,
+    is_done: bool,
 }
 
 impl RespPktDecoder {
@@ -18,6 +20,7 @@ impl RespPktDecoder {
             state: State::ValueRootStart,
             pending_integer: PendingInteger::new(),
             stack: Vec::new(),
+            is_done: false,
         }
     }
     fn update_top_resp_type(&mut self, resp_type: RespType) {
@@ -35,22 +38,22 @@ impl Decoder for RespPktDecoder {
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if src.is_empty() { return Ok(None); }
-        // println!(">>>>>>>>>>>>>>decode, len: {}", src.len());
+        // debug!(">>>>>>>>>>>>>>decode, len: {}", src.len());
         let mut p = src.as_ref();
         let mut is_done = false;
         while p.has_remaining() || self.state == State::ValueComplete {
-
-            if (p.has_remaining()){
+            if (p.has_remaining()) {
                 let len = std::cmp::min(12, p.len());
-                // println!(">>>> {:?}", std::str::from_utf8(&p[0..len]));
-                if &p[0..len]==b"\r\n$6\r\nlolwut"{
-                    // println!(">>>> {:?}", std::str::from_utf8(&p[0..len]));
+                // debug!(">>>> {:?}", std::str::from_utf8(&p[0..len]));
+                if &p[0..len] == b"\r\n$6\r\nlolwut" {
+                    // debug!(">>>> {:?}", std::str::from_utf8(&p[0..len]));
                 }
             }
             match self.state {
                 State::ValueRootStart => {
                     self.stack.push(RespType::Null);
                     self.state = State::ValueStart;
+                    is_done = false;
                 }
                 State::ValueStart => {
                     self.pending_integer.reset();
@@ -285,6 +288,7 @@ impl PendingInteger {
 
 #[cfg(test)]
 mod tests {
+    use log::debug;
     use super::*;
 
     #[test]
@@ -297,7 +301,7 @@ mod tests {
         };
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
-        println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
+        debug!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
     }
 
     #[test]
@@ -310,7 +314,7 @@ mod tests {
         };
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
-        println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
+        debug!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
     }
 
     #[test]
@@ -323,12 +327,12 @@ mod tests {
         };
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
-        println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
-        println!("decoder: {:?}", decoder);
+        debug!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
+        debug!("decoder: {:?}", decoder);
         buf.extend_from_slice("4\r\nPING\r\n".as_bytes());
         let result = decoder.decode(&mut buf).unwrap().unwrap();
-        println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
-        println!("decoder: {:?}", decoder);
+        debug!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
+        debug!("decoder: {:?}", decoder);
     }
 
     #[test]
@@ -337,8 +341,8 @@ mod tests {
         let mut decoder = RespPktDecoder::new();
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
-        println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
-        println!("decoder: {:?}", decoder);
+        debug!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
+        debug!("decoder: {:?}", decoder);
     }
 
     #[test]
@@ -347,8 +351,8 @@ mod tests {
         let mut decoder = RespPktDecoder::new();
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
-        println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
-        println!("decoder: {:?}", decoder);
+        debug!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
+        debug!("decoder: {:?}", decoder);
     }
 
     #[test]
@@ -357,30 +361,30 @@ mod tests {
         let mut decoder = RespPktDecoder::new();
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
-        println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
-        println!("decoder: {:?}", decoder);
+        debug!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
+        debug!("decoder: {:?}", decoder);
     }
+
     #[test]
     fn test_continuous_resp() {
         let bytes = "$-1\r\n$-1\r\n".as_bytes();
         let mut decoder = RespPktDecoder::new();
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
-        println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
-        println!("decoder: {:?}", decoder);
+        debug!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
+        debug!("decoder: {:?}", decoder);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
-        println!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
-        println!("decoder: {:?}", decoder);
+        debug!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
+        debug!("decoder: {:?}", decoder);
     }
 
     #[test]
-    fn test_array(){
+    fn test_array() {
         let content = include_bytes!("/Users/arthur/Downloads/resp.txt.pcapng").as_ref();
 
         let mut bytes_mut = BytesMut::from(content);
         let mut decoder = RespPktDecoder::new();
         let result = decoder.decode(&mut bytes_mut).unwrap().unwrap();
-        println!("result: {:?}", std::str::from_utf8(&result.data[0..100]));
-
+        debug!("result: {:?}", std::str::from_utf8(&result.data[0..100]));
     }
 }

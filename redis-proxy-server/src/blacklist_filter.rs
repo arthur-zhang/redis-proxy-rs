@@ -21,6 +21,14 @@ impl Filter for BlackListFilter {
         Ok(())
     }
 
+    async fn pre_handle(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn post_handle(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     async fn on_data(&mut self, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         if self.blocked && !data.is_done {
             return Ok(FilterStatus::StopIteration);
