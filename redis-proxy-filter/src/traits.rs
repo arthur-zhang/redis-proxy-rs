@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use async_trait::async_trait;
 use tokio::sync::mpsc::Sender;
 
@@ -12,16 +14,17 @@ pub enum ContextValue {
     ChanSender(Sender<bytes::Bytes>),
 }
 
+pub type TFilterContext = Arc<Mutex<FilterContext>>;
+
 // per session filter context
 pub struct FilterContext {
     pub cmd_type: CmdType,
     attrs: std::collections::HashMap<String, ContextValue>,
-    pub is_error: bool,
 }
 
 impl FilterContext {
     pub fn new() -> Self {
-        FilterContext { cmd_type: CmdType::UNKNOWN, attrs: std::collections::HashMap::new(), is_error: false }
+        FilterContext { cmd_type: CmdType::UNKNOWN, attrs: std::collections::HashMap::new() }
     }
     pub fn set_attr(&mut self, key: &str, value: ContextValue) {
         self.attrs.insert(key.to_string(), value);
@@ -57,10 +60,10 @@ impl FilterContext {
 // stateless filter, mutable data is stored in FilterContext
 #[async_trait]
 pub trait Filter: Send + Sync {
-    async fn on_new_connection(&self, context: &mut FilterContext) -> anyhow::Result<()>;
-    async fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()>;
-    async fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()>;
-    async fn on_data(&self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus>;
+    async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
+    async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
+    async fn post_handle(&self, context: &mut TFilterContext, resp_error: bool) -> anyhow::Result<()>;
+    async fn on_data(&self, data: &DecodedFrame, context: &mut TFilterContext) -> anyhow::Result<FilterStatus>;
 }
 
 #[derive(Debug, Eq, PartialEq)]

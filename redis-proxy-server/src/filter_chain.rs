@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use redis_proxy_common::DecodedFrame;
-use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus};
+use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus, TFilterContext};
 
 pub type TFilterChain = Arc<FilterChain>;
 
@@ -20,28 +20,28 @@ impl FilterChain {
 
 #[async_trait::async_trait]
 impl Filter for FilterChain {
-    async fn on_new_connection(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+    async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         for filter in self.filters.iter() {
             filter.on_new_connection(context).await?;
         }
         Ok(())
     }
 
-    async fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+    async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         for filter in self.filters.iter() {
             filter.pre_handle(context).await?;
         }
         Ok(())
     }
 
-    async fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+    async fn post_handle(&self, context: &mut TFilterContext ,resp_error:bool) -> anyhow::Result<()> {
         for filter in self.filters.iter() {
-            filter.post_handle(context).await?;
+            filter.post_handle(context, resp_error).await?;
         }
         Ok(())
     }
 
-    async fn on_data(&self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
+    async fn on_data(&self, data: &DecodedFrame, context: &mut TFilterContext) -> anyhow::Result<FilterStatus> {
         for filter in self.filters.iter() {
             let status = filter.on_data(data, context).await?;
             if status != FilterStatus::Continue {

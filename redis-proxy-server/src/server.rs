@@ -1,5 +1,5 @@
 use std::os::macos::raw::stat;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use anyhow::bail;
@@ -7,7 +7,7 @@ use bytes::Bytes;
 use log::{debug, error, info};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::net::tcp::OwnedWriteHalf;
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender, unbounded_channel};
 use tokio::task::JoinHandle;
@@ -18,7 +18,7 @@ use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::{FramedData, RespPktDecoder};
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
-use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus};
+use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus, TFilterContext};
 
 use crate::blacklist_filter::BlackListFilter;
 use crate::config::{Blacklist, Config, Mirror, TConfig};
@@ -104,11 +104,97 @@ impl ProxyServer {
     }
 }
 
+// c->p->b session half
+pub struct SessionHalfC2B {
+    filter_chain: TFilterChain,
+    filter_context: TFilterContext,
+    req_pkt_reader: FramedRead<OwnedReadHalf, ReqPktDecoder>,
+    p2b_w: OwnedWriteHalf,
+}
+
+
+impl SessionHalfC2B {
+    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, c2p_r: OwnedReadHalf, p2b_w: OwnedWriteHalf) -> Self {
+        let mut req_pkt_reader = FramedRead::new(c2p_r, ReqPktDecoder::new());
+        SessionHalfC2B {
+            filter_chain,
+            filter_context,
+            req_pkt_reader,
+            p2b_w,
+        }
+    }
+    pub async fn handle(mut self) -> anyhow::Result<()> {
+        let mut status = FilterStatus::Continue;
+
+        while let Some(Ok(data)) = self.req_pkt_reader.next().await {
+            if data.is_first_frame {
+                self.filter_chain.pre_handle(&mut self.filter_context).await?;
+                self.filter_context.lock().unwrap().cmd_type = data.cmd_type.clone();
+            }
+            status = self.filter_chain.on_data(&data, &mut self.filter_context).await?;
+            if status == FilterStatus::StopIteration || status == FilterStatus::Block {
+                break;
+            }
+
+            // 2. write to backend upstream server
+            self.p2b_w.write_all(&data.raw_bytes).await?;
+            // if data.is_done {
+            //     break;
+            // }
+        }
+        Ok(())
+    }
+}
+
+// b->p->c session half
+pub struct SessionHalfB2C {
+    filter_chain: TFilterChain,
+    filter_context: TFilterContext,
+    res_pkt_reader: FramedRead<OwnedReadHalf, RespPktDecoder>,
+    c2p_w: OwnedWriteHalf,
+}
+
+impl SessionHalfB2C {
+    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, p2b_r: OwnedReadHalf, c2p_w: OwnedWriteHalf) -> Self {
+        let mut res_pkt_reader = FramedRead::new(p2b_r, RespPktDecoder::new());
+
+        SessionHalfB2C {
+            filter_chain,
+            filter_context,
+            res_pkt_reader,
+            c2p_w,
+        }
+    }
+    pub async fn handle(mut self) -> anyhow::Result<()> {
+        // 3. read from backend upstream server
+        while let Some(Ok(it)) = self.res_pkt_reader.next().await {
+            debug!("resp>>>> is_done: {} , data: {:?}", it.is_done, std::str::from_utf8(it.data.as_ref())
+                                        .map(|it| truncate_str(it, 100)));
+
+            let bytes = it.data;
+            // 4. write to client
+            match self.c2p_w.write_all(&bytes).await {
+                Ok(_) => {}
+                Err(err) => {
+                    error!("error: {:?}", err);
+                    break;
+                }
+            };
+
+            if it.is_done {
+                self.filter_chain.post_handle(&mut self.filter_context, it.is_error).await?;
+            }
+        }
+        Ok(())
+    }
+}
+
 pub struct Session {
     filter_chains: TFilterChain,
     c2p_conn: TcpStream,
     config: Arc<Config>,
 }
+
 
 impl Session {
     // 1. read from client
@@ -116,92 +202,40 @@ impl Session {
     // 3. read from backend upstream server
     // 4. write to client
     pub async fn handle(mut self) -> anyhow::Result<()> {
-        let mut filter_context = FilterContext::new();
-
+        let filter_context = FilterContext::new();
+        let mut filter_context = Arc::new(Mutex::new(filter_context));
         self.filter_chains.on_new_connection(&mut filter_context).await?;
 
         let (c2p_r, mut c2p_w) = self.c2p_conn.into_split();
-        let mut req_pkt_reader = FramedRead::new(c2p_r, ReqPktDecoder::new());
 
         // connect to backend upstream server
         let (p2b_r, mut p2b_w) = TcpStream::connect(&self.config.upstream.address).await?.into_split();
-        let mut res_pkt_reader = FramedRead::new(p2b_r, RespPktDecoder::new());
 
-        let mut session_quit = false;
-        while !session_quit {
-            info!("in loop.........");
-            // 1. read from client
-            let mut status = FilterStatus::Continue;
-            loop {
-                match req_pkt_reader.next().await {
-                    Some(Ok(data)) => {
-                        if data.is_first_frame {
-                            self.filter_chains.pre_handle(&mut filter_context).await?;
-                            filter_context.cmd_type = data.cmd_type.clone();
-                        }
-                        status = self.filter_chains.on_data(&data, &mut filter_context).await?;
-                        if status == FilterStatus::StopIteration || status == FilterStatus::Block {
-                            break;
-                        }
-
-                        // 2. write to backend upstream server
-                        p2b_w.write_all(&data.raw_bytes).await?;
-                        if data.is_done {
-                            break;
-                        }
-                    }
-                    _ => {
-                        info!("client closed connection or error");
-                        session_quit = true;
-                        break;
-                    }
-                }
+        let t1 = tokio::spawn({
+            let filter_chain = self.filter_chains.clone();
+            let filter_context = filter_context.clone();
+            let session_half = SessionHalfC2B::new(filter_chain, filter_context, c2p_r, p2b_w);
+            async move {
+                info!("....................");
+                let _ = session_half.handle().await;
+                info!("half1 done")
             }
-            if (session_quit) {
-                break;
+        });
+        let t2 = tokio::spawn({
+            let filter_context = filter_context.clone();
+            let filter_chain = self.filter_chains.clone();
+            let session = SessionHalfB2C::new(
+                filter_chain,
+                filter_context,
+                p2b_r,
+                c2p_w,
+            );
+            async move {
+                let _ = session.handle().await;
+                info!("half2 done")
             }
-
-            info!("status: {:?}", status);
-            if status == FilterStatus::StopIteration {
-                break;
-            }
-            if status == FilterStatus::Block {
-                c2p_w.write_all(b"-ERR blocked\r\n").await?;
-            } else {
-                info!(">>>>>>>>>>>> {}", session_quit);
-                // 3. read from backend upstream server
-                loop {
-                    match res_pkt_reader.next().await {
-                        Some(Ok(it)) => {
-                            debug!("resp>>>> is_done: {} , data: {:?}", it.is_done, std::str::from_utf8(it.data.as_ref())
-                                        .map(|it| truncate_str(it, 100)));
-
-                            let bytes = it.data;
-                            // 4. write to client
-                            match c2p_w.write_all(&bytes).await {
-                                Ok(_) => {}
-                                Err(err) => {
-                                    error!("error: {:?}", err);
-                                    break;
-                                }
-                            };
-
-                            if it.is_done {
-                                filter_context.is_error = it.is_error;
-                                break;
-                            }
-                        }
-                        _ => {
-                            info!("upstream closed connection or error");
-                            session_quit = true;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            self.filter_chains.post_handle(&mut filter_context).await?;
-        }
+        });
+        tokio::join!(t1, t2);
 
         Ok(())
     }
