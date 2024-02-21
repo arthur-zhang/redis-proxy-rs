@@ -15,7 +15,8 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 
 use redis_codec_core::req_decoder::ReqPktDecoder;
-use redis_codec_core::resp_decoder::RespPktDecoder;
+use redis_codec_core::resp_decoder::{FramedData, RespPktDecoder};
+use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus};
 
@@ -38,10 +39,6 @@ impl ProxyServer {
 
         let filter_chains = FilterChain::new(filter_chain);
         ProxyServer { config, filter_chain: Arc::new(filter_chains) }
-    }
-
-    pub async fn handle_new_session(config: Arc<Config>, filter_chains: TFilterChain, c2p_conn: TcpStream) -> anyhow::Result<()> {
-        Ok(())
     }
 
     pub async fn start(self) -> anyhow::Result<()> {
@@ -130,26 +127,40 @@ impl Session {
         let (p2b_r, mut p2b_w) = TcpStream::connect(&self.config.upstream.address).await?.into_split();
         let mut res_pkt_reader = FramedRead::new(p2b_r, RespPktDecoder::new());
 
-        loop {
+        let mut session_quit = false;
+        while !session_quit {
             info!("in loop.........");
             // 1. read from client
             let mut status = FilterStatus::Continue;
-            while let Some(Ok(data)) = req_pkt_reader.next().await {
-                if data.is_first_frame {
-                    self.filter_chains.pre_handle(&mut filter_context).await?;
-                    filter_context.cmd_type = data.cmd_type.clone();
-                }
-                status = self.filter_chains.on_data(&data, &mut filter_context).await?;
-                if status == FilterStatus::StopIteration || status == FilterStatus::Block {
-                    break;
-                }
+            loop {
+                match req_pkt_reader.next().await {
+                    Some(Ok(data)) => {
+                        if data.is_first_frame {
+                            self.filter_chains.pre_handle(&mut filter_context).await?;
+                            filter_context.cmd_type = data.cmd_type.clone();
+                        }
+                        status = self.filter_chains.on_data(&data, &mut filter_context).await?;
+                        if status == FilterStatus::StopIteration || status == FilterStatus::Block {
+                            break;
+                        }
 
-                // 2. write to backend upstream server
-                p2b_w.write_all(&data.raw_bytes).await?;
-                if data.is_done {
-                    break;
+                        // 2. write to backend upstream server
+                        p2b_w.write_all(&data.raw_bytes).await?;
+                        if data.is_done {
+                            break;
+                        }
+                    }
+                    _ => {
+                        info!("client closed connection or error");
+                        session_quit = true;
+                        break;
+                    }
                 }
             }
+            if (session_quit) {
+                break;
+            }
+
             info!("status: {:?}", status);
             if status == FilterStatus::StopIteration {
                 break;
@@ -157,25 +168,34 @@ impl Session {
             if status == FilterStatus::Block {
                 c2p_w.write_all(b"-ERR blocked\r\n").await?;
             } else {
-                info!(">>>>>>>>>>>>.");
+                info!(">>>>>>>>>>>> {}", session_quit);
                 // 3. read from backend upstream server
-                while let Some(Ok(it)) = res_pkt_reader.next().await {
-                    debug!("resp>>>> is_done: {} , data: {:?}", it.is_done, std::str::from_utf8(it.data.as_ref())
+                loop {
+                    match res_pkt_reader.next().await {
+                        Some(Ok(it)) => {
+                            debug!("resp>>>> is_done: {} , data: {:?}", it.is_done, std::str::from_utf8(it.data.as_ref())
                                         .map(|it| truncate_str(it, 100)));
 
-                    let bytes = it.data;
-                    // 4. write to client
-                    match c2p_w.write_all(&bytes).await {
-                        Ok(_) => {}
-                        Err(err) => {
-                            error!("error: {:?}", err);
+                            let bytes = it.data;
+                            // 4. write to client
+                            match c2p_w.write_all(&bytes).await {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    error!("error: {:?}", err);
+                                    break;
+                                }
+                            };
+
+                            if it.is_done {
+                                filter_context.is_error = it.is_error;
+                                break;
+                            }
+                        }
+                        _ => {
+                            info!("upstream closed connection or error");
+                            session_quit = true;
                             break;
                         }
-                    };
-
-                    if it.is_done {
-                        filter_context.is_error = it.is_error;
-                        break;
                     }
                 }
             }

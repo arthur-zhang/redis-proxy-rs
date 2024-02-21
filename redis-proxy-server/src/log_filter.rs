@@ -16,7 +16,6 @@ impl LogFilter {
 
 #[async_trait::async_trait]
 impl Filter for LogFilter {
-
     async fn on_new_connection(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         Ok(())
     }
@@ -31,7 +30,7 @@ impl Filter for LogFilter {
 
         if let ContextValue::Instant(start) = start {
             let elapsed = start.elapsed();
-            error!("elapsed: {:?}, response is_error: {}", elapsed, context.is_error);
+            error!("[{:?}] elapsed: {:?}, response is_error: {}", context.cmd_type, elapsed, context.is_error);
             return Ok(());
         }
 

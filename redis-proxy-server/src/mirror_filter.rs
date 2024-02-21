@@ -100,7 +100,7 @@ impl Filter for MirrorFilter {
             } else if data.cmd_type.is_read_cmd() {
                 should_mirror = false;
             } else {
-                if is_eager {
+                if *is_eager {
                     should_mirror = self.should_mirror(&eager_read_list, raw_data);
                 }
             }
