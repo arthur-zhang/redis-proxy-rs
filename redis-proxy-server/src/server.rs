@@ -1,3 +1,4 @@
+use std::os::macos::raw::stat;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -49,12 +50,13 @@ impl ProxyServer {
         loop {
             info!("in loop.........");
             // 1. read from client
+            let mut status = FilterStatus::Continue;
             while let Some(Ok(data)) = req_pkt_reader.next().await {
                 if data.frame_start {
                     filter_chains.pre_handle(&mut filter_context).await?;
                 }
-                let status = filter_chains.on_data(&data, &mut filter_context).await?;
-                if status == FilterStatus::StopIteration {
+                status = filter_chains.on_data(&data, &mut filter_context).await?;
+                if status == FilterStatus::StopIteration || status == FilterStatus::Block {
                     break;
                 }
 
@@ -64,31 +66,39 @@ impl ProxyServer {
                     break;
                 }
             }
-
-            info!(">>>>>>>>>>>>.");
-            // 3. read from backend upstream server
-            while let Some(Ok(it)) = res_pkt_reader.next().await {
-                debug!("resp>>>> is_done: {} , data: {:?}", it.is_done, std::str::from_utf8(it.data.as_ref())
+            println!("status: {:?}", status);
+            if status == FilterStatus::StopIteration {
+                break;
+            }
+            if status == FilterStatus::Block {
+                c2p_w.write_all(b"-ERR blocked\r\n").await?;
+            } else {
+                info!(">>>>>>>>>>>>.");
+                // 3. read from backend upstream server
+                while let Some(Ok(it)) = res_pkt_reader.next().await {
+                    debug!("resp>>>> is_done: {} , data: {:?}", it.is_done, std::str::from_utf8(it.data.as_ref())
                                         .map(|it| truncate_str(it, 100)));
 
-                let bytes = it.data;
-                // 4. write to client
-                match c2p_w.write_all(&bytes).await {
-                    Ok(_) => {}
-                    Err(err) => {
-                        error!("error: {:?}", err);
+                    let bytes = it.data;
+                    // 4. write to client
+                    match c2p_w.write_all(&bytes).await {
+                        Ok(_) => {}
+                        Err(err) => {
+                            error!("error: {:?}", err);
+                            break;
+                        }
+                    };
+
+                    if it.is_done {
+                        filter_context.is_error = it.is_error;
                         break;
                     }
-                };
-
-                if it.is_done {
-                    filter_context.is_error = it.is_error;
-                    break;
                 }
             }
 
             filter_chains.post_handle(&mut filter_context).await?;
         }
+        Ok(())
     }
 
     pub async fn start(self) -> anyhow::Result<()> {
@@ -203,8 +213,8 @@ impl Filter for FilterChains {
     async fn on_data(&mut self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
         for filter in self.filters.iter_mut() {
             let status = filter.on_data(data, context).await?;
-            if status == FilterStatus::StopIteration {
-                return Ok(FilterStatus::StopIteration);
+            if status != FilterStatus::Continue {
+                return Ok(status);
             }
         }
         Ok(FilterStatus::Continue)

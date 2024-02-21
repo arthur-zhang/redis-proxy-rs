@@ -24,6 +24,7 @@ impl FilterContext {
     }
     pub fn clear(&mut self) {
         self.attrs.clear();
+        self.is_error = false;
     }
 }
 
@@ -39,4 +40,5 @@ pub trait Filter: Send + Sync {
 pub enum FilterStatus {
     Continue,
     StopIteration,
+    Block,
 }
