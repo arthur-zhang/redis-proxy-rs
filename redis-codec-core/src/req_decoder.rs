@@ -188,11 +188,11 @@ impl Decoder for ReqPktDecoder {
         self.eager_read_list = Some(Vec::new());
 
         Ok(Some(DecodedFrame {
-            frame_start,
+            is_first_frame: frame_start,
             raw_bytes: bytes,
             is_eager,
             is_done,
-            cmd_type: Some(self.cmd_type.clone()),
+            cmd_type: self.cmd_type.clone(),
             eager_read_list: list,
         }))
     }

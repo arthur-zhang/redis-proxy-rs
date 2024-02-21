@@ -12,6 +12,6 @@ block_patterns = ["foo:bar:*", "x:*:y:z", "hello"]
 
 [filter_chain.mirror]
 address = "0.0.0.0:9001"
-pattern = ".*"
+pattern = "**"
 
 [filter_chain.log]

@@ -1,8 +1,10 @@
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+pub type TConfig = Arc<Config>;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub server: Server,

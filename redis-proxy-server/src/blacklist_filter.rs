@@ -34,7 +34,7 @@ impl Filter for BlackListFilter {
             return Ok(FilterStatus::Block);
         }
 
-        let DecodedFrame { frame_start, cmd_type, eager_read_list, raw_bytes, is_eager, is_done } = &data;
+        let DecodedFrame { is_first_frame: frame_start, cmd_type, eager_read_list, raw_bytes, is_eager, is_done } = &data;
         if *frame_start && *is_eager {
             let key = eager_read_list.as_ref().and_then(|it| it.first().map(|it| &raw_bytes[it.start..it.end]));
             if let Some(key) = key {

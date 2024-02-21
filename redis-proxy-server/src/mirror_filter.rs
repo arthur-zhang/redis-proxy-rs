@@ -6,7 +6,6 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{ContextValue, Filter, FilterContext, FilterStatus};
 
@@ -30,7 +29,7 @@ impl MirrorFilter {
         return ret;
     }
 
-    fn should_mirror(&self, cmd: &Option<CmdType>, eager_read_list: &Option<Vec<Range<usize>>>, raw_data: &[u8]) -> bool {
+    fn should_mirror(&self, eager_read_list: &Option<Vec<Range<usize>>>, raw_data: &[u8]) -> bool {
         let key = eager_read_list.as_ref().map(|it| it.first().map(|it| &raw_data[it.start..it.end])).flatten();
         return match key {
             None => {
@@ -75,29 +74,44 @@ impl Filter for MirrorFilter {
 
     async fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         context.remote_attr(SHOULD_MIRROR);
-        context.remote_attr(DATA_TX);
         Ok(())
     }
 
-    async fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+    async fn post_handle(&self, _context: &mut FilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
     async fn on_data(&self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
         let mut should_mirror = context.get_attr_as_bool(SHOULD_MIRROR).unwrap_or(false);
-
         let raw_data = data.raw_bytes.as_ref();
-        let DecodedFrame { frame_start, cmd_type, eager_read_list, raw_bytes, is_eager, is_done } = &data;
-        if data.is_eager {
-            should_mirror = self.should_mirror(cmd_type, &eager_read_list, raw_data);
+        let DecodedFrame {
+            is_first_frame,
+            cmd_type,
+            eager_read_list,
+            raw_bytes,
+            is_eager,
+            is_done
+        } = &data;
+
+        if *is_first_frame {
+            // always mirror connection commands, like AUTH, PING, etc
+            if cmd_type.is_connection_command() {
+                should_mirror = true;
+            } else if data.cmd_type.is_read_cmd() {
+                should_mirror = false;
+            } else {
+                if is_eager {
+                    should_mirror = self.should_mirror(&eager_read_list, raw_data);
+                }
+            }
             context.set_attr(SHOULD_MIRROR, ContextValue::Bool(should_mirror));
         }
+
         if should_mirror {
             // todo, handle block
             let tx = context.get_attr_as_sender(DATA_TX).ok_or(anyhow::anyhow!("data_tx not found"))?;
             tx.send(raw_bytes.clone()).await.unwrap();
         }
-
         Ok(FilterStatus::Continue)
     }
 }

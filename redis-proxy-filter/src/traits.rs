@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use tokio::sync::mpsc::Sender;
 
+use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
 
 pub enum ContextValue {
@@ -13,13 +14,14 @@ pub enum ContextValue {
 
 // per session filter context
 pub struct FilterContext {
+    pub cmd_type: CmdType,
     attrs: std::collections::HashMap<String, ContextValue>,
     pub is_error: bool,
 }
 
 impl FilterContext {
     pub fn new() -> Self {
-        FilterContext { attrs: std::collections::HashMap::new(), is_error: false }
+        FilterContext { cmd_type: CmdType::UNKNOWN, attrs: std::collections::HashMap::new(), is_error: false }
     }
     pub fn set_attr(&mut self, key: &str, value: ContextValue) {
         self.attrs.insert(key.to_string(), value);
@@ -30,11 +32,7 @@ impl FilterContext {
     pub fn get_attr(&self, key: &str) -> Option<&ContextValue> {
         self.attrs.get(key)
     }
-    // pub fn clear(&mut self) {
-    //     self.attrs.clear();
-    //     self.is_error = false;
-    //     self.blocked = false;
-    // }
+
     pub fn get_attr_as_bool(&self, key: &str) -> Option<bool> {
         self.attrs.get(key).and_then(|it| {
             if let ContextValue::Bool(b) = it {

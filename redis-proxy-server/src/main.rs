@@ -13,6 +13,7 @@ mod log_filter;
 mod blacklist_filter;
 mod time_filter;
 mod config;
+mod filter_chain;
 
 
 #[tokio::main]

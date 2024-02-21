@@ -269,6 +269,18 @@ impl CmdType {
         };
     }
 
+    pub fn is_connection_command(&self) -> bool {
+        return match self {
+            CmdType::AUTH |
+            CmdType::ECHO |
+            CmdType::PING |
+            CmdType::QUIT |
+            CmdType::SELECT |
+            CmdType::SWAPDB => true,
+            _ => false,
+        };
+    }
+
     pub fn should_lazy_read(&self) -> bool {
         return match self {
             CmdType::APPEND
