@@ -14,7 +14,7 @@ use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus};
 use crate::path_trie::PathTrie;
 
 pub struct MirrorFilter {
-    mirror: String,
+    mirror_address: String,
     path_trie: PathTrie,
     remote2_read_half: Option<OwnedReadHalf>,
     remote2_write_half: Option<OwnedWriteHalf>,
@@ -28,7 +28,7 @@ impl MirrorFilter {
     pub fn new(mirror: &str) -> Self {
         let trie = PathTrie::new(vec!["foo:uc:*:token".into(), "foo:care:score:*".into()], r"[:]").unwrap();
         let mut ret = Self {
-            mirror: mirror.to_string(),
+            mirror_address: mirror.to_string(),
             path_trie: trie,
             remote2_read_half: None,
             remote2_write_half: None,
@@ -56,7 +56,7 @@ impl MirrorFilter {
 #[async_trait::async_trait]
 impl Filter for MirrorFilter {
     async fn init(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
-        let mut remote2_conn = TcpStream::connect(&self.mirror).await?;
+        let mut remote2_conn = TcpStream::connect(&self.mirror_address).await?;
         let (remote2_r, remote2_w) = remote2_conn.into_split();
         let (tx, mut rx): (UnboundedSender<bytes::Bytes>, UnboundedReceiver<bytes::Bytes>) = tokio::sync::mpsc::unbounded_channel();
         let trie = PathTrie::new(vec!["foo:uc:*:token".into(), "foo:care:score:*".into()], r"[:]")?;
