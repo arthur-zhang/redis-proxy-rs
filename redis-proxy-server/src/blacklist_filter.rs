@@ -28,13 +28,9 @@ impl Filter for BlackListFilter {
     }
 
     async fn on_data(&mut self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
-        // if self.blocked && !data.is_done {
-        //     return Ok(FilterStatus::StopIteration);
-        // }
         if self.blocked {
             return Ok(FilterStatus::Block);
         }
-
 
         let DecodedFrame { frame_start, cmd_type, eager_read_list, raw_bytes, is_eager, is_done } = &data;
         if *frame_start && *is_eager {
@@ -42,14 +38,10 @@ impl Filter for BlackListFilter {
             if let Some(key) = key {
                 if self.blacklist.contains(&std::str::from_utf8(key).unwrap().to_string()) {
                     self.blocked = true;
-                    // self.tx.send(Bytes::from_static(b"-ERR blocked\r\n")).await.unwrap();
                     return Ok(FilterStatus::Block);
                 }
             }
         }
-        // if data.is_done {
-        //     self.blocked = false;
-        // }
         Ok(FilterStatus::Continue)
     }
 }
