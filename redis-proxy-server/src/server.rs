@@ -24,21 +24,28 @@ use crate::config::{Blacklist, Config, Mirror};
 use crate::log_filter::LogFilter;
 use crate::mirror_filter::MirrorFilter;
 
+pub type FilterChainsPtr = Arc<FilterChains>;
+
 pub struct ProxyServer {
     config: Arc<Config>,
+
+    filter_chains: FilterChainsPtr,
 }
 
 impl ProxyServer {
     pub fn new(config: Config) -> Self {
-        ProxyServer { config: Arc::new(config) }
+        let config = Arc::new(config);
+        // todo handle unwrap
+        let filter_chain = Self::get_filters(config.clone()).unwrap();
+
+        let filter_chains = FilterChains::new(filter_chain);
+        ProxyServer { config, filter_chains: Arc::new(filter_chains) }
     }
 
-    pub async fn handle_new_session(config: Arc<Config>, c2p_conn: TcpStream) -> anyhow::Result<()> {
+    pub async fn handle_new_session(config: Arc<Config>, filter_chains: FilterChainsPtr, c2p_conn: TcpStream) -> anyhow::Result<()> {
         let mut filter_context = FilterContext::new();
-        let filter_chain = Self::get_filters(config.clone())?;
 
-        let mut filter_chains = FilterChains::new(filter_chain);
-        filter_chains.init(&mut filter_context).await?;
+        filter_chains.on_new_connection(&mut filter_context).await?;
 
         let (c2p_r, mut c2p_w) = c2p_conn.into_split();
         let mut req_pkt_reader = FramedRead::new(c2p_r, ReqPktDecoder::new());
@@ -109,11 +116,12 @@ impl ProxyServer {
 
         loop {
             tokio::spawn({
+                let filter_chains = self.filter_chains.clone();
                 let (c2p_conn, _) = listener.accept().await?;
                 let config = self.config.clone();
                 // one connection per task
                 async move {
-                    let _ = Self::handle_new_session(config, c2p_conn).await;
+                    let _ = Self::handle_new_session(config, filter_chains, c2p_conn).await;
                 }
             });
         };
@@ -189,29 +197,29 @@ impl FilterChains {
 
 #[async_trait::async_trait]
 impl Filter for FilterChains {
-    async fn init(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
-        for filter in self.filters.iter_mut() {
-            filter.init(context).await?;
+    async fn on_new_connection(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+        for filter in self.filters.iter() {
+            filter.on_new_connection(context).await?;
         }
         Ok(())
     }
 
-    async fn pre_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
-        for filter in self.filters.iter_mut() {
+    async fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+        for filter in self.filters.iter() {
             filter.pre_handle(context).await?;
         }
         Ok(())
     }
 
-    async fn post_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
-        for filter in self.filters.iter_mut() {
+    async fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+        for filter in self.filters.iter() {
             filter.post_handle(context).await?;
         }
         Ok(())
     }
 
-    async fn on_data(&mut self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
-        for filter in self.filters.iter_mut() {
+    async fn on_data(&self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
+        for filter in self.filters.iter() {
             let status = filter.on_data(data, context).await?;
             if status != FilterStatus::Continue {
                 return Ok(status);

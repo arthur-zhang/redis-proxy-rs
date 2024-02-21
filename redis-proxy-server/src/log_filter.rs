@@ -16,16 +16,17 @@ impl LogFilter {
 
 #[async_trait::async_trait]
 impl Filter for LogFilter {
-    async fn init(&mut self, _context: &mut FilterContext) -> anyhow::Result<()> {
+
+    async fn on_new_connection(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn pre_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
+    async fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         context.set_attr("start_instant", ContextValue::Instant(Instant::now()));
         Ok(())
     }
 
-    async fn post_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
+    async fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         let start = context.get_attr("start_instant").ok_or(anyhow::anyhow!("start_instant not found"))?;
 
         if let ContextValue::Instant(start) = start {
@@ -37,7 +38,7 @@ impl Filter for LogFilter {
         bail!("start_instant is not an Instant");
     }
 
-    async fn on_data(&mut self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
+    async fn on_data(&self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
         // let cmd = data.cmd_type.as_ref().unwrap();
         // info!("{:?}, key info: {:?}, eager {}, {}", cmd, cmd.redis_key_info(),  data.is_eager, data.is_done);
         //

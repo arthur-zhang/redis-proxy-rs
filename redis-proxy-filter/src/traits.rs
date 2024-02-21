@@ -1,3 +1,6 @@
+use async_trait::async_trait;
+use tokio::sync::mpsc::Sender;
+
 use redis_proxy_common::DecodedFrame;
 
 pub enum ContextValue {
@@ -5,8 +8,10 @@ pub enum ContextValue {
     Int(i64),
     Bool(bool),
     Instant(std::time::Instant),
+    ChanSender(Sender<bytes::Bytes>),
 }
 
+// per session filter context
 pub struct FilterContext {
     attrs: std::collections::HashMap<String, ContextValue>,
     pub is_error: bool,
@@ -19,21 +24,45 @@ impl FilterContext {
     pub fn set_attr(&mut self, key: &str, value: ContextValue) {
         self.attrs.insert(key.to_string(), value);
     }
+    pub fn remote_attr(&mut self, key: &str) {
+        self.attrs.remove(key);
+    }
     pub fn get_attr(&self, key: &str) -> Option<&ContextValue> {
         self.attrs.get(key)
     }
-    pub fn clear(&mut self) {
-        self.attrs.clear();
-        self.is_error = false;
+    // pub fn clear(&mut self) {
+    //     self.attrs.clear();
+    //     self.is_error = false;
+    //     self.blocked = false;
+    // }
+    pub fn get_attr_as_bool(&self, key: &str) -> Option<bool> {
+        self.attrs.get(key).and_then(|it| {
+            if let ContextValue::Bool(b) = it {
+                Some(*b)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn get_attr_as_sender(&self, key: &str) -> Option<&Sender<bytes::Bytes>> {
+        self.attrs.get(key).and_then(|it| {
+            if let ContextValue::ChanSender(tx) = it {
+                Some(tx)
+            } else {
+                None
+            }
+        })
     }
 }
 
-#[async_trait::async_trait]
+// stateless filter, mutable data is stored in FilterContext
+#[async_trait]
 pub trait Filter: Send + Sync {
-    async fn init(&mut self, context: &mut FilterContext) -> anyhow::Result<()>;
-    async fn pre_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()>;
-    async fn post_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()>;
-    async fn on_data(&mut self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus>;
+    async fn on_new_connection(&self, context: &mut FilterContext) -> anyhow::Result<()>;
+    async fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()>;
+    async fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()>;
+    async fn on_data(&self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus>;
 }
 
 #[derive(Debug, Eq, PartialEq)]

@@ -1,28 +1,24 @@
 use std::ops::Range;
 
 use tokio::io::AsyncWriteExt;
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
-use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus};
+use redis_proxy_filter::traits::{ContextValue, Filter, FilterContext, FilterStatus};
 
 use crate::path_trie::PathTrie;
 
 pub struct MirrorFilter {
     mirror_address: String,
     path_trie: PathTrie,
-    remote2_read_half: Option<OwnedReadHalf>,
-    remote2_write_half: Option<OwnedWriteHalf>,
-
-    tx: Option< UnboundedSender<bytes::Bytes>>,
-    rx: Option<UnboundedReceiver<bytes::Bytes>>,
-    should_mirror: bool,
 }
+
+const SHOULD_MIRROR: &'static str = "mirror_filter_should_mirror";
+const DATA_TX: &'static str = "mirror_filter_data_tx";
 
 impl MirrorFilter {
     pub fn new(mirror: &str) -> Self {
@@ -30,11 +26,6 @@ impl MirrorFilter {
         let mut ret = Self {
             mirror_address: mirror.to_string(),
             path_trie: trie,
-            remote2_read_half: None,
-            remote2_write_half: None,
-            tx:None,
-            rx: None,
-            should_mirror: false,
         };
         return ret;
     }
@@ -55,20 +46,17 @@ impl MirrorFilter {
 
 #[async_trait::async_trait]
 impl Filter for MirrorFilter {
-    async fn init(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
+    async fn on_new_connection(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         let mut remote2_conn = TcpStream::connect(&self.mirror_address).await?;
         let (remote2_r, remote2_w) = remote2_conn.into_split();
-        let (tx, mut rx): (UnboundedSender<bytes::Bytes>, UnboundedReceiver<bytes::Bytes>) = tokio::sync::mpsc::unbounded_channel();
+        let (tx, mut rx): (Sender<bytes::Bytes>, Receiver<bytes::Bytes>) = tokio::sync::mpsc::channel(10000);
         let trie = PathTrie::new(vec!["foo:uc:*:token".into(), "foo:care:score:*".into()], r"[:]")?;
-        self.remote2_read_half = Some(remote2_r);
-        self.remote2_write_half = Some(remote2_w);
-        self.tx = Some(tx);
-        self.rx = Some(rx);
+        let remote2_write_half = remote2_w;
 
+        context.set_attr(DATA_TX, ContextValue::ChanSender(tx));
 
         tokio::spawn({
-            let mut rx = self.rx.take().unwrap();
-            let mut write_half = self.remote2_write_half.take().unwrap();
+            let mut write_half = remote2_write_half;
             async move {
                 while let Some(it) = rx.recv().await {
                     let bytes = it;
@@ -77,39 +65,39 @@ impl Filter for MirrorFilter {
             }
         });
         tokio::spawn({
-            let read_half = self.remote2_read_half.take().unwrap();
             async move {
-                let mut reader = FramedRead::new(read_half, BytesCodec::new());
+                let mut reader = FramedRead::new(remote2_r, BytesCodec::new());
                 while let Some(_) = reader.next().await {}
             }
         });
-
         Ok(())
     }
 
-    async fn pre_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
+    async fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+        context.remote_attr(SHOULD_MIRROR);
+        context.remote_attr(DATA_TX);
         Ok(())
     }
 
-    async fn post_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
+    async fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
+    async fn on_data(&self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
+        let mut should_mirror = context.get_attr_as_bool(SHOULD_MIRROR).unwrap_or(false);
 
-    async fn on_data(&mut self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
         let raw_data = data.raw_bytes.as_ref();
         let DecodedFrame { frame_start, cmd_type, eager_read_list, raw_bytes, is_eager, is_done } = &data;
         if data.is_eager {
-            self.should_mirror = self.should_mirror(cmd_type, &eager_read_list, raw_data);
+            should_mirror = self.should_mirror(cmd_type, &eager_read_list, raw_data);
+            context.set_attr(SHOULD_MIRROR, ContextValue::Bool(should_mirror));
+        }
+        if should_mirror {
+            // todo, handle block
+            let tx = context.get_attr_as_sender(DATA_TX).ok_or(anyhow::anyhow!("data_tx not found"))?;
+            tx.send(raw_bytes.clone()).await.unwrap();
         }
 
-        if self.should_mirror {
-            self.tx.as_ref().unwrap().send(raw_bytes.clone()).unwrap();
-        }
-
-        if data.is_done {
-            self.should_mirror = false;
-        }
         Ok(FilterStatus::Continue)
     }
 }

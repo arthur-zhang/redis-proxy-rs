@@ -1,34 +1,36 @@
 use redis_proxy_common::DecodedFrame;
-use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus};
+use redis_proxy_filter::traits::{ContextValue, Filter, FilterContext, FilterStatus};
 
 pub struct BlackListFilter {
-    blocked: bool,
     blacklist: Vec<String>,
 }
 
 impl BlackListFilter {
     pub fn new(blacklist: Vec<String>) -> Self {
-        BlackListFilter { blocked: false, blacklist }
+        BlackListFilter { blacklist }
     }
 }
 
+const BLOCKED: &'static str = "blacklist_blocked";
+
 #[async_trait::async_trait]
 impl Filter for BlackListFilter {
-    async fn init(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
+    async fn on_new_connection(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn pre_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
-        self.blocked = false;
+    async fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+        context.remote_attr(BLOCKED);
         Ok(())
     }
 
-    async fn post_handle(&mut self, context: &mut FilterContext) -> anyhow::Result<()> {
+    async fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn on_data(&mut self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
-        if self.blocked {
+    async fn on_data(&self, data: &DecodedFrame, context: &mut FilterContext) -> anyhow::Result<FilterStatus> {
+        let blocked = context.get_attr_as_bool(BLOCKED).unwrap_or(false);
+        if blocked {
             return Ok(FilterStatus::Block);
         }
 
@@ -37,7 +39,8 @@ impl Filter for BlackListFilter {
             let key = eager_read_list.as_ref().and_then(|it| it.first().map(|it| &raw_bytes[it.start..it.end]));
             if let Some(key) = key {
                 if self.blacklist.contains(&std::str::from_utf8(key).unwrap().to_string()) {
-                    self.blocked = true;
+                    context.set_attr(BLOCKED, ContextValue::Bool(true));
+                    context.is_error = true;
                     return Ok(FilterStatus::Block);
                 }
             }
