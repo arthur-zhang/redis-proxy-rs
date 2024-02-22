@@ -9,13 +9,13 @@ pub struct PathTrie {
 }
 
 impl PathTrie {
-    pub fn new(list: Vec<String>, sep_regex_str: &str) -> anyhow::Result<Self> {
+    pub fn new(list: &Vec<String>, sep_regex_str: &str) -> anyhow::Result<Self> {
         let sep_regex = Regex::new(sep_regex_str)?;
         let root = Node::default();
         let mut trie = PathTrie { root, cached_sep_regex: sep_regex };
 
         for it in list {
-            let parts = trie.get_seg_parts(&it);
+            let parts = trie.get_seg_parts(it.as_ref());
             trie.insert(&parts);
         }
         Ok(trie)

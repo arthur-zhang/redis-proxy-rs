@@ -40,7 +40,8 @@ pub struct Blacklist {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Mirror {
     pub address: String,
-    pub pattern: String,
+    pub mirror_patterns: Vec<String>,
+    pub split_regex: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

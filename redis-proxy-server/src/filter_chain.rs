@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{CMD_TYPE_KEY, Filter, FilterStatus, RES_IS_ERROR, TFilterContext};
 
@@ -17,8 +19,7 @@ impl FilterChain {
     }
 }
 
-
-#[async_trait::async_trait]
+#[async_trait]
 impl Filter for FilterChain {
     async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         for filter in self.filters.iter() {
@@ -39,13 +40,6 @@ impl Filter for FilterChain {
         Ok(())
     }
 
-    async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
-        for filter in self.filters.iter() {
-            filter.post_handle(context).await?;
-        }
-        Ok(())
-    }
-
     async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         for filter in self.filters.iter() {
             let status = filter.on_data(context, data).await?;
@@ -54,5 +48,12 @@ impl Filter for FilterChain {
             }
         }
         Ok(FilterStatus::Continue)
+    }
+
+    async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+        for filter in self.filters.iter() {
+            filter.post_handle(context).await?;
+        }
+        Ok(())
     }
 }

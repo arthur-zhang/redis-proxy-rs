@@ -9,9 +9,16 @@ filters = ["blacklist", "mirror", "log"]
 
 [filter_chain.blacklist]
 block_patterns = ["foo:bar:*", "x:*:y:z", "hello"]
+split_regex = "[:]"
 
 [filter_chain.mirror]
 address = "0.0.0.0:9001"
-pattern = "**"
+mirror_patterns = [
+    "x",
+    "y",
+    "z",
+    "foo:*"
+]
+split_regex = "[:]"
 
 [filter_chain.log]

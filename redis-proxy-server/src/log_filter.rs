@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use anyhow::bail;
+use async_trait::async_trait;
 use log::{error, info, log};
 
 use redis_proxy_common::cmd::CmdType;
@@ -17,7 +18,7 @@ impl LogFilter {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl Filter for LogFilter {
     async fn on_new_connection(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
         Ok(())
@@ -26,6 +27,10 @@ impl Filter for LogFilter {
     async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         context.lock().unwrap().set_attr(START_INSTANT, ContextValue::Instant(Instant::now()));
         Ok(())
+    }
+
+    async fn on_data(&self, _context: &mut TFilterContext, _data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+        Ok(FilterStatus::Continue)
     }
 
     async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
@@ -43,9 +48,5 @@ impl Filter for LogFilter {
         }
 
         bail!("start_instant is not an Instant");
-    }
-
-    async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
-        Ok(FilterStatus::Continue)
     }
 }

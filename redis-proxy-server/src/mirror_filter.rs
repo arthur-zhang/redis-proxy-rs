@@ -1,11 +1,11 @@
 use std::ops::Range;
 
+use async_trait::async_trait;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
-use redis_proxy_common::cmd::CmdType;
 
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{ContextValue, Filter, FilterStatus, TFilterContext};
@@ -21,8 +21,8 @@ const SHOULD_MIRROR: &'static str = "mirror_filter_should_mirror";
 const DATA_TX: &'static str = "mirror_filter_data_tx";
 
 impl MirrorFilter {
-    pub fn new(mirror: &str) -> Self {
-        let trie = PathTrie::new(vec!["foo:uc:*:token".into(), "foo:care:score:*".into()], r"[:]").unwrap();
+    pub fn new(mirror: &str, mirror_patterns: &Vec<String>, split_regex: &str) -> Self {
+        let trie = PathTrie::new(mirror_patterns, split_regex).unwrap();
         let mut ret = Self {
             mirror_address: mirror.to_string(),
             path_trie: trie,
@@ -44,13 +44,12 @@ impl MirrorFilter {
 }
 
 
-#[async_trait::async_trait]
+#[async_trait]
 impl Filter for MirrorFilter {
     async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         let mut remote2_conn = TcpStream::connect(&self.mirror_address).await?;
         let (remote2_r, remote2_w) = remote2_conn.into_split();
         let (tx, mut rx): (Sender<bytes::Bytes>, Receiver<bytes::Bytes>) = tokio::sync::mpsc::channel(10000);
-        let trie = PathTrie::new(vec!["foo:uc:*:token".into(), "foo:care:score:*".into()], r"[:]")?;
         let remote2_write_half = remote2_w;
 
         context.lock().unwrap().set_attr(DATA_TX, ContextValue::ChanSender(tx));
@@ -75,10 +74,6 @@ impl Filter for MirrorFilter {
 
     async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         context.lock().unwrap().remote_attr(SHOULD_MIRROR);
-        Ok(())
-    }
-
-    async fn post_handle(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
@@ -122,5 +117,9 @@ impl Filter for MirrorFilter {
             tx.send(raw_bytes.clone()).await.unwrap();
         }
         Ok(FilterStatus::Continue)
+    }
+
+    async fn post_handle(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
+        Ok(())
     }
 }

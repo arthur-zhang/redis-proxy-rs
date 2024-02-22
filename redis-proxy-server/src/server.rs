@@ -87,7 +87,7 @@ impl ProxyServer {
                             bail!("mirror filter config is required")
                         }
                         Some(mirror) => {
-                            Box::new(MirrorFilter::new(mirror.address.as_str()))
+                            Box::new(MirrorFilter::new(mirror.address.as_str(), &mirror.mirror_patterns, mirror.split_regex.as_str()))
                         }
                     }
                 }

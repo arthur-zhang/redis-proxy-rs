@@ -1,19 +1,24 @@
+use async_trait::async_trait;
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{ContextValue, Filter, FilterStatus, TFilterContext};
 
+use crate::path_trie::PathTrie;
+
 pub struct BlackListFilter {
-    blacklist: Vec<String>,
+    // blacklist: Vec<String>,
+    trie: PathTrie,
 }
 
 impl BlackListFilter {
-    pub fn new(blacklist: Vec<String>) -> Self {
-        BlackListFilter { blacklist }
+    pub fn new(blacklist: Vec<String>, split_pattern: &str) -> Self {
+        let trie = PathTrie::new(&blacklist, split_pattern).unwrap();
+        BlackListFilter { trie }
     }
 }
 
 const BLOCKED: &'static str = "blacklist_blocked";
 
-#[async_trait::async_trait]
+#[async_trait]
 impl Filter for BlackListFilter {
     async fn on_new_connection(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
         Ok(())
@@ -21,10 +26,6 @@ impl Filter for BlackListFilter {
 
     async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         context.lock().unwrap().remote_attr(BLOCKED);
-        Ok(())
-    }
-
-    async fn post_handle(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
@@ -38,12 +39,16 @@ impl Filter for BlackListFilter {
         if *frame_start && *is_eager {
             let key = eager_read_list.as_ref().and_then(|it| it.first().map(|it| &raw_bytes[it.start..it.end]));
             if let Some(key) = key {
-                if self.blacklist.contains(&std::str::from_utf8(key).unwrap().to_string()) {
+                if self.trie.exists_path(key) {
                     context.lock().unwrap().set_attr(BLOCKED, ContextValue::Bool(true));
                     return Ok(FilterStatus::Block);
                 }
             }
         }
         Ok(FilterStatus::Continue)
+    }
+
+    async fn post_handle(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
+        Ok(())
     }
 }

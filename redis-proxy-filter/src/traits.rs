@@ -93,8 +93,8 @@ impl FilterContext {
 pub trait Filter: Send + Sync {
     async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
     async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
-    async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
     async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus>;
+    async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
 }
 
 #[derive(Debug, Eq, PartialEq)]
