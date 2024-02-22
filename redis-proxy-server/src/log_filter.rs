@@ -7,6 +7,8 @@ use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{ContextValue, Filter, FilterContext, FilterStatus, TFilterContext};
 
+const START_INSTANT: &'static str = "log_start_instant";
+
 pub struct LogFilter {}
 
 impl LogFilter {
@@ -17,24 +19,26 @@ impl LogFilter {
 
 #[async_trait::async_trait]
 impl Filter for LogFilter {
-    async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+    async fn on_new_connection(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
     async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
-        context.lock().unwrap().set_attr("start_instant", ContextValue::Instant(Instant::now()));
+        context.lock().unwrap().set_attr(START_INSTANT, ContextValue::Instant(Instant::now()));
         Ok(())
     }
 
-    async fn post_handle(&self, context: &mut TFilterContext, resp_error: bool) -> anyhow::Result<()> {
+    async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         let context = context.lock().unwrap();
 
         let cmd_type = context.get_attr_as_cmd_type();
-        let start = context.get_attr("start_instant").ok_or(anyhow::anyhow!("start_instant not found"))?;
+        let start = context.get_attr(START_INSTANT).ok_or(anyhow::anyhow!("start_instant not found"))?;
 
+        let res_is_error = context.get_attr_res_is_error();
         if let ContextValue::Instant(start) = start {
             let elapsed = start.elapsed();
-            error!("[{:?}] elapsed: {:?}, response is_error: {}", cmd_type, elapsed, resp_error);
+
+            error!("[{:?}] elapsed: {:?}, res_is_error: {}", cmd_type, elapsed, res_is_error);
             return Ok(());
         }
 

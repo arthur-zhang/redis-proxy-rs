@@ -35,9 +35,9 @@ impl Filter for FilterChain {
         Ok(())
     }
 
-    async fn post_handle(&self, context: &mut TFilterContext, resp_error: bool) -> anyhow::Result<()> {
+    async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         for filter in self.filters.iter() {
-            filter.post_handle(context, resp_error).await?;
+            filter.post_handle(context).await?;
         }
         Ok(())
     }

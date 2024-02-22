@@ -25,7 +25,7 @@ impl Filter for BlackListFilter {
         Ok(())
     }
 
-    async fn post_handle(&self, context: &mut TFilterContext, resp_error: bool) -> anyhow::Result<()> {
+    async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 

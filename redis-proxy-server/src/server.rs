@@ -185,7 +185,8 @@ impl SessionHalfB2C {
             };
 
             if it.is_done {
-                self.filter_chain.post_handle(&mut self.filter_context, it.is_error).await?;
+                self.filter_context.lock().unwrap().set_attr_res_is_error(it.is_error);
+                self.filter_chain.post_handle(&mut self.filter_context).await?;
             }
         }
         let _ = self.p2b_shutdown_tx.send(());

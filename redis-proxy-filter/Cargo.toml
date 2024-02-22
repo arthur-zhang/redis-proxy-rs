@@ -14,3 +14,4 @@ tokio-stream = "0.1.14"
 redis-codec-core = { path = "../redis-codec-core" }
 redis-proxy-common = { path = "../redis-proxy-common" }
 async-trait = "0.1.77"
+dashmap = "5.5.3"

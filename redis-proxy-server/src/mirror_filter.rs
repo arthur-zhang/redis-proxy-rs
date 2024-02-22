@@ -78,7 +78,7 @@ impl Filter for MirrorFilter {
         Ok(())
     }
 
-    async fn post_handle(&self, _context: &mut TFilterContext, resp_error: bool) -> anyhow::Result<()> {
+    async fn post_handle(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 

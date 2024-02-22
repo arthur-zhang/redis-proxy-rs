@@ -15,7 +15,8 @@ pub enum ContextValue {
     CmdType(redis_proxy_common::cmd::CmdType),
 }
 
-pub const CMD_TYPE_KEY: &'static str = "cmd_type";
+const CMD_TYPE_KEY: &'static str = "cmd_type";
+const RES_IS_ERROR: &'static str = "res_is_error";
 
 pub type TFilterContext = Arc<Mutex<FilterContext>>;
 
@@ -23,6 +24,7 @@ pub type TFilterContext = Arc<Mutex<FilterContext>>;
 // per session filter context
 pub struct FilterContext {
     attrs: std::collections::HashMap<String, ContextValue>,
+    // attrs: dashmap::DashMap<String, ContextValue>,
 }
 
 impl FilterContext {
@@ -71,6 +73,19 @@ impl FilterContext {
             }
         };
     }
+    pub fn set_attr_res_is_error(&mut self, is_error: bool) {
+        self.set_attr(RES_IS_ERROR, ContextValue::Bool(is_error));
+    }
+    pub fn get_attr_res_is_error(&self) -> bool {
+        return match self.attrs.get(RES_IS_ERROR) {
+            Some(ContextValue::Bool(is_error)) => {
+                *is_error
+            }
+            _ => {
+                false
+            }
+        };
+    }
 }
 
 // stateless filter, mutable data is stored in FilterContext
@@ -78,7 +93,7 @@ impl FilterContext {
 pub trait Filter: Send + Sync {
     async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
     async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
-    async fn post_handle(&self, context: &mut TFilterContext, resp_error: bool) -> anyhow::Result<()>;
+    async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
     async fn on_data(&self, data: &DecodedFrame, context: &mut TFilterContext) -> anyhow::Result<FilterStatus>;
 }
 
