@@ -3,7 +3,6 @@ use std::ops::Range;
 use async_trait::async_trait;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
-use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
@@ -21,17 +20,18 @@ const SHOULD_MIRROR: &'static str = "mirror_filter_should_mirror";
 const DATA_TX: &'static str = "mirror_filter_data_tx";
 
 impl MirrorFilter {
-    pub fn new(mirror: &str, mirror_patterns: &Vec<String>, split_regex: &str) -> Self {
-        let trie = PathTrie::new(mirror_patterns, split_regex).unwrap();
-        let mut ret = Self {
+    pub fn new(mirror: &str, mirror_patterns: &Vec<String>, split_regex: &str) -> anyhow::Result<Self> {
+        let trie = PathTrie::new(mirror_patterns, split_regex)?;
+        Ok(Self {
             mirror_address: mirror.to_string(),
             path_trie: trie,
-        };
-        return ret;
+        })
     }
 
     fn should_mirror(&self, eager_read_list: &Option<Vec<Range<usize>>>, raw_data: &[u8]) -> bool {
-        let key = eager_read_list.as_ref().map(|it| it.first().map(|it| &raw_data[it.start..it.end])).flatten();
+        let key = eager_read_list.as_ref().map(|it| {
+            it.first().map(|it| &raw_data[it.start..it.end])
+        }).flatten();
         return match key {
             None => {
                 false
@@ -48,7 +48,7 @@ impl MirrorFilter {
 impl Filter for MirrorFilter {
     async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         let (r, mut w) = TcpStream::connect(&self.mirror_address).await?.into_split();
-        let (tx, mut rx): (Sender<bytes::Bytes>, Receiver<bytes::Bytes>) = tokio::sync::mpsc::channel(10000);
+        let (tx, mut rx) = tokio::sync::mpsc::channel(10000);
 
         context.lock().unwrap().set_attr(DATA_TX, ContextValue::ChanSender(tx));
 
@@ -56,7 +56,7 @@ impl Filter for MirrorFilter {
             async move {
                 while let Some(it) = rx.recv().await {
                     let bytes = it;
-                    w.write_all(&bytes).await.unwrap();
+                    let _ = w.write_all(&bytes).await;
                 }
             }
         });
