@@ -134,7 +134,7 @@ impl SessionHalfC2B {
                 self.filter_context.lock().unwrap().set_attr_cmd_type(cmd_type);
                 self.filter_chain.pre_handle(&mut self.filter_context).await?;
             }
-            status = self.filter_chain.on_data(&data, &mut self.filter_context).await?;
+            status = self.filter_chain.on_data(&mut self.filter_context, &data).await?;
             if status == FilterStatus::StopIteration || status == FilterStatus::Block {
                 break;
             }

@@ -18,8 +18,8 @@ pub enum ContextValue {
     CmdType(redis_proxy_common::cmd::CmdType),
 }
 
-const CMD_TYPE_KEY: &'static str = "cmd_type";
-const RES_IS_ERROR: &'static str = "res_is_error";
+pub const CMD_TYPE_KEY: &'static str = "cmd_type";
+pub const RES_IS_ERROR: &'static str = "res_is_error";
 
 pub type TFilterContext = Arc<Mutex<FilterContext>>;
 
@@ -102,7 +102,7 @@ pub trait Filter: Send + Sync {
     async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
     async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
     async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
-    async fn on_data(&self, data: &DecodedFrame, context: &mut TFilterContext) -> anyhow::Result<FilterStatus>;
+    async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus>;
 }
 
 #[derive(Debug, Eq, PartialEq)]

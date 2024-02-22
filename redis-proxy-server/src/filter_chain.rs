@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
-use redis_proxy_filter::traits::{Filter, FilterStatus, TFilterContext};
+use redis_proxy_filter::traits::{CMD_TYPE_KEY, Filter, FilterStatus, RES_IS_ERROR, TFilterContext};
 
 pub type TFilterChain = Arc<FilterChain>;
 
@@ -29,6 +28,11 @@ impl Filter for FilterChain {
     }
 
     async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+        if let Ok(mut context) = context.lock() {
+            context.remote_attr(CMD_TYPE_KEY);
+            context.remote_attr(RES_IS_ERROR);
+        }
+
         for filter in self.filters.iter() {
             filter.pre_handle(context).await?;
         }
@@ -42,9 +46,9 @@ impl Filter for FilterChain {
         Ok(())
     }
 
-    async fn on_data(&self, data: &DecodedFrame, context: &mut TFilterContext) -> anyhow::Result<FilterStatus> {
+    async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         for filter in self.filters.iter() {
-            let status = filter.on_data(data, context).await?;
+            let status = filter.on_data(context, data).await?;
             if status != FilterStatus::Continue {
                 return Ok(status);
             }

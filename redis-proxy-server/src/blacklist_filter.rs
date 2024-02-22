@@ -1,4 +1,3 @@
-use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{ContextValue, Filter, FilterStatus, TFilterContext};
 
@@ -16,7 +15,7 @@ const BLOCKED: &'static str = "blacklist_blocked";
 
 #[async_trait::async_trait]
 impl Filter for BlackListFilter {
-    async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+    async fn on_new_connection(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
@@ -25,11 +24,11 @@ impl Filter for BlackListFilter {
         Ok(())
     }
 
-    async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+    async fn post_handle(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn on_data(&self, data: &DecodedFrame, context: &mut TFilterContext) -> anyhow::Result<FilterStatus> {
+    async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         let blocked = context.lock().unwrap().get_attr_as_bool(BLOCKED).unwrap_or(false);
         if blocked {
             return Ok(FilterStatus::Block);

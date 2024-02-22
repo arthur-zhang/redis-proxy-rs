@@ -82,7 +82,7 @@ impl Filter for MirrorFilter {
         Ok(())
     }
 
-    async fn on_data(&self, data: &DecodedFrame, context: &mut TFilterContext) -> anyhow::Result<FilterStatus> {
+    async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         let mut should_mirror = {
             let context = context.lock().unwrap();
             context.get_attr_as_bool(SHOULD_MIRROR).unwrap_or(false)

@@ -45,17 +45,7 @@ impl Filter for LogFilter {
         bail!("start_instant is not an Instant");
     }
 
-    async fn on_data(&self, data: &DecodedFrame, context: &mut TFilterContext) -> anyhow::Result<FilterStatus> {
-        // let cmd = data.cmd_type.as_ref().unwrap();
-        // info!("{:?}, key info: {:?}, eager {}, {}", cmd, cmd.redis_key_info(),  data.is_eager, data.is_done);
-        //
-        // if data.is_eager {
-        //     if let Some(ref it) = data.eager_read_list {
-        //         for range in it {
-        //             info!("\tpart: {:?}", std::str::from_utf8(&data.raw_bytes[range.start..range.end]).unwrap_or(""));
-        //         }
-        //     }
-        // }
+    async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         Ok(FilterStatus::Continue)
     }
 }
