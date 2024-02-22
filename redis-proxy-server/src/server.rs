@@ -74,7 +74,7 @@ impl ProxyServer {
                             bail!("blacklist filter config is required")
                         }
                         Some(blacklist) => {
-                            Box::new(BlackListFilter::new(blacklist.block_patterns))
+                            Box::new(BlackListFilter::new(blacklist.block_patterns, &blacklist.split_regex))
                         }
                     }
                 }

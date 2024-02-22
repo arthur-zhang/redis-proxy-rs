@@ -35,6 +35,7 @@ pub struct FilterChain {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Blacklist {
     pub block_patterns: Vec<String>,
+    pub split_regex: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

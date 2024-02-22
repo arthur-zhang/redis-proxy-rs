@@ -10,8 +10,8 @@ pub struct BlackListFilter {
 }
 
 impl BlackListFilter {
-    pub fn new(blacklist: Vec<String>, split_pattern: &str) -> Self {
-        let trie = PathTrie::new(&blacklist, split_pattern).unwrap();
+    pub fn new(blacklist: Vec<String>, split_regex: &str) -> Self {
+        let trie = PathTrie::new(&blacklist, split_regex).unwrap();
         BlackListFilter { trie }
     }
 }
