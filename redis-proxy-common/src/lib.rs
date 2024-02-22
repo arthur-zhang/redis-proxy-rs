@@ -1,10 +1,12 @@
 use std::fmt::{Debug, Formatter};
 use std::ops::Range;
+use std::sync::Arc;
 use crate::cmd::CmdType;
 
 pub mod cmd;
 pub mod tools;
 
+pub type TDecodedFrame = Arc<DecodedFrame>;
 pub struct DecodedFrame {
     pub is_first_frame: bool,
     pub cmd_type: CmdType,

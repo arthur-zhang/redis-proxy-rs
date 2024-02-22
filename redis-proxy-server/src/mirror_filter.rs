@@ -47,23 +47,29 @@ impl MirrorFilter {
 #[async_trait]
 impl Filter for MirrorFilter {
     async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
-        let (r, mut w) = TcpStream::connect(&self.mirror_address).await?.into_split();
         let (tx, mut rx) = tokio::sync::mpsc::channel(10000);
-
         context.lock().unwrap().set_attr(DATA_TX, ContextValue::ChanSender(tx));
 
         tokio::spawn({
+            let mirror_address = self.mirror_address.clone();
             async move {
-                while let Some(it) = rx.recv().await {
-                    let bytes = it;
-                    let _ = w.write_all(&bytes).await;
-                }
-            }
-        });
-        tokio::spawn({
-            async move {
-                let mut reader = FramedRead::new(r, BytesCodec::new());
-                while let Some(_) = reader.next().await {}
+                let (r, mut w) = TcpStream::connect(&mirror_address).await?.into_split();
+
+                tokio::spawn({
+                    async move {
+                        while let Some(it) = rx.recv().await {
+                            let bytes = it;
+                            let _ = w.write_all(&bytes).await;
+                        }
+                    }
+                });
+                tokio::spawn({
+                    async move {
+                        let mut reader = FramedRead::new(r, BytesCodec::new());
+                        while let Some(_) = reader.next().await {}
+                    }
+                });
+                return Ok::<(), anyhow::Error>(());
             }
         });
         Ok(())

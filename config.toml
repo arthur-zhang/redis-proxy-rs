@@ -17,7 +17,8 @@ mirror_patterns = [
     "x",
     "y",
     "z",
-    "foo:*"
+    "foo:*",
+    "foo:uc:*:token"
 ]
 split_regex = "[:]"
 
