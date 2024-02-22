@@ -32,13 +32,11 @@ pub struct ProxyServer {
 }
 
 impl ProxyServer {
-    pub fn new(config: Config) -> Self {
+    pub fn new(config: Config) -> anyhow::Result<Self> {
         let config = Arc::new(config);
-        // todo handle unwrap
-        let filter_chain = Self::get_filters(config.clone()).unwrap();
-
+        let filter_chain = Self::get_filters(config.clone())?;
         let filter_chains = FilterChain::new(filter_chain);
-        ProxyServer { config, filter_chain: Arc::new(filter_chains) }
+        Ok(ProxyServer { config, filter_chain: Arc::new(filter_chains) })
     }
 
     pub async fn start(self) -> anyhow::Result<()> {

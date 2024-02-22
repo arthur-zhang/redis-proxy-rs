@@ -2,8 +2,6 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use dashmap::DashMap;
-use dashmap::mapref::one::Ref;
 use tokio::sync::mpsc::Sender;
 
 use redis_proxy_common::cmd::CmdType;
@@ -40,13 +38,7 @@ impl FilterContext {
         self.attrs.remove(key);
     }
     pub fn get_attr(&self, key: &str) -> Option<&ContextValue> {
-        let res = self.attrs.get(key);
-        match res {
-            None => {}
-            Some(it) => {
-                it.value()
-            }
-        }
+        self.attrs.get(key)
     }
 
     pub fn get_attr_as_bool(&self, key: &str) -> Option<bool> {
