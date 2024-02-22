@@ -1,6 +1,9 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
+use dashmap::DashMap;
+use dashmap::mapref::one::Ref;
 use tokio::sync::mpsc::Sender;
 
 use redis_proxy_common::cmd::CmdType;
@@ -23,13 +26,12 @@ pub type TFilterContext = Arc<Mutex<FilterContext>>;
 
 // per session filter context
 pub struct FilterContext {
-    attrs: std::collections::HashMap<String, ContextValue>,
-    // attrs: dashmap::DashMap<String, ContextValue>,
+    attrs: HashMap<String, ContextValue>,
 }
 
 impl FilterContext {
     pub fn new() -> Self {
-        FilterContext { attrs: std::collections::HashMap::new() }
+        FilterContext { attrs: HashMap::new() }
     }
     pub fn set_attr(&mut self, key: &str, value: ContextValue) {
         self.attrs.insert(key.to_string(), value);
@@ -38,7 +40,13 @@ impl FilterContext {
         self.attrs.remove(key);
     }
     pub fn get_attr(&self, key: &str) -> Option<&ContextValue> {
-        self.attrs.get(key)
+        let res = self.attrs.get(key);
+        match res {
+            None => {}
+            Some(it) => {
+                it.value()
+            }
+        }
     }
 
     pub fn get_attr_as_bool(&self, key: &str) -> Option<bool> {
