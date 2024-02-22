@@ -8,7 +8,7 @@ use log::{debug, error, info};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 use tokio::sync::mpsc::{Receiver, Sender, unbounded_channel};
 use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
@@ -110,17 +110,19 @@ pub struct SessionHalfC2B {
     filter_context: TFilterContext,
     req_pkt_reader: FramedRead<OwnedReadHalf, ReqPktDecoder>,
     p2b_w: OwnedWriteHalf,
+    c2p_shutdown_tx: oneshot::Sender<()>,
 }
 
 
 impl SessionHalfC2B {
-    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, c2p_r: OwnedReadHalf, p2b_w: OwnedWriteHalf) -> Self {
+    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, c2p_r: OwnedReadHalf, p2b_w: OwnedWriteHalf, c2p_shutdown_tx: oneshot::Sender<()>) -> Self {
         let mut req_pkt_reader = FramedRead::new(c2p_r, ReqPktDecoder::new());
         SessionHalfC2B {
             filter_chain,
             filter_context,
             req_pkt_reader,
             p2b_w,
+            c2p_shutdown_tx,
         }
     }
     pub async fn handle(mut self) -> anyhow::Result<()> {
@@ -128,8 +130,9 @@ impl SessionHalfC2B {
 
         while let Some(Ok(data)) = self.req_pkt_reader.next().await {
             if data.is_first_frame {
+                let cmd_type = data.cmd_type.clone();
+                self.filter_context.lock().unwrap().set_attr_cmd_type(cmd_type);
                 self.filter_chain.pre_handle(&mut self.filter_context).await?;
-                self.filter_context.lock().unwrap().cmd_type = data.cmd_type.clone();
             }
             status = self.filter_chain.on_data(&data, &mut self.filter_context).await?;
             if status == FilterStatus::StopIteration || status == FilterStatus::Block {
@@ -138,10 +141,8 @@ impl SessionHalfC2B {
 
             // 2. write to backend upstream server
             self.p2b_w.write_all(&data.raw_bytes).await?;
-            // if data.is_done {
-            //     break;
-            // }
         }
+        let _ = self.c2p_shutdown_tx.send(());
         Ok(())
     }
 }
@@ -152,10 +153,11 @@ pub struct SessionHalfB2C {
     filter_context: TFilterContext,
     res_pkt_reader: FramedRead<OwnedReadHalf, RespPktDecoder>,
     c2p_w: OwnedWriteHalf,
+    p2b_shutdown_tx: oneshot::Sender<()>,
 }
 
 impl SessionHalfB2C {
-    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, p2b_r: OwnedReadHalf, c2p_w: OwnedWriteHalf) -> Self {
+    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, p2b_r: OwnedReadHalf, c2p_w: OwnedWriteHalf, p2b_shutdown_tx: oneshot::Sender<()>) -> Self {
         let mut res_pkt_reader = FramedRead::new(p2b_r, RespPktDecoder::new());
 
         SessionHalfB2C {
@@ -163,6 +165,7 @@ impl SessionHalfB2C {
             filter_context,
             res_pkt_reader,
             c2p_w,
+            p2b_shutdown_tx,
         }
     }
     pub async fn handle(mut self) -> anyhow::Result<()> {
@@ -185,6 +188,7 @@ impl SessionHalfB2C {
                 self.filter_chain.post_handle(&mut self.filter_context, it.is_error).await?;
             }
         }
+        let _ = self.p2b_shutdown_tx.send(());
         Ok(())
     }
 }
@@ -206,21 +210,38 @@ impl Session {
         let mut filter_context = Arc::new(Mutex::new(filter_context));
         self.filter_chains.on_new_connection(&mut filter_context).await?;
 
-        let (c2p_r, mut c2p_w) = self.c2p_conn.into_split();
 
+        // c->p connection
+        let (c2p_r, mut c2p_w) = self.c2p_conn.into_split();
+        let (c2p_shutdown_tx, c2p_shutdown_rx) = tokio::sync::oneshot::channel();
+
+
+        // p->b connection
         // connect to backend upstream server
         let (p2b_r, mut p2b_w) = TcpStream::connect(&self.config.upstream.address).await?.into_split();
+        let (p2b_shutdown_tx, p2b_shutdown_rx) = tokio::sync::oneshot::channel();
 
+        // c->p->b
         let t1 = tokio::spawn({
             let filter_chain = self.filter_chains.clone();
             let filter_context = filter_context.clone();
-            let session_half = SessionHalfC2B::new(filter_chain, filter_context, c2p_r, p2b_w);
+            let session_half = SessionHalfC2B::new(filter_chain, filter_context, c2p_r, p2b_w, c2p_shutdown_tx);
             async move {
                 info!("....................");
-                let _ = session_half.handle().await;
-                info!("half1 done")
+                tokio::select! {
+                    res = session_half.handle() => {
+                        if let Err(err) = res {
+                            error!("session half error: c->p->b, {:?}", err);
+                        }
+                    }
+                    _ = p2b_shutdown_rx => {
+                        info!("p2b shutdown signal receive");
+                    }
+                }
+                info!("session half done: c->p->b")
             }
         });
+
         let t2 = tokio::spawn({
             let filter_context = filter_context.clone();
             let filter_chain = self.filter_chains.clone();
@@ -229,14 +250,24 @@ impl Session {
                 filter_context,
                 p2b_r,
                 c2p_w,
+                p2b_shutdown_tx,
             );
             async move {
-                let _ = session.handle().await;
-                info!("half2 done")
+                tokio::select! {
+                    res = session.handle() => {
+                        if let Err(err) = res {
+                            error!("session half error: b->p->c, {:?}", err);
+                        }
+                    }
+                    _ = c2p_shutdown_rx => {
+                        info!("c2p shutdown signal receive");
+                    }
+                }
+                // let _ = session.handle().await;
+                info!("session half done: b->p->c")
             }
         });
         tokio::join!(t1, t2);
-
         Ok(())
     }
 }

@@ -3,6 +3,7 @@ use std::time::Instant;
 use anyhow::bail;
 use log::{error, info, log};
 
+use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
 use redis_proxy_filter::traits::{ContextValue, Filter, FilterContext, FilterStatus, TFilterContext};
 
@@ -25,14 +26,15 @@ impl Filter for LogFilter {
         Ok(())
     }
 
-    async fn post_handle(&self, context: &mut TFilterContext,  resp_error:bool) -> anyhow::Result<()> {
+    async fn post_handle(&self, context: &mut TFilterContext, resp_error: bool) -> anyhow::Result<()> {
         let context = context.lock().unwrap();
 
+        let cmd_type = context.get_attr_as_cmd_type();
         let start = context.get_attr("start_instant").ok_or(anyhow::anyhow!("start_instant not found"))?;
 
         if let ContextValue::Instant(start) = start {
             let elapsed = start.elapsed();
-            error!("[{:?}] elapsed: {:?}, response is_error: {}", context.cmd_type, elapsed, resp_error);
+            error!("[{:?}] elapsed: {:?}, response is_error: {}", cmd_type, elapsed, resp_error);
             return Ok(());
         }
 

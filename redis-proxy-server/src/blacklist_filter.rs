@@ -1,5 +1,6 @@
+use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
-use redis_proxy_filter::traits::{ContextValue, Filter, FilterContext, FilterStatus, TFilterContext};
+use redis_proxy_filter::traits::{ContextValue, Filter, FilterStatus, TFilterContext};
 
 pub struct BlackListFilter {
     blacklist: Vec<String>,
@@ -24,7 +25,7 @@ impl Filter for BlackListFilter {
         Ok(())
     }
 
-    async fn post_handle(&self, context: &mut TFilterContext,  resp_error:bool) -> anyhow::Result<()> {
+    async fn post_handle(&self, context: &mut TFilterContext, resp_error: bool) -> anyhow::Result<()> {
         Ok(())
     }
 

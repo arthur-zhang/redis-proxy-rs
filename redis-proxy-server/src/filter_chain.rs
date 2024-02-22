@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
+use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::DecodedFrame;
-use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus, TFilterContext};
+use redis_proxy_filter::traits::{Filter, FilterStatus, TFilterContext};
 
 pub type TFilterChain = Arc<FilterChain>;
 
@@ -34,7 +35,7 @@ impl Filter for FilterChain {
         Ok(())
     }
 
-    async fn post_handle(&self, context: &mut TFilterContext ,resp_error:bool) -> anyhow::Result<()> {
+    async fn post_handle(&self, context: &mut TFilterContext, resp_error: bool) -> anyhow::Result<()> {
         for filter in self.filters.iter() {
             filter.post_handle(context, resp_error).await?;
         }

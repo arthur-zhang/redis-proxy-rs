@@ -12,19 +12,22 @@ pub enum ContextValue {
     Bool(bool),
     Instant(std::time::Instant),
     ChanSender(Sender<bytes::Bytes>),
+    CmdType(redis_proxy_common::cmd::CmdType),
 }
+
+pub const CMD_TYPE_KEY: &'static str = "cmd_type";
 
 pub type TFilterContext = Arc<Mutex<FilterContext>>;
 
+
 // per session filter context
 pub struct FilterContext {
-    pub cmd_type: CmdType,
     attrs: std::collections::HashMap<String, ContextValue>,
 }
 
 impl FilterContext {
     pub fn new() -> Self {
-        FilterContext { cmd_type: CmdType::UNKNOWN, attrs: std::collections::HashMap::new() }
+        FilterContext { attrs: std::collections::HashMap::new() }
     }
     pub fn set_attr(&mut self, key: &str, value: ContextValue) {
         self.attrs.insert(key.to_string(), value);
@@ -54,6 +57,19 @@ impl FilterContext {
                 None
             }
         })
+    }
+    pub fn set_attr_cmd_type(&mut self, cmd_type: CmdType) {
+        self.set_attr(CMD_TYPE_KEY, ContextValue::CmdType(cmd_type));
+    }
+    pub fn get_attr_as_cmd_type(&self) -> CmdType {
+        return match self.attrs.get(CMD_TYPE_KEY) {
+            Some(ContextValue::CmdType(cmd_type)) => {
+                cmd_type.clone()
+            }
+            _ => {
+                CmdType::UNKNOWN
+            }
+        };
     }
 }
 
