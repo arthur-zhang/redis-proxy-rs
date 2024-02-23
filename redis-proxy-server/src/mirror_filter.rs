@@ -1,4 +1,5 @@
 use std::ops::Range;
+use async_trait::async_trait;
 
 use log::info;
 use tokio::io::AsyncWriteExt;
@@ -46,7 +47,7 @@ impl MirrorFilter {
     }
 }
 
-
+#[async_trait]
 impl Filter for MirrorFilter {
     fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         let (tx, mut rx) = tokio::sync::mpsc::channel(self.queue_size);
@@ -84,7 +85,7 @@ impl Filter for MirrorFilter {
         Ok(())
     }
 
-    fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
+    async fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
         let mut should_mirror = {
             let context = context.lock().unwrap();
             context.get_attr_as_bool(SHOULD_MIRROR).unwrap_or(false)

@@ -1,15 +1,18 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use redis_codec_core::resp_decoder::ResFramedData;
+use async_trait::async_trait;
+use bytes::Bytes;
 
+use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqFrameData;
-use redis_proxy_filter::traits::{CMD_TYPE_KEY, Value, Filter, FilterStatus, REQ_SIZE, RES_IS_ERROR, RES_SIZE, START_INSTANT, TFilterContext};
+use redis_proxy_filter::traits::{CMD_TYPE_KEY, Filter, FilterStatus, REQ_SIZE, RES_IS_ERROR, RES_SIZE, START_INSTANT, TFilterContext, Value};
 
 pub type TFilterChain = Arc<FilterChain>;
 
 pub struct FilterChain {
     filters: Vec<Box<dyn Filter>>,
+
 }
 
 impl FilterChain {
@@ -20,6 +23,7 @@ impl FilterChain {
     }
 }
 
+#[async_trait]
 impl Filter for FilterChain {
     fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         for filter in self.filters.iter() {
@@ -43,24 +47,41 @@ impl Filter for FilterChain {
         Ok(())
     }
 
-    fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
+    async fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
         context.lock().unwrap().get_attr_mut_as_u64(REQ_SIZE).map(|it| *it += data.raw_bytes.len() as u64);
 
+        let mut status = FilterStatus::Continue;
         for filter in self.filters.iter() {
-            let status = filter.on_req_data(context, data)?;
-            if status != FilterStatus::Continue {
-                return Ok(status);
+            let s = filter.on_req_data(context, data).await?;
+            if s != FilterStatus::Continue {
+                status = s;
+                break;
             }
         }
-        Ok(FilterStatus::Continue)
+
+        if status == FilterStatus::Continue {
+            context.lock().unwrap().p2b_w.try_write(&data.raw_bytes)?;
+            return Ok(status);
+        }
+
+        if data.is_done {
+            self.on_res_data(context, &ResFramedData {
+                data: Bytes::from_static(b"-ERR blocked\r\n"),
+                is_done: true,
+                is_error: true,
+            }).await?;
+        }
+
+        Ok(status)
     }
 
-    fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()> {
+    async fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()> {
         context.lock().unwrap().get_attr_mut_as_u64(RES_SIZE).map(|it| *it += data.data.len() as u64);
 
         for filter in self.filters.iter() {
-            filter.on_res_data(context, data)?;
+            filter.on_res_data(context, data).await?;
         }
+        context.lock().unwrap().p2c_w.try_write(&data.data)?;
         Ok(())
     }
 

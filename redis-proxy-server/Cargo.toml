@@ -19,3 +19,4 @@ redis-proxy-common = { path = "../redis-proxy-common" }
 regex = "1.10.3"
 serde = { version = "1.0.197" ,features = ["derive"]}
 toml = "0.8.10"
+async-trait = "0.1.77"

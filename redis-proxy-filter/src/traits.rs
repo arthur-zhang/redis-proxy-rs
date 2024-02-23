@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use async_trait::async_trait;
+use tokio::net::tcp::OwnedWriteHalf;
 
 use tokio::sync::mpsc::Sender;
 
@@ -75,11 +77,13 @@ pub type TFilterContext = Arc<Mutex<FilterContext>>;
 // per session filter context
 pub struct FilterContext {
     attrs: HashMap<String, Value>,
+    pub p2b_w: OwnedWriteHalf,
+    pub p2c_w: OwnedWriteHalf,
 }
 
 impl FilterContext {
-    pub fn new() -> Self {
-        FilterContext { attrs: HashMap::new() }
+    pub fn new( p2b_w:OwnedWriteHalf, p2c_w:OwnedWriteHalf) -> Self {
+        FilterContext { attrs: HashMap::new(), p2b_w, p2c_w }
     }
     pub fn set_attr(&mut self, key: &str, value: Value) {
         self.attrs.insert(key.to_string(), value);
@@ -135,11 +139,12 @@ impl FilterContext {
 }
 
 // stateless + nonblocking filter, mutable data is stored in FilterContext
+#[async_trait]
 pub trait Filter: Send + Sync {
     fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> { Ok(()) }
     fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> { Ok(()) }
-    fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> { Ok(FilterStatus::Continue) }
-    fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()> { Ok(()) }
+    async fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> { Ok(FilterStatus::Continue) }
+    async fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()> { Ok(()) }
     fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> { Ok(()) }
 }
 

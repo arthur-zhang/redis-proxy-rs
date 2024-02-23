@@ -107,19 +107,17 @@ pub struct UpstreamSessionHalf {
     filter_chain: TFilterChain,
     filter_context: TFilterContext,
     req_pkt_reader: FramedRead<OwnedReadHalf, ReqPktDecoder>,
-    p2b_w: OwnedWriteHalf,
     c2p_shutdown_tx: oneshot::Sender<()>,
 }
 
 
 impl UpstreamSessionHalf {
-    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, c2p_r: OwnedReadHalf, p2b_w: OwnedWriteHalf, c2p_shutdown_tx: oneshot::Sender<()>) -> Self {
+    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, c2p_r: OwnedReadHalf,c2p_shutdown_tx: oneshot::Sender<()>) -> Self {
         let mut req_pkt_reader = FramedRead::new(c2p_r, ReqPktDecoder::new());
         UpstreamSessionHalf {
             filter_chain,
             filter_context,
             req_pkt_reader,
-            p2b_w,
             c2p_shutdown_tx,
         }
     }
@@ -132,13 +130,7 @@ impl UpstreamSessionHalf {
                 self.filter_chain.pre_handle(&mut self.filter_context)?;
                 self.filter_context.lock().unwrap().set_attr_cmd_type(cmd_type);
             }
-            status = self.filter_chain.on_req_data(&mut self.filter_context, &data)?;
-            if status == FilterStatus::Block {
-                break;
-            }
-
-            // 2. write to backend upstream server
-            self.p2b_w.write_all(&data.raw_bytes).await?;
+            status = self.filter_chain.on_req_data(&mut self.filter_context, &data).await?;
         }
         let _ = self.c2p_shutdown_tx.send(());
         Ok(())
@@ -150,19 +142,17 @@ pub struct DownstreamSessionHalf {
     filter_chain: TFilterChain,
     filter_context: TFilterContext,
     res_pkt_reader: FramedRead<OwnedReadHalf, RespPktDecoder>,
-    p2c_w: OwnedWriteHalf,
     p2b_shutdown_tx: oneshot::Sender<()>,
 }
 
 impl DownstreamSessionHalf {
-    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, p2b_r: OwnedReadHalf, p2c_w: OwnedWriteHalf, p2b_shutdown_tx: oneshot::Sender<()>) -> Self {
+    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, p2b_r: OwnedReadHalf,  p2b_shutdown_tx: oneshot::Sender<()>) -> Self {
         let mut res_pkt_reader = FramedRead::new(p2b_r, RespPktDecoder::new());
 
         DownstreamSessionHalf {
             filter_chain,
             filter_context,
             res_pkt_reader,
-            p2c_w,
             p2b_shutdown_tx,
         }
     }
@@ -172,17 +162,7 @@ impl DownstreamSessionHalf {
             debug!("resp>>>> is_done: {} , data: {:?}", it.is_done, std::str::from_utf8(it.data.as_ref())
                                         .map(|it| truncate_str(it, 100)));
 
-            self.filter_chain.on_res_data(&mut self.filter_context, &it)?;
-            let bytes = it.data;
-            // 4. write to client
-            match self.p2c_w.write_all(&bytes).await {
-                Ok(_) => {}
-                Err(err) => {
-                    error!("error: {:?}", err);
-                    break;
-                }
-            };
-
+            self.filter_chain.on_res_data(&mut self.filter_context, &it).await?;
             if it.is_done {
                 self.filter_context.lock().unwrap().set_attr_res_is_error(it.is_error);
                 self.filter_chain.post_handle(&mut self.filter_context)?;
@@ -206,11 +186,9 @@ impl Session {
     // 3. read from backend upstream server
     // 4. write to client
     pub async fn handle(mut self) -> anyhow::Result<()> {
-        let mut filter_context = Arc::new(Mutex::new(FilterContext::new()));
-        self.filter_chains.on_new_connection(&mut filter_context)?;
 
         // c->p connection
-        let (c2p_r, mut c2p_w) = self.c2p_conn.into_split();
+        let (c2p_r, mut p2c_w) = self.c2p_conn.into_split();
         let (c2p_shutdown_tx, c2p_shutdown_rx) = oneshot::channel();
 
         // p->b connection
@@ -218,11 +196,13 @@ impl Session {
         let (b2p_r, mut p2b_w) = TcpStream::connect(&self.config.upstream.address).await?.into_split();
         let (p2b_shutdown_tx, p2b_shutdown_rx) = oneshot::channel();
 
+        let mut filter_context = Arc::new(Mutex::new(FilterContext::new(p2b_w, p2c_w)));
+        self.filter_chains.on_new_connection(&mut filter_context)?;
         // c->p->b
         let t1 = tokio::spawn({
             let filter_chain = self.filter_chains.clone();
             let filter_context = filter_context.clone();
-            let session_half = UpstreamSessionHalf::new(filter_chain, filter_context, c2p_r, p2b_w, c2p_shutdown_tx);
+            let session_half = UpstreamSessionHalf::new(filter_chain, filter_context, c2p_r,  c2p_shutdown_tx);
             async move {
                 info!("....................");
                 tokio::select! {
@@ -246,7 +226,7 @@ impl Session {
                 filter_chain,
                 filter_context,
                 b2p_r,
-                c2p_w,
+                // p2c_w,
                 p2b_shutdown_tx,
             );
             async move {
