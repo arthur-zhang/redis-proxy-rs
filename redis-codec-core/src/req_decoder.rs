@@ -7,7 +7,7 @@ use log::debug;
 use tokio_util::codec::Decoder;
 
 use redis_proxy_common::cmd::{CmdType, KeyInfo};
-use redis_proxy_common::DecodedFrame;
+use redis_proxy_common::ReqFrameData;
 use redis_proxy_common::tools::{CR, is_digit, LF, offset_from};
 
 use crate::error::DecodeError;
@@ -24,7 +24,7 @@ pub struct ReqPktDecoder {
 }
 
 impl Decoder for ReqPktDecoder {
-    type Item = DecodedFrame;
+    type Item = ReqFrameData;
     type Error = DecodeError;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -187,7 +187,7 @@ impl Decoder for ReqPktDecoder {
         let list = self.eager_read_list.take();
         self.eager_read_list = Some(Vec::new());
 
-        Ok(Some(DecodedFrame {
+        Ok(Some(ReqFrameData {
             is_first_frame: frame_start,
             raw_bytes: bytes,
             is_eager,

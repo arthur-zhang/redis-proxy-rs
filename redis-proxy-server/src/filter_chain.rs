@@ -2,8 +2,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
+use redis_codec_core::resp_decoder::ResFramedData;
 
-use redis_proxy_common::DecodedFrame;
+use redis_proxy_common::ReqFrameData;
 use redis_proxy_filter::traits::{CMD_TYPE_KEY, ContextValue, Filter, FilterStatus, REQ_SIZE, RES_IS_ERROR, RES_SIZE, START_INSTANT, TFilterContext};
 
 pub type TFilterChain = Arc<FilterChain>;
@@ -20,18 +21,16 @@ impl FilterChain {
     }
 }
 
-#[async_trait]
 impl Filter for FilterChain {
-    async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+    fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         for filter in self.filters.iter() {
-            filter.on_new_connection(context).await?;
+            filter.on_new_connection(context)?;
         }
         Ok(())
     }
 
-    async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+    fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         if let Ok(mut context) = context.lock() {
-
             context.set_attr(START_INSTANT, ContextValue::Instant(Instant::now()));
             context.remote_attr(CMD_TYPE_KEY);
             context.remote_attr(RES_IS_ERROR);
@@ -40,16 +39,16 @@ impl Filter for FilterChain {
         }
 
         for filter in self.filters.iter() {
-            filter.pre_handle(context).await?;
+            filter.pre_handle(context)?;
         }
         Ok(())
     }
 
-    async fn on_req_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+    fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
         context.lock().unwrap().get_attr_mut_as_u64(REQ_SIZE).map(|it| *it += data.raw_bytes.len() as u64);
 
         for filter in self.filters.iter() {
-            let status = filter.on_req_data(context, data).await?;
+            let status = filter.on_req_data(context, data)?;
             if status != FilterStatus::Continue {
                 return Ok(status);
             }
@@ -57,9 +56,18 @@ impl Filter for FilterChain {
         Ok(FilterStatus::Continue)
     }
 
-    async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+    fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()> {
+        context.lock().unwrap().get_attr_mut_as_u64(RES_SIZE).map(|it| *it += data.data.len() as u64);
+
         for filter in self.filters.iter() {
-            filter.post_handle(context).await?;
+            filter.on_res_data(context, data)?;
+        }
+        Ok(())
+    }
+
+    fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+        for filter in self.filters.iter() {
+            filter.post_handle(context)?;
         }
         Ok(())
     }

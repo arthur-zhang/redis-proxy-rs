@@ -7,7 +7,8 @@ use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use redis_proxy_common::DecodedFrame;
+use redis_codec_core::resp_decoder::ResFramedData;
+use redis_proxy_common::ReqFrameData;
 use redis_proxy_filter::traits::{ContextValue, Filter, FilterStatus, TFilterContext};
 
 use crate::path_trie::PathTrie;
@@ -47,9 +48,8 @@ impl MirrorFilter {
 }
 
 
-#[async_trait]
 impl Filter for MirrorFilter {
-    async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+    fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         let (tx, mut rx) = tokio::sync::mpsc::channel(self.queue_size);
         context.lock().unwrap().set_attr(DATA_TX, ContextValue::ChanSender(tx));
 
@@ -80,18 +80,18 @@ impl Filter for MirrorFilter {
         Ok(())
     }
 
-    async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+    fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         context.lock().unwrap().remote_attr(SHOULD_MIRROR);
         Ok(())
     }
 
-    async fn on_req_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+    fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
         let mut should_mirror = {
             let context = context.lock().unwrap();
             context.get_attr_as_bool(SHOULD_MIRROR).unwrap_or(false)
         };
         let raw_data = data.raw_bytes.as_ref();
-        let DecodedFrame {
+        let ReqFrameData {
             is_first_frame,
             cmd_type,
             eager_read_list,
@@ -123,12 +123,15 @@ impl Filter for MirrorFilter {
             };
 
             let _ = tx.try_send(raw_bytes.clone());
-            ;
         }
         Ok(FilterStatus::Continue)
     }
 
-    async fn post_handle(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
+    fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn post_handle(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
         Ok(())
     }
 }

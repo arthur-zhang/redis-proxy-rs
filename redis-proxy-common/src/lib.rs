@@ -6,8 +6,8 @@ use crate::cmd::CmdType;
 pub mod cmd;
 pub mod tools;
 
-pub type TDecodedFrame = Arc<DecodedFrame>;
-pub struct DecodedFrame {
+pub type TDecodedFrame = Arc<ReqFrameData>;
+pub struct ReqFrameData {
     pub is_first_frame: bool,
     pub cmd_type: CmdType,
     pub eager_read_list: Option<Vec<Range<usize>>>,
@@ -16,7 +16,7 @@ pub struct DecodedFrame {
     pub is_done: bool,
 }
 
-impl Debug for DecodedFrame {
+impl Debug for ReqFrameData {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DecodedFrame")
             .field("data", &std::str::from_utf8(&self.raw_bytes))

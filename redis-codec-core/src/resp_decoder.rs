@@ -34,7 +34,7 @@ impl RespPktDecoder {
 
 
 impl Decoder for RespPktDecoder {
-    type Item = FramedData;
+    type Item = ResFramedData;
     type Error = DecodeError;
 
 
@@ -188,11 +188,11 @@ impl Decoder for RespPktDecoder {
 
         let consumed = offset_from(p.as_ptr(), src.as_ptr());
         let data = src.split_to(consumed).freeze();
-        Ok(Some(FramedData { data, is_done, is_error: self.is_error }))
+        Ok(Some(ResFramedData { data, is_done, is_error: self.is_error }))
     }
 }
 
-pub struct FramedData {
+pub struct ResFramedData {
     pub data: bytes::Bytes,
     pub is_done: bool,
     pub is_error: bool,

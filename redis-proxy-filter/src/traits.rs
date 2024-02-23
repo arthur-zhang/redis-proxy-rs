@@ -4,8 +4,9 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use tokio::sync::mpsc::Sender;
 
+use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
-use redis_proxy_common::DecodedFrame;
+use redis_proxy_common::ReqFrameData;
 
 pub enum ContextValue {
     String(String),
@@ -113,13 +114,13 @@ impl FilterContext {
     }
 }
 
-// stateless filter, mutable data is stored in FilterContext
-#[async_trait]
+// stateless + nonblocking filter, mutable data is stored in FilterContext
 pub trait Filter: Send + Sync {
-    async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
-    async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
-    async fn on_req_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus>;
-    async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
+    fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
+    fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
+    fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus>;
+    fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()>;
+    fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
 }
 
 #[derive(Debug, Eq, PartialEq)]

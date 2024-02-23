@@ -15,9 +15,9 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 
 use redis_codec_core::req_decoder::ReqPktDecoder;
-use redis_codec_core::resp_decoder::{FramedData, RespPktDecoder};
+use redis_codec_core::resp_decoder::{ResFramedData, RespPktDecoder};
 use redis_proxy_common::cmd::CmdType;
-use redis_proxy_common::DecodedFrame;
+use redis_proxy_common::ReqFrameData;
 use redis_proxy_filter::traits::{Filter, FilterContext, FilterStatus, TFilterContext};
 
 use crate::blacklist_filter::BlackListFilter;
@@ -129,10 +129,10 @@ impl SessionHalfC2B {
         while let Some(Ok(data)) = self.req_pkt_reader.next().await {
             if data.is_first_frame {
                 let cmd_type = data.cmd_type.clone();
-                self.filter_chain.pre_handle(&mut self.filter_context).await?;
+                self.filter_chain.pre_handle(&mut self.filter_context)?;
                 self.filter_context.lock().unwrap().set_attr_cmd_type(cmd_type);
             }
-            status = self.filter_chain.on_req_data(&mut self.filter_context, &data).await?;
+            status = self.filter_chain.on_req_data(&mut self.filter_context, &data)?;
             if status == FilterStatus::StopIteration || status == FilterStatus::Block {
                 break;
             }
@@ -150,19 +150,19 @@ pub struct SessionHalfB2C {
     filter_chain: TFilterChain,
     filter_context: TFilterContext,
     res_pkt_reader: FramedRead<OwnedReadHalf, RespPktDecoder>,
-    c2p_w: OwnedWriteHalf,
+    p2c_w: OwnedWriteHalf,
     p2b_shutdown_tx: oneshot::Sender<()>,
 }
 
 impl SessionHalfB2C {
-    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, p2b_r: OwnedReadHalf, c2p_w: OwnedWriteHalf, p2b_shutdown_tx: oneshot::Sender<()>) -> Self {
+    pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, p2b_r: OwnedReadHalf, p2c_w: OwnedWriteHalf, p2b_shutdown_tx: oneshot::Sender<()>) -> Self {
         let mut res_pkt_reader = FramedRead::new(p2b_r, RespPktDecoder::new());
 
         SessionHalfB2C {
             filter_chain,
             filter_context,
             res_pkt_reader,
-            c2p_w,
+            p2c_w,
             p2b_shutdown_tx,
         }
     }
@@ -172,9 +172,10 @@ impl SessionHalfB2C {
             debug!("resp>>>> is_done: {} , data: {:?}", it.is_done, std::str::from_utf8(it.data.as_ref())
                                         .map(|it| truncate_str(it, 100)));
 
+            self.filter_chain.on_res_data(&mut self.filter_context, &it)?;
             let bytes = it.data;
             // 4. write to client
-            match self.c2p_w.write_all(&bytes).await {
+            match self.p2c_w.write_all(&bytes).await {
                 Ok(_) => {}
                 Err(err) => {
                     error!("error: {:?}", err);
@@ -184,7 +185,7 @@ impl SessionHalfB2C {
 
             if it.is_done {
                 self.filter_context.lock().unwrap().set_attr_res_is_error(it.is_error);
-                self.filter_chain.post_handle(&mut self.filter_context).await?;
+                self.filter_chain.post_handle(&mut self.filter_context)?;
             }
         }
         let _ = self.p2b_shutdown_tx.send(());
@@ -207,7 +208,7 @@ impl Session {
     pub async fn handle(mut self) -> anyhow::Result<()> {
         let filter_context = FilterContext::new();
         let mut filter_context = Arc::new(Mutex::new(filter_context));
-        self.filter_chains.on_new_connection(&mut filter_context).await?;
+        self.filter_chains.on_new_connection(&mut filter_context)?;
 
 
         // c->p connection
