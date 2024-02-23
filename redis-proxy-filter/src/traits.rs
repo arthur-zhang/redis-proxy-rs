@@ -9,7 +9,7 @@ use redis_proxy_common::DecodedFrame;
 
 pub enum ContextValue {
     String(String),
-    Int(i64),
+    U64(u64),
     Bool(bool),
     Instant(std::time::Instant),
     ChanSender(Sender<bytes::Bytes>),
@@ -18,6 +18,10 @@ pub enum ContextValue {
 
 pub const CMD_TYPE_KEY: &'static str = "cmd_type";
 pub const RES_IS_ERROR: &'static str = "res_is_error";
+pub const START_INSTANT: &'static str = "log_start_instant";
+
+pub const REQ_SIZE: &'static str = "req_size";
+pub const RES_SIZE: &'static str = "res_size";
 
 pub type TFilterContext = Arc<Mutex<FilterContext>>;
 
@@ -39,6 +43,27 @@ impl FilterContext {
     }
     pub fn get_attr(&self, key: &str) -> Option<&ContextValue> {
         self.attrs.get(key)
+    }
+    pub fn get_attr_mut(&mut self, key: &str) -> Option<&mut ContextValue> {
+        self.attrs.get_mut(key)
+    }
+    pub fn get_attr_as_u64(&self, key: &str) -> Option<u64> {
+        self.attrs.get(key).and_then(|it| {
+            if let ContextValue::U64(u) = it {
+                Some(*u)
+            } else {
+                None
+            }
+        })
+    }
+    pub fn get_attr_mut_as_u64(&mut self, key: &str) -> Option<&mut u64> {
+        self.attrs.get_mut(key).and_then(|it| {
+            if let ContextValue::U64(u) = it {
+                Some(u)
+            } else {
+                None
+            }
+        })
     }
 
     pub fn get_attr_as_bool(&self, key: &str) -> Option<bool> {
@@ -93,7 +118,7 @@ impl FilterContext {
 pub trait Filter: Send + Sync {
     async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
     async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
-    async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus>;
+    async fn on_req_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus>;
     async fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()>;
 }
 

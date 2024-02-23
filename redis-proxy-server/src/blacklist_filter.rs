@@ -29,7 +29,7 @@ impl Filter for BlackListFilter {
         Ok(())
     }
 
-    async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+    async fn on_req_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         let blocked = context.lock().unwrap().get_attr_as_bool(BLOCKED).unwrap_or(false);
         if blocked {
             return Ok(FilterStatus::Block);

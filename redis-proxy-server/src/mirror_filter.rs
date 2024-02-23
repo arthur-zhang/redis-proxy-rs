@@ -1,6 +1,7 @@
 use std::ops::Range;
 
 use async_trait::async_trait;
+use log::info;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
@@ -14,17 +15,19 @@ use crate::path_trie::PathTrie;
 pub struct MirrorFilter {
     mirror_address: String,
     path_trie: PathTrie,
+    queue_size: usize,
 }
 
 const SHOULD_MIRROR: &'static str = "mirror_filter_should_mirror";
 const DATA_TX: &'static str = "mirror_filter_data_tx";
 
 impl MirrorFilter {
-    pub fn new(mirror: &str, mirror_patterns: &Vec<String>, split_regex: &str) -> anyhow::Result<Self> {
+    pub fn new(mirror: &str, mirror_patterns: &Vec<String>, split_regex: &str, queue_size: usize) -> anyhow::Result<Self> {
         let trie = PathTrie::new(mirror_patterns, split_regex)?;
         Ok(Self {
             mirror_address: mirror.to_string(),
             path_trie: trie,
+            queue_size,
         })
     }
 
@@ -47,7 +50,7 @@ impl MirrorFilter {
 #[async_trait]
 impl Filter for MirrorFilter {
     async fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
-        let (tx, mut rx) = tokio::sync::mpsc::channel(10000);
+        let (tx, mut rx) = tokio::sync::mpsc::channel(self.queue_size);
         context.lock().unwrap().set_attr(DATA_TX, ContextValue::ChanSender(tx));
 
         tokio::spawn({
@@ -61,12 +64,14 @@ impl Filter for MirrorFilter {
                             let bytes = it;
                             let _ = w.write_all(&bytes).await;
                         }
+                        info!("mirror filter done: half1")
                     }
                 });
                 tokio::spawn({
                     async move {
                         let mut reader = FramedRead::new(r, BytesCodec::new());
                         while let Some(_) = reader.next().await {}
+                        info!("mirror filter done: half2")
                     }
                 });
                 return Ok::<(), anyhow::Error>(());
@@ -80,7 +85,7 @@ impl Filter for MirrorFilter {
         Ok(())
     }
 
-    async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+    async fn on_req_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
         let mut should_mirror = {
             let context = context.lock().unwrap();
             context.get_attr_as_bool(SHOULD_MIRROR).unwrap_or(false)
@@ -117,7 +122,8 @@ impl Filter for MirrorFilter {
                 tx.clone()
             };
 
-            tx.send(raw_bytes.clone()).await.unwrap();
+            let _ = tx.try_send(raw_bytes.clone());
+            ;
         }
         Ok(FilterStatus::Continue)
     }

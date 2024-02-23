@@ -87,7 +87,7 @@ impl ProxyServer {
                             bail!("mirror filter config is required")
                         }
                         Some(mirror) => {
-                            Box::new(MirrorFilter::new(mirror.address.as_str(), &mirror.mirror_patterns, mirror.split_regex.as_str())?)
+                            Box::new(MirrorFilter::new(mirror.address.as_str(), &mirror.mirror_patterns, mirror.split_regex.as_str(), mirror.queue_size)?)
                         }
                     }
                 }
@@ -132,7 +132,7 @@ impl SessionHalfC2B {
                 self.filter_chain.pre_handle(&mut self.filter_context).await?;
                 self.filter_context.lock().unwrap().set_attr_cmd_type(cmd_type);
             }
-            status = self.filter_chain.on_data(&mut self.filter_context, &data).await?;
+            status = self.filter_chain.on_req_data(&mut self.filter_context, &data).await?;
             if status == FilterStatus::StopIteration || status == FilterStatus::Block {
                 break;
             }

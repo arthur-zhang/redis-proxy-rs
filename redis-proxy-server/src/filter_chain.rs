@@ -1,9 +1,10 @@
 use std::sync::Arc;
+use std::time::Instant;
 
 use async_trait::async_trait;
 
 use redis_proxy_common::DecodedFrame;
-use redis_proxy_filter::traits::{CMD_TYPE_KEY, Filter, FilterStatus, RES_IS_ERROR, TFilterContext};
+use redis_proxy_filter::traits::{CMD_TYPE_KEY, ContextValue, Filter, FilterStatus, REQ_SIZE, RES_IS_ERROR, RES_SIZE, START_INSTANT, TFilterContext};
 
 pub type TFilterChain = Arc<FilterChain>;
 
@@ -30,8 +31,12 @@ impl Filter for FilterChain {
 
     async fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         if let Ok(mut context) = context.lock() {
+
+            context.set_attr(START_INSTANT, ContextValue::Instant(Instant::now()));
             context.remote_attr(CMD_TYPE_KEY);
             context.remote_attr(RES_IS_ERROR);
+            context.set_attr(REQ_SIZE, ContextValue::U64(0));
+            context.set_attr(RES_SIZE, ContextValue::U64(0));
         }
 
         for filter in self.filters.iter() {
@@ -40,9 +45,11 @@ impl Filter for FilterChain {
         Ok(())
     }
 
-    async fn on_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+    async fn on_req_data(&self, context: &mut TFilterContext, data: &DecodedFrame) -> anyhow::Result<FilterStatus> {
+        context.lock().unwrap().get_attr_mut_as_u64(REQ_SIZE).map(|it| *it += data.raw_bytes.len() as u64);
+
         for filter in self.filters.iter() {
-            let status = filter.on_data(context, data).await?;
+            let status = filter.on_req_data(context, data).await?;
             if status != FilterStatus::Continue {
                 return Ok(status);
             }

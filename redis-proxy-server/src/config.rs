@@ -43,6 +43,7 @@ pub struct Mirror {
     pub address: String,
     pub mirror_patterns: Vec<String>,
     pub split_regex: String,
+    pub queue_size: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

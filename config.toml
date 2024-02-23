@@ -21,5 +21,6 @@ mirror_patterns = [
     "foo:uc:*:token"
 ]
 split_regex = "[:]"
+queue_size = 1000
 
 [filter_chain.log]
