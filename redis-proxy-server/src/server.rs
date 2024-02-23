@@ -206,20 +206,17 @@ impl Session {
     // 3. read from backend upstream server
     // 4. write to client
     pub async fn handle(mut self) -> anyhow::Result<()> {
-        let filter_context = FilterContext::new();
-        let mut filter_context = Arc::new(Mutex::new(filter_context));
+        let mut filter_context = Arc::new(Mutex::new(FilterContext::new()));
         self.filter_chains.on_new_connection(&mut filter_context)?;
-
 
         // c->p connection
         let (c2p_r, mut c2p_w) = self.c2p_conn.into_split();
-        let (c2p_shutdown_tx, c2p_shutdown_rx) = tokio::sync::oneshot::channel();
-
+        let (c2p_shutdown_tx, c2p_shutdown_rx) = oneshot::channel();
 
         // p->b connection
         // connect to backend upstream server
-        let (p2b_r, mut p2b_w) = TcpStream::connect(&self.config.upstream.address).await?.into_split();
-        let (p2b_shutdown_tx, p2b_shutdown_rx) = tokio::sync::oneshot::channel();
+        let (b2p_r, mut p2b_w) = TcpStream::connect(&self.config.upstream.address).await?.into_split();
+        let (p2b_shutdown_tx, p2b_shutdown_rx) = oneshot::channel();
 
         // c->p->b
         let t1 = tokio::spawn({
@@ -248,7 +245,7 @@ impl Session {
             let session = SessionHalfB2C::new(
                 filter_chain,
                 filter_context,
-                p2b_r,
+                b2p_r,
                 c2p_w,
                 p2b_shutdown_tx,
             );
