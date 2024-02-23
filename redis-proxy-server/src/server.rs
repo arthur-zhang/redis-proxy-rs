@@ -103,7 +103,7 @@ impl ProxyServer {
 }
 
 // c->p->b session half
-pub struct SessionHalfC2B {
+pub struct UpstreamSessionHalf {
     filter_chain: TFilterChain,
     filter_context: TFilterContext,
     req_pkt_reader: FramedRead<OwnedReadHalf, ReqPktDecoder>,
@@ -112,10 +112,10 @@ pub struct SessionHalfC2B {
 }
 
 
-impl SessionHalfC2B {
+impl UpstreamSessionHalf {
     pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, c2p_r: OwnedReadHalf, p2b_w: OwnedWriteHalf, c2p_shutdown_tx: oneshot::Sender<()>) -> Self {
         let mut req_pkt_reader = FramedRead::new(c2p_r, ReqPktDecoder::new());
-        SessionHalfC2B {
+        UpstreamSessionHalf {
             filter_chain,
             filter_context,
             req_pkt_reader,
@@ -146,7 +146,7 @@ impl SessionHalfC2B {
 }
 
 // b->p->c session half
-pub struct SessionHalfB2C {
+pub struct DownstreamSessionHalf {
     filter_chain: TFilterChain,
     filter_context: TFilterContext,
     res_pkt_reader: FramedRead<OwnedReadHalf, RespPktDecoder>,
@@ -154,11 +154,11 @@ pub struct SessionHalfB2C {
     p2b_shutdown_tx: oneshot::Sender<()>,
 }
 
-impl SessionHalfB2C {
+impl DownstreamSessionHalf {
     pub fn new(filter_chain: TFilterChain, filter_context: TFilterContext, p2b_r: OwnedReadHalf, p2c_w: OwnedWriteHalf, p2b_shutdown_tx: oneshot::Sender<()>) -> Self {
         let mut res_pkt_reader = FramedRead::new(p2b_r, RespPktDecoder::new());
 
-        SessionHalfB2C {
+        DownstreamSessionHalf {
             filter_chain,
             filter_context,
             res_pkt_reader,
@@ -222,7 +222,7 @@ impl Session {
         let t1 = tokio::spawn({
             let filter_chain = self.filter_chains.clone();
             let filter_context = filter_context.clone();
-            let session_half = SessionHalfC2B::new(filter_chain, filter_context, c2p_r, p2b_w, c2p_shutdown_tx);
+            let session_half = UpstreamSessionHalf::new(filter_chain, filter_context, c2p_r, p2b_w, c2p_shutdown_tx);
             async move {
                 info!("....................");
                 tokio::select! {
@@ -242,7 +242,7 @@ impl Session {
         let t2 = tokio::spawn({
             let filter_context = filter_context.clone();
             let filter_chain = self.filter_chains.clone();
-            let session = SessionHalfB2C::new(
+            let session = DownstreamSessionHalf::new(
                 filter_chain,
                 filter_context,
                 b2p_r,
