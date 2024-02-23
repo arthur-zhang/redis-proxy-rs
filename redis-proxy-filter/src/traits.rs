@@ -115,13 +115,8 @@ impl FilterContext {
 
 // stateless + nonblocking filter, mutable data is stored in FilterContext
 pub trait Filter: Send + Sync {
-    fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
-        Ok(())
-    }
+    fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> { Ok(()) }
+    fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> { Ok(()) }
     fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> { Ok(FilterStatus::Continue) }
     fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()> { Ok(()) }
     fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> { Ok(()) }
@@ -130,6 +125,5 @@ pub trait Filter: Send + Sync {
 #[derive(Debug, Eq, PartialEq)]
 pub enum FilterStatus {
     Continue,
-    StopIteration,
     Block,
 }

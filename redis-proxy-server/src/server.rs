@@ -133,7 +133,7 @@ impl SessionHalfC2B {
                 self.filter_context.lock().unwrap().set_attr_cmd_type(cmd_type);
             }
             status = self.filter_chain.on_req_data(&mut self.filter_context, &data)?;
-            if status == FilterStatus::StopIteration || status == FilterStatus::Block {
+            if status == FilterStatus::Block {
                 break;
             }
 
