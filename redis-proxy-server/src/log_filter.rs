@@ -1,7 +1,6 @@
 use std::time::Instant;
 
 use anyhow::bail;
-use async_trait::async_trait;
 use log::{error, info, log};
 
 use redis_codec_core::resp_decoder::ResFramedData;
@@ -18,22 +17,6 @@ impl LogFilter {
 }
 
 impl Filter for LogFilter {
-    fn on_new_connection(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn pre_handle(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn on_req_data(&self, _context: &mut TFilterContext, _data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
-        Ok(FilterStatus::Continue)
-    }
-
-    fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()> {
-        Ok(())
-    }
-
     fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         let context = context.lock().unwrap();
 

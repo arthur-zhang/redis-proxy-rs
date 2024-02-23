@@ -1,6 +1,5 @@
 use std::ops::Range;
 
-use async_trait::async_trait;
 use log::info;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
@@ -125,13 +124,5 @@ impl Filter for MirrorFilter {
             let _ = tx.try_send(raw_bytes.clone());
         }
         Ok(FilterStatus::Continue)
-    }
-
-    fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn post_handle(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
-        Ok(())
     }
 }

@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqFrameData;
 use redis_proxy_filter::traits::{ContextValue, Filter, FilterStatus, TFilterContext};
@@ -6,7 +5,6 @@ use redis_proxy_filter::traits::{ContextValue, Filter, FilterStatus, TFilterCont
 use crate::path_trie::PathTrie;
 
 pub struct BlackListFilter {
-    // blacklist: Vec<String>,
     trie: PathTrie,
 }
 
@@ -20,10 +18,6 @@ impl BlackListFilter {
 const BLOCKED: &'static str = "blacklist_blocked";
 
 impl Filter for BlackListFilter {
-    fn on_new_connection(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
-        Ok(())
-    }
-
     fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         context.lock().unwrap().remote_attr(BLOCKED);
         Ok(())
@@ -46,13 +40,5 @@ impl Filter for BlackListFilter {
             }
         }
         Ok(FilterStatus::Continue)
-    }
-
-    fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn post_handle(&self, _context: &mut TFilterContext) -> anyhow::Result<()> {
-        Ok(())
     }
 }

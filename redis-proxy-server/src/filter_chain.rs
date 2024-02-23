@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use async_trait::async_trait;
 use redis_codec_core::resp_decoder::ResFramedData;
 
 use redis_proxy_common::ReqFrameData;
