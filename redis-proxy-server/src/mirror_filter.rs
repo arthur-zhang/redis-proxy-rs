@@ -8,7 +8,7 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqFrameData;
-use redis_proxy_filter::traits::{ContextValue, Filter, FilterStatus, TFilterContext};
+use redis_proxy_filter::traits::{Value, Filter, FilterStatus, TFilterContext};
 
 use crate::path_trie::PathTrie;
 
@@ -50,7 +50,7 @@ impl MirrorFilter {
 impl Filter for MirrorFilter {
     fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         let (tx, mut rx) = tokio::sync::mpsc::channel(self.queue_size);
-        context.lock().unwrap().set_attr(DATA_TX, ContextValue::ChanSender(tx));
+        context.lock().unwrap().set_attr(DATA_TX, Value::ChanSender(tx));
 
         tokio::spawn({
             let mirror_address = self.mirror_address.clone();
@@ -110,7 +110,7 @@ impl Filter for MirrorFilter {
                     should_mirror = self.should_mirror(&eager_read_list, raw_data);
                 }
             }
-            context.lock().unwrap().set_attr(SHOULD_MIRROR, ContextValue::Bool(should_mirror));
+            context.lock().unwrap().set_attr(SHOULD_MIRROR, Value::Bool(should_mirror));
         }
 
         if should_mirror {

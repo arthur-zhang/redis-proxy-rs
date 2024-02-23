@@ -4,7 +4,7 @@ use std::time::Instant;
 use redis_codec_core::resp_decoder::ResFramedData;
 
 use redis_proxy_common::ReqFrameData;
-use redis_proxy_filter::traits::{CMD_TYPE_KEY, ContextValue, Filter, FilterStatus, REQ_SIZE, RES_IS_ERROR, RES_SIZE, START_INSTANT, TFilterContext};
+use redis_proxy_filter::traits::{CMD_TYPE_KEY, Value, Filter, FilterStatus, REQ_SIZE, RES_IS_ERROR, RES_SIZE, START_INSTANT, TFilterContext};
 
 pub type TFilterChain = Arc<FilterChain>;
 
@@ -30,11 +30,11 @@ impl Filter for FilterChain {
 
     fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
         if let Ok(mut context) = context.lock() {
-            context.set_attr(START_INSTANT, ContextValue::Instant(Instant::now()));
+            context.set_attr(START_INSTANT, Value::Instant(Instant::now()));
             context.remote_attr(CMD_TYPE_KEY);
             context.remote_attr(RES_IS_ERROR);
-            context.set_attr(REQ_SIZE, ContextValue::U64(0));
-            context.set_attr(RES_SIZE, ContextValue::U64(0));
+            context.set_attr(REQ_SIZE, Value::U64(0));
+            context.set_attr(RES_SIZE, Value::U64(0));
         }
 
         for filter in self.filters.iter() {

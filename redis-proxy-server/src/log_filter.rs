@@ -6,7 +6,7 @@ use log::{error, info, log};
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
-use redis_proxy_filter::traits::{ContextValue, Filter, FilterContext, FilterStatus, REQ_SIZE, RES_SIZE, START_INSTANT, TFilterContext};
+use redis_proxy_filter::traits::{Value, Filter, FilterContext, FilterStatus, REQ_SIZE, RES_SIZE, START_INSTANT, TFilterContext};
 
 pub struct LogFilter {}
 
@@ -26,7 +26,7 @@ impl Filter for LogFilter {
         let res_size = context.get_attr_as_u64(RES_SIZE).ok_or(anyhow::anyhow!("res_size not found"))?;
 
         let res_is_error = context.get_attr_res_is_error();
-        if let ContextValue::Instant(start) = start {
+        if let Value::Instant(start) = start {
             let elapsed = start.elapsed();
             error!("[{:?}] elapsed:{:?}, req_size:{}, res_size:{}, res_is_error:{}",
                 cmd_type, elapsed, req_size, res_size, res_is_error);

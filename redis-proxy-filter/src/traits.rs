@@ -7,14 +7,60 @@ use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
-pub enum ContextValue {
+pub enum Value {
     String(String),
     U64(u64),
     Bool(bool),
     Instant(std::time::Instant),
     ChanSender(Sender<bytes::Bytes>),
-    CmdType(redis_proxy_common::cmd::CmdType),
+    CmdType(CmdType),
 }
+
+impl Value {
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            Value::Bool(b) => Some(*b),
+            _ => None
+        }
+    }
+    pub fn as_u64(&self) -> Option<u64> {
+        match self {
+            Value::U64(u) => Some(*u),
+            _ => None
+        }
+    }
+    pub fn as_u64_mut(&mut self) -> Option<&mut u64> {
+        match self {
+            Value::U64(u) => Some(u),
+            _ => None
+        }
+    }
+    pub fn as_instant(&self) -> Option<&std::time::Instant> {
+        match self {
+            Value::Instant(i) => Some(i),
+            _ => None
+        }
+    }
+    pub fn as_sender(&self) -> Option<&Sender<bytes::Bytes>> {
+        match self {
+            Value::ChanSender(tx) => Some(tx),
+            _ => None
+        }
+    }
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            Value::String(s) => Some(s),
+            _ => None
+        }
+    }
+    pub fn as_cmd_type(&self) -> Option<&CmdType> {
+        match self {
+            Value::CmdType(c) => Some(c),
+            _ => None
+        }
+    }
+}
+
 
 pub const CMD_TYPE_KEY: &'static str = "cmd_type";
 pub const RES_IS_ERROR: &'static str = "res_is_error";
@@ -28,88 +74,63 @@ pub type TFilterContext = Arc<Mutex<FilterContext>>;
 
 // per session filter context
 pub struct FilterContext {
-    attrs: HashMap<String, ContextValue>,
+    attrs: HashMap<String, Value>,
 }
 
 impl FilterContext {
     pub fn new() -> Self {
         FilterContext { attrs: HashMap::new() }
     }
-    pub fn set_attr(&mut self, key: &str, value: ContextValue) {
+    pub fn set_attr(&mut self, key: &str, value: Value) {
         self.attrs.insert(key.to_string(), value);
     }
     pub fn remote_attr(&mut self, key: &str) {
         self.attrs.remove(key);
     }
-    pub fn get_attr(&self, key: &str) -> Option<&ContextValue> {
+    pub fn get_attr(&self, key: &str) -> Option<&Value> {
         self.attrs.get(key)
     }
-    pub fn get_attr_mut(&mut self, key: &str) -> Option<&mut ContextValue> {
+    pub fn get_attr_mut(&mut self, key: &str) -> Option<&mut Value> {
         self.attrs.get_mut(key)
     }
     pub fn get_attr_as_u64(&self, key: &str) -> Option<u64> {
         self.attrs.get(key).and_then(|it| {
-            if let ContextValue::U64(u) = it {
-                Some(*u)
-            } else {
-                None
-            }
+            it.as_u64()
         })
     }
     pub fn get_attr_mut_as_u64(&mut self, key: &str) -> Option<&mut u64> {
         self.attrs.get_mut(key).and_then(|it| {
-            if let ContextValue::U64(u) = it {
-                Some(u)
-            } else {
-                None
-            }
+            it.as_u64_mut()
         })
     }
 
     pub fn get_attr_as_bool(&self, key: &str) -> Option<bool> {
         self.attrs.get(key).and_then(|it| {
-            if let ContextValue::Bool(b) = it {
-                Some(*b)
-            } else {
-                None
-            }
+            it.as_bool()
         })
     }
 
     pub fn get_attr_as_sender(&self, key: &str) -> Option<&Sender<bytes::Bytes>> {
         self.attrs.get(key).and_then(|it| {
-            if let ContextValue::ChanSender(tx) = it {
-                Some(tx)
-            } else {
-                None
-            }
+            it.as_sender()
         })
     }
     pub fn set_attr_cmd_type(&mut self, cmd_type: CmdType) {
-        self.set_attr(CMD_TYPE_KEY, ContextValue::CmdType(cmd_type));
+        self.set_attr(CMD_TYPE_KEY, Value::CmdType(cmd_type));
     }
     pub fn get_attr_as_cmd_type(&self) -> CmdType {
-        return match self.attrs.get(CMD_TYPE_KEY) {
-            Some(ContextValue::CmdType(cmd_type)) => {
-                cmd_type.clone()
-            }
-            _ => {
-                CmdType::UNKNOWN
-            }
-        };
+        self.attrs.get(CMD_TYPE_KEY)
+            .and_then(|it| it.as_cmd_type())
+            .map(|it| *it)
+            .unwrap_or(CmdType::UNKNOWN)
     }
     pub fn set_attr_res_is_error(&mut self, is_error: bool) {
-        self.set_attr(RES_IS_ERROR, ContextValue::Bool(is_error));
+        self.set_attr(RES_IS_ERROR, Value::Bool(is_error));
     }
     pub fn get_attr_res_is_error(&self) -> bool {
-        return match self.attrs.get(RES_IS_ERROR) {
-            Some(ContextValue::Bool(is_error)) => {
-                *is_error
-            }
-            _ => {
-                false
-            }
-        };
+        self.attrs.get(RES_IS_ERROR)
+            .and_then(|it| it.as_bool())
+            .unwrap_or(false)
     }
 }
 

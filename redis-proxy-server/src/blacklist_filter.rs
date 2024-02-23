@@ -1,6 +1,6 @@
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqFrameData;
-use redis_proxy_filter::traits::{ContextValue, Filter, FilterStatus, TFilterContext};
+use redis_proxy_filter::traits::{Value, Filter, FilterStatus, TFilterContext};
 
 use crate::path_trie::PathTrie;
 
@@ -34,7 +34,7 @@ impl Filter for BlackListFilter {
             let key = eager_read_list.as_ref().and_then(|it| it.first().map(|it| &raw_bytes[it.start..it.end]));
             if let Some(key) = key {
                 if self.trie.exists_path(key) {
-                    context.lock().unwrap().set_attr(BLOCKED, ContextValue::Bool(true));
+                    context.lock().unwrap().set_attr(BLOCKED, Value::Bool(true));
                     return Ok(FilterStatus::Block);
                 }
             }
