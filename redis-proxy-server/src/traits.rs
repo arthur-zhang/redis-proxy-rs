@@ -81,6 +81,7 @@ pub type TFilterContext = Arc<Mutex<FilterContext>>;
 // per session filter context
 pub struct FilterContext {
     pub db: u64,
+    pub password: Option<String>,
     pub attrs: HashMap<String, Value>,
     pub framed: Framed<TcpStream, ReqPktDecoder>,
     pub pool: Pool<ClientConnManager>,

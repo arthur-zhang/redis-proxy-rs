@@ -1,4 +1,5 @@
 use std::fmt::format;
+use std::net::SocketAddr;
 use std::os::macos::raw::stat;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -49,7 +50,8 @@ impl ProxyServer {
             e
         })?;
 
-        let manager = ClientConnManager::new("127.0.0.1:6379".parse().unwrap());
+        let upstream_addr = self.config.upstream.address.parse::<SocketAddr>().unwrap();
+        let manager = ClientConnManager::new(upstream_addr);
 
         let pool = bb8::Pool::builder()
             .max_size(15)
@@ -148,7 +150,7 @@ impl Session {
     pub async fn handle(mut self) -> anyhow::Result<()> {
         let c2p_conn = self.c2p_conn.take().unwrap();
         let mut framed = Framed::with_capacity(c2p_conn, ReqPktDecoder::new(), 16384);
-        let mut ctx = FilterContext { db: 0, attrs: Default::default(), framed, pool: self.pool.clone() };
+        let mut ctx = FilterContext { db: 0, password: None, attrs: Default::default(), framed, pool: self.pool.clone() };
 
         self.filter_chains.on_session_create(&mut ctx)?;
         loop {
@@ -175,7 +177,9 @@ impl Session {
                         self.filter_chains.pre_handle(ctx)?;
 
                         if data.cmd_type == CmdType::SELECT {
-                            RedisService::on_select_db(ctx, &data).await?;
+                            RedisService::on_select_db(ctx, &data)?;
+                        } else if data.cmd_type == CmdType::AUTH {
+                            RedisService::on_auth(ctx, &data)?;
                         }
 
                         let cmd_type = data.cmd_type.clone();
@@ -192,9 +196,11 @@ impl Session {
                     }
                     if client_conn.is_none() {
                         let mut conn = pool.get().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
+
+                        conn.session_attr.password = ctx.password.clone();
                         if conn.session_attr.db != ctx.db {
                             info!("rebuild session from {} to {}", conn.session_attr.db, ctx.db);
-                            RedisService::rebuild_session(&mut conn, SessionAttr { db: ctx.db }).await?;
+                            RedisService::rebuild_session(&mut conn, ctx.db).await?;
                         }
                         error!("client connection is none, reconnect to backend server, id: {}", conn.id);
                         client_conn = Some(conn);
@@ -260,21 +266,31 @@ fn truncate_str(s: &str, max_chars: usize) -> &str {
 pub struct RedisService {}
 
 impl RedisService {
-    pub async fn rebuild_session(conn: &mut Conn, session_attr: SessionAttr) -> anyhow::Result<()> {
-        let db_index = format!("{}", session_attr.db);
+    pub async fn rebuild_session(conn: &mut Conn, db: u64) -> anyhow::Result<()> {
+        let db_index = format!("{}", db);
         let cmd = format!("*2\r\n$6\r\nselect\r\n${}\r\n{}\r\n", db_index.len(), db_index);
         let ok = TinyClient::query(conn, cmd.as_bytes()).await?;
-        conn.session_attr.db = session_attr.db;
+        conn.session_attr.db = db;
         if !ok {
             return Err(anyhow!("rebuild session failed"));
         }
         Ok(())
     }
-    pub async fn on_select_db(ctx: &mut FilterContext, data: &ReqFrameData) -> anyhow::Result<()> {
+    pub fn on_select_db(ctx: &mut FilterContext, data: &ReqFrameData) -> anyhow::Result<()> {
         if let Some(db) = data.eager_read_list.as_ref().and_then(|it| it.first()) {
             let db = &data.raw_bytes[db.start..db.end];
             let db = std::str::from_utf8(db).unwrap_or("").parse::<u64>().unwrap_or(0);
             ctx.db = db;
+        }
+        Ok(())
+    }
+
+    pub fn on_auth(ctx: &mut FilterContext, data: &ReqFrameData) -> anyhow::Result<()> {
+        error!("on_auth: {:?}", std::str::from_utf8(&data.raw_bytes));
+        if let Some(db) = data.eager_read_list.as_ref().and_then(|it| it.first()) {
+            let auth_password = &data.raw_bytes[db.start..db.end];
+            let auth_password = std::str::from_utf8(auth_password).unwrap_or("").to_owned();
+            ctx.password = Some(auth_password);
         }
         Ok(())
     }

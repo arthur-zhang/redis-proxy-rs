@@ -1,24 +1,27 @@
+use anyhow::bail;
 use tokio::io::AsyncWriteExt;
 use tokio_stream::StreamExt;
 
 use crate::conn_pool::Conn;
 
-pub struct TinyClient<'a> {
-    _phantom: std::marker::PhantomData<&'a ()>,
-}
+pub struct TinyClient {}
 
 
-impl<'a> TinyClient<'a> {
+impl TinyClient {
     pub async fn query(conn: &mut Conn, data: &[u8]) -> anyhow::Result<bool> {
         conn.w.write_all(data.as_ref()).await?;
-        let mut ok = false;
-        while let Some(Ok(it)) = conn.r.next().await {
-            if it.is_done {
-                ok = !it.is_error;
-                break;
+        while let Some(it) = conn.r.next().await {
+            match it {
+                Ok(it) => {
+                    if it.is_done {
+                        return Ok(!it.is_error);
+                    }
+                }
+                Err(_) => {
+                    bail!("read error");
+                }
             }
         }
-
-        Ok(ok)
+        bail!("read eof");
     }
 }

@@ -51,30 +51,14 @@ impl Filter for FilterChain {
     async fn on_req_data(&self, context: &mut FilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
         context.get_attr_mut_as_u64(REQ_SIZE).map(|it| *it += data.raw_bytes.len() as u64);
 
-        let mut status = FilterStatus::Continue;
         for filter in self.filters.iter() {
             let s = filter.on_req_data(context, data).await?;
             if s != FilterStatus::Continue {
-                status = s;
-                break;
+                return Ok(s);
             }
         }
 
-        if status == FilterStatus::Continue {
-            // context.p2b_w.(&data.raw_bytes)?;
-            // todo
-            return Ok(status);
-        }
-
-        if data.is_done {
-            self.on_res_data(context, &ResFramedData {
-                data: Bytes::from_static(b"-ERR blocked\r\n"),
-                is_done: true,
-                is_error: true,
-            }).await?;
-        }
-
-        Ok(status)
+        Ok(FilterStatus::Continue)
     }
 
     async fn on_res_data(&self, context: &mut FilterContext, data: &ResFramedData) -> anyhow::Result<()> {
@@ -94,6 +78,9 @@ impl Filter for FilterChain {
     }
     fn on_session_close(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         info!("filter chain on_session_close");
+        for filter in self.filters.iter() {
+            filter.on_session_close(context)?;
+        }
         Ok(())
     }
 }
