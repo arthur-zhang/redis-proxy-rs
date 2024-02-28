@@ -277,7 +277,7 @@ impl RedisService {
         Ok(())
     }
     pub fn on_select_db(ctx: &mut FilterContext, data: &ReqFrameData) -> anyhow::Result<()> {
-        if let Some(db) = data.eager_read_list.as_ref().and_then(|it| it.first()) {
+        if let Some(db) = data.bulk_read_args.as_ref().and_then(|it| it.first()) {
             let db = &data.raw_bytes[db.start..db.end];
             let db = std::str::from_utf8(db).unwrap_or("").parse::<u64>().unwrap_or(0);
             ctx.db = db;
@@ -287,7 +287,7 @@ impl RedisService {
 
     pub fn on_auth(ctx: &mut FilterContext, data: &ReqFrameData) -> anyhow::Result<()> {
         error!("on_auth: {:?}", std::str::from_utf8(&data.raw_bytes));
-        if let Some(db) = data.eager_read_list.as_ref().and_then(|it| it.first()) {
+        if let Some(db) = data.bulk_read_args.as_ref().and_then(|it| it.first()) {
             let auth_password = &data.raw_bytes[db.start..db.end];
             let auth_password = std::str::from_utf8(auth_password).unwrap_or("").to_owned();
             ctx.password = Some(auth_password);

@@ -10,7 +10,7 @@ pub type TDecodedFrame = Arc<ReqFrameData>;
 pub struct ReqFrameData {
     pub is_first_frame: bool,
     pub cmd_type: CmdType,
-    pub eager_read_list: Option<Vec<Range<usize>>>,
+    pub bulk_read_args: Option<Vec<Range<usize>>>,
     pub raw_bytes: bytes::Bytes,
     pub is_eager: bool,
     pub is_done: bool,

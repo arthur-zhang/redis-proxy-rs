@@ -18,9 +18,9 @@ pub struct ReqPktDecoder {
     cmd_type: CmdType,
     bulk_size: u64,
     pending_integer: u64,
-    eager_read_size: u64,
+    bulk_read_size: u64,
     bulk_read_index: u64,
-    eager_read_list: Option<Vec<Range<usize>>>,
+    bulk_read_args: Option<Vec<Range<usize>>>,
 }
 
 
@@ -105,7 +105,7 @@ impl Decoder for ReqPktDecoder {
                 }
                 State::CmdLF => {
                     if p[0] != LF { return Err(DecodeError::InvalidProtocol); }
-                    self.eager_read_size = self.eager_read_count();
+                    self.bulk_read_size = self.bulk_read_count();
                     self.bulk_read_index = 1;
                     self.pending_integer = 0;
                     p.advance(1);
@@ -142,15 +142,14 @@ impl Decoder for ReqPktDecoder {
                     self.state = State::BulkStringBody;
                 }
                 State::BulkStringBody => {
-                    let is_eager = self.bulk_read_index < self.eager_read_size;
-
-                    if is_eager {
+                    // read more
+                    if self.bulk_read_index < self.bulk_read_size {
                         if p.len() < self.pending_integer as usize {
                             return Ok(None);
                         }
                         let start_index = offset_from(p.as_ptr(), src.as_ptr());
                         let end_index = start_index + self.pending_integer as usize;
-                        if let Some(ref mut it) = self.eager_read_list {
+                        if let Some(ref mut it) = self.bulk_read_args {
                             it.push(start_index..end_index);
                         }
                     }
@@ -172,7 +171,7 @@ impl Decoder for ReqPktDecoder {
                     p.advance(1);
                     self.bulk_read_index += 1;
 
-                    if self.bulk_read_index == self.eager_read_size || self.bulk_read_index == self.bulk_size {
+                    if self.bulk_read_index == self.bulk_read_size || self.bulk_read_index == self.bulk_size {
                         self.state = State::ValueComplete;
                     } else {
                         self.state = State::IntegerStart;
@@ -191,12 +190,12 @@ impl Decoder for ReqPktDecoder {
 
         let consumed = offset_from(p.as_ptr(), src.as_ptr());
         let bytes = src.split_to(consumed).freeze();
-        let is_eager = self.bulk_read_index <= self.eager_read_size;
+        let is_eager = self.bulk_read_index <= self.bulk_read_size;
 
         let is_done = self.bulk_read_index == self.bulk_size;
 
-        let list = self.eager_read_list.take();
-        self.eager_read_list = Some(Vec::new());
+        let list = self.bulk_read_args.take();
+        self.bulk_read_args = Some(Vec::new());
 
         Ok(Some(ReqFrameData {
             is_first_frame: frame_start,
@@ -204,7 +203,7 @@ impl Decoder for ReqPktDecoder {
             is_eager,
             is_done,
             cmd_type: self.cmd_type.clone(),
-            eager_read_list: list,
+            bulk_read_args: list,
         }))
     }
 }
@@ -217,9 +216,9 @@ impl ReqPktDecoder {
             cmd_type: CmdType::UNKNOWN,
             bulk_size: 0,
             pending_integer: 0,
-            eager_read_size: 0,
+            bulk_read_size: 0,
             bulk_read_index: 0,
-            eager_read_list: Some(Vec::new()),
+            bulk_read_args: Some(Vec::new()),
         }
     }
     pub fn reset(&mut self) {
@@ -227,30 +226,17 @@ impl ReqPktDecoder {
         self.cmd_type = CmdType::UNKNOWN;
         self.bulk_size = 0;
         self.pending_integer = 0;
-        self.eager_read_size = 0;
+        self.bulk_read_size = 0;
         self.bulk_read_index = 0;
-        self.eager_read_list.as_mut().map(Vec::clear);
+        self.bulk_read_args.as_mut().map(Vec::clear);
     }
 
-    fn eager_read_count(&self) -> u64 {
+    fn bulk_read_count(&self) -> u64 {
         let key_info = self.cmd_type.redis_key_info();
-        match key_info {
-            KeyInfo::NoKey => {
-                return self.bulk_size;
-            }
-            KeyInfo::OneKey => {
-                return 2;
-            }
-            KeyInfo::MultiKey => {
-                return self.bulk_size;
-            }
-            KeyInfo::Whatever => {
-                return 0;
-            }
-            KeyInfo::Special => {
-                return 0;
-            }
+        if matches!(key_info, KeyInfo::OneKey) {
+            return 2;
         }
+        return self.bulk_size;
     }
 
     // pub fn is_eager(&self) -> bool {
@@ -260,7 +246,7 @@ impl ReqPktDecoder {
         &self.cmd_type
     }
     pub fn eager_read_list(&self) -> &Option<Vec<Range<usize>>> {
-        &self.eager_read_list
+        &self.bulk_read_args
     }
 }
 

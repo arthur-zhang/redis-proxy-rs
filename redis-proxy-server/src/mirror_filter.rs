@@ -93,7 +93,7 @@ impl Filter for MirrorFilter {
         let ReqFrameData {
             is_first_frame,
             cmd_type,
-            eager_read_list,
+            bulk_read_args: eager_read_list,
             raw_bytes,
             is_eager,
             is_done
