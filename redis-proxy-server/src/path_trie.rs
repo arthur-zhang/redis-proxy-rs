@@ -135,7 +135,7 @@ mod tests {
                         "/manage/faq/*",
                         "/v2/subCourses/share/*/comments",
                         "/api/v1/lms/**",
-                        "seewo:easicare:userinfo:*",
+                        "xeewo:easikare:userinfo:*",
         ]
             .into_iter().map(|it| it.to_string()).collect::<Vec<_>>();
         let trie = PathTrie::new(&list, "[/:]").unwrap();
@@ -147,6 +147,6 @@ mod tests {
         assert!(!trie.exists_path(b"/api/v1"));
         assert!(trie.exists_path(b"/v2/subCourses/share/111/comments"));
         assert!(!trie.exists_path(b"/v2/subCourses/share/111/111/comments"));
-        assert!(trie.exists_path(b"seewo:easicare:userinfo:123"));
+        assert!(trie.exists_path(b"xeewo:easikare:userinfo:123"));
     }
 }
