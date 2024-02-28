@@ -40,17 +40,9 @@ impl Decoder for RespPktDecoder {
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         if src.is_empty() { return Ok(None); }
-        // debug!(">>>>>>>>>>>>>>decode, len: {}", src.len());
         let mut p = src.as_ref();
         let mut is_done = false;
         while p.has_remaining() || self.state == State::ValueComplete {
-            if (p.has_remaining()) {
-                let len = std::cmp::min(12, p.len());
-                // debug!(">>>> {:?}", std::str::from_utf8(&p[0..len]));
-                if &p[0..len] == b"\r\n$6\r\nlolwut" {
-                    // debug!(">>>> {:?}", std::str::from_utf8(&p[0..len]));
-                }
-            }
             match self.state {
                 State::ValueRootStart => {
                     self.stack.push(RespType::Null);
