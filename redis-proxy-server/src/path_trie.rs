@@ -138,7 +138,7 @@ mod tests {
                         "seewo:easicare:userinfo:*",
         ]
             .into_iter().map(|it| it.to_string()).collect::<Vec<_>>();
-        let trie = PathTrie::new(list, "[/:]").unwrap();
+        let trie = PathTrie::new(&list, "[/:]").unwrap();
 
         trie.dump();
 

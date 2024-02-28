@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use redis_proxy_common::ReqFrameData;
-use redis_proxy_filter::traits::{Filter, FilterStatus, TFilterContext, Value};
+use crate::traits::{Filter, FilterStatus, TFilterContext, Value};
 
 use crate::path_trie::PathTrie;
 

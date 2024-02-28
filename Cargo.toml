@@ -2,6 +2,6 @@
 members = [
     "redis-codec-core",
     "redis-proxy-common",
-    "redis-proxy-filter",
+#    "redis-proxy-filter",
     "redis-proxy-server"
 ]

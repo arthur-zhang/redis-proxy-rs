@@ -2,9 +2,9 @@ use std::cmp::min;
 use std::fmt::{Debug, Display};
 use std::ops::Range;
 
-use bytes::{Buf, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
 use log::debug;
-use tokio_util::codec::Decoder;
+use tokio_util::codec::{Decoder, Encoder};
 
 use redis_proxy_common::cmd::{CmdType, KeyInfo};
 use redis_proxy_common::ReqFrameData;
@@ -13,6 +13,7 @@ use redis_proxy_common::tools::{CR, is_digit, LF, offset_from};
 use crate::error::DecodeError;
 
 pub struct ReqPktDecoder {
+    db: u8,
     state: State,
     cmd_type: CmdType,
     bulk_size: u64,
@@ -20,8 +21,18 @@ pub struct ReqPktDecoder {
     eager_read_size: u64,
     bulk_read_index: u64,
     eager_read_list: Option<Vec<Range<usize>>>,
-
 }
+
+
+impl Encoder<Bytes> for ReqPktDecoder {
+    type Error = anyhow::Error;
+
+    fn encode(&mut self, item: Bytes, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        dst.extend_from_slice(&item);
+        Ok(())
+    }
+}
+
 
 impl Decoder for ReqPktDecoder {
     type Item = ReqFrameData;
@@ -201,6 +212,7 @@ impl Decoder for ReqPktDecoder {
 impl ReqPktDecoder {
     pub fn new() -> Self {
         Self {
+            db: 0,
             state: State::ValueRootStart,
             cmd_type: CmdType::UNKNOWN,
             bulk_size: 0,
@@ -224,7 +236,7 @@ impl ReqPktDecoder {
         let key_info = self.cmd_type.redis_key_info();
         match key_info {
             KeyInfo::NoKey => {
-                return 0;
+                return self.bulk_size;
             }
             KeyInfo::OneKey => {
                 return 2;

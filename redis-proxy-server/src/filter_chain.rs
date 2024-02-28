@@ -6,7 +6,7 @@ use bytes::Bytes;
 
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqFrameData;
-use redis_proxy_filter::traits::{CMD_TYPE_KEY, Filter, FilterStatus, REQ_SIZE, RES_IS_ERROR, RES_SIZE, START_INSTANT, TFilterContext, Value};
+use crate::traits::{CMD_TYPE_KEY, Filter, FilterStatus, REQ_SIZE, RES_IS_ERROR, RES_SIZE, START_INSTANT, TFilterContext, Value};
 
 pub type TFilterChain = Arc<FilterChain>;
 
@@ -60,7 +60,8 @@ impl Filter for FilterChain {
         }
 
         if status == FilterStatus::Continue {
-            context.lock().unwrap().p2b_w.try_write(&data.raw_bytes)?;
+            // context.lock().unwrap().p2b_w.(&data.raw_bytes)?;
+            // todo
             return Ok(status);
         }
 
@@ -81,7 +82,7 @@ impl Filter for FilterChain {
         for filter in self.filters.iter() {
             filter.on_res_data(context, data).await?;
         }
-        context.lock().unwrap().p2c_w.try_write(&data.data)?;
+        // context.lock().unwrap().p2c_w.try_write(&data.data)?;
         Ok(())
     }
 

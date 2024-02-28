@@ -2,14 +2,17 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
+use bb8::Pool;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
-use tokio_util::codec::{BytesCodec, Framed};
+use tokio_util::codec::Framed;
 
 use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
+
+use crate::conn_pool::ClientConnManager;
 
 pub enum Value {
     String(String),
@@ -77,11 +80,10 @@ pub type TFilterContext = Arc<Mutex<FilterContext>>;
 
 // per session filter context
 pub struct FilterContext {
+    pub db: u64,
     pub attrs: HashMap<String, Value>,
-    // pub p2b_w: Option<OwnedWriteHalf>,
-    // pub p2c_w: Option<OwnedWriteHalf>,
     pub framed: Framed<TcpStream, ReqPktDecoder>,
-    pool: Pool
+    pub pool: Pool<ClientConnManager>,
 }
 
 impl FilterContext {

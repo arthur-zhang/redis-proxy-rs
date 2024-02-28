@@ -9,7 +9,7 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqFrameData;
-use redis_proxy_filter::traits::{Value, Filter, FilterStatus, TFilterContext};
+use crate::traits::{Value, Filter, FilterStatus, TFilterContext};
 
 use crate::path_trie::PathTrie;
 

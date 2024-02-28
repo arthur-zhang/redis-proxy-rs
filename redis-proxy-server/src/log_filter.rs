@@ -6,7 +6,7 @@ use log::{error, info, log};
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
-use redis_proxy_filter::traits::{Value, Filter, FilterContext, FilterStatus, REQ_SIZE, RES_SIZE, START_INSTANT, TFilterContext};
+use crate::traits::{Value, Filter, FilterContext, FilterStatus, REQ_SIZE, RES_SIZE, START_INSTANT, TFilterContext};
 
 pub struct LogFilter {}
 

@@ -15,11 +15,14 @@ mod blacklist_filter;
 mod time_filter;
 mod config;
 mod filter_chain;
+mod traits;
+mod conn_pool;
+mod tiny_client;
 
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    std::env::set_var("RUST_LOG", "debug");
+    std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
     let conf_path = args().nth(1).ok_or(anyhow::anyhow!("config file path is required"))?;
