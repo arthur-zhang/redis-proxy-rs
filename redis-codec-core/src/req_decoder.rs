@@ -197,14 +197,7 @@ impl Decoder for ReqPktDecoder {
         let list = self.bulk_read_args.take();
         self.bulk_read_args = Some(Vec::new());
 
-        Ok(Some(ReqFrameData {
-            is_first_frame: frame_start,
-            raw_bytes: bytes,
-            // is_eager,
-            is_done,
-            cmd_type: self.cmd_type.clone(),
-            bulk_read_args: list,
-        }))
+        Ok(Some(ReqFrameData::new(frame_start, self.cmd_type.clone(), list, bytes, is_done)))
     }
 }
 

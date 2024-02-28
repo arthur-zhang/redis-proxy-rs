@@ -32,18 +32,16 @@ impl MirrorFilter {
         })
     }
 
-    fn should_mirror(&self, eager_read_list: &Option<Vec<Range<usize>>>, raw_data: &[u8]) -> bool {
-        let key = eager_read_list.as_ref().map(|it| {
-            it.first().map(|it| &raw_data[it.start..it.end])
-        }).flatten();
-        return match key {
-            None => {
-                false
+    fn should_mirror(&self, req_frame_data: &ReqFrameData) -> bool {
+        let args = req_frame_data.args();
+        if let Some(key) = args {
+            for key in key {
+                if self.path_trie.exists_path(key) {
+                    return true;
+                }
             }
-            Some(key) => {
-                self.path_trie.exists_path(key)
-            }
-        };
+        }
+        return false;
     }
 }
 
@@ -89,24 +87,15 @@ impl Filter for MirrorFilter {
         let mut should_mirror = {
             context.get_attr_as_bool(SHOULD_MIRROR).unwrap_or(false)
         };
-        let raw_data = data.raw_bytes.as_ref();
-        let ReqFrameData {
-            is_first_frame,
-            cmd_type,
-            bulk_read_args: bulk_read_list,
-            raw_bytes,
-            // is_eager,
-            is_done
-        } = &data;
 
-        if *is_first_frame {
+        if data.is_first_frame {
             // always mirror connection commands, like AUTH, PING, etc
-            if cmd_type.is_connection_command() {
+            if data.cmd_type.is_connection_command() {
                 should_mirror = true;
             } else if data.cmd_type.is_read_cmd() {
                 should_mirror = false;
             } else {
-                should_mirror = self.should_mirror(&bulk_read_list, raw_data);
+                should_mirror = self.should_mirror(&data);
             }
             context.set_attr(SHOULD_MIRROR, Value::Bool(should_mirror));
         }
@@ -118,7 +107,7 @@ impl Filter for MirrorFilter {
                 tx.clone()
             };
 
-            let _ = tx.try_send(raw_bytes.clone());
+            let _ = tx.try_send(data.raw_bytes.clone());
         }
         Ok(FilterStatus::Continue)
     }

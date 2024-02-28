@@ -12,14 +12,30 @@ pub type TDecodedFrame = Arc<ReqFrameData>;
 pub struct ReqFrameData {
     pub is_first_frame: bool,
     pub cmd_type: CmdType,
-    pub bulk_read_args: Option<Vec<Range<usize>>>,
+    bulk_read_args: Option<Vec<Range<usize>>>,
     pub raw_bytes: bytes::Bytes,
-    // pub is_eager: bool,
     pub is_done: bool,
 }
 
-pub struct BulkReadArgs {
-    inner: Vec<Range<usize>>,
+impl ReqFrameData {
+    pub fn new(is_first_frame: bool, cmd_type: CmdType, bulk_read_args: Option<Vec<Range<usize>>>, raw_bytes: bytes::Bytes, is_done: bool) -> Self {
+        Self {
+            is_first_frame,
+            cmd_type,
+            bulk_read_args,
+            raw_bytes,
+            is_done,
+        }
+    }
+    pub fn args(&self) -> Option<Vec<&[u8]>> {
+        if let Some(ref ranges) = self.bulk_read_args {
+            if ranges.is_empty() {
+                return None;
+            }
+            return Some(ranges.iter().map(|it| &self.raw_bytes[it.start..it.end]).collect());
+        }
+        return None;
+    }
 }
 
 impl Debug for ReqFrameData {

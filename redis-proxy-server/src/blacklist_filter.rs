@@ -32,11 +32,13 @@ impl Filter for BlackListFilter {
         }
 
         if data.is_first_frame {
-            let key = data.bulk_read_args.as_ref().and_then(|it| it.first().map(|it| &data.raw_bytes[it.start..it.end]));
-            if let Some(key) = key {
-                if self.trie.exists_path(key) {
-                    context.set_attr(BLOCKED, Value::Bool(true));
-                    return Ok(FilterStatus::Block);
+            let args = data.args();
+            if let Some(key) = args {
+                for key in key {
+                    if self.trie.exists_path(key) {
+                        context.set_attr(BLOCKED, Value::Bool(true));
+                        return Ok(FilterStatus::Block);
+                    }
                 }
             }
         }
