@@ -190,7 +190,7 @@ impl Decoder for ReqPktDecoder {
 
         let consumed = offset_from(p.as_ptr(), src.as_ptr());
         let bytes = src.split_to(consumed).freeze();
-        let is_eager = self.bulk_read_index <= self.bulk_read_size;
+        // let is_eager = self.bulk_read_index <= self.bulk_read_size;
 
         let is_done = self.bulk_read_index == self.bulk_size;
 
@@ -200,7 +200,7 @@ impl Decoder for ReqPktDecoder {
         Ok(Some(ReqFrameData {
             is_first_frame: frame_start,
             raw_bytes: bytes,
-            is_eager,
+            // is_eager,
             is_done,
             cmd_type: self.cmd_type.clone(),
             bulk_read_args: list,

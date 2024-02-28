@@ -1,6 +1,6 @@
 use std::ops::Range;
-use async_trait::async_trait;
 
+use async_trait::async_trait;
 use log::info;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
@@ -9,9 +9,9 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqFrameData;
-use crate::traits::{Value, Filter, FilterStatus, TFilterContext, FilterContext};
 
 use crate::path_trie::PathTrie;
+use crate::traits::{Filter, FilterContext, FilterStatus, TFilterContext, Value};
 
 pub struct MirrorFilter {
     mirror_address: String,
@@ -93,9 +93,9 @@ impl Filter for MirrorFilter {
         let ReqFrameData {
             is_first_frame,
             cmd_type,
-            bulk_read_args: eager_read_list,
+            bulk_read_args: bulk_read_list,
             raw_bytes,
-            is_eager,
+            // is_eager,
             is_done
         } = &data;
 
@@ -106,9 +106,7 @@ impl Filter for MirrorFilter {
             } else if data.cmd_type.is_read_cmd() {
                 should_mirror = false;
             } else {
-                if *is_eager {
-                    should_mirror = self.should_mirror(&eager_read_list, raw_data);
-                }
+                should_mirror = self.should_mirror(&bulk_read_list, raw_data);
             }
             context.set_attr(SHOULD_MIRROR, Value::Bool(should_mirror));
         }
