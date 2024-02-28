@@ -143,11 +143,13 @@ impl FilterContext {
 // stateless + nonblocking filter, mutable data is stored in FilterContext
 #[async_trait]
 pub trait Filter: Send + Sync {
-    fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> { Ok(()) }
-    fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> { Ok(()) }
-    async fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> { Ok(FilterStatus::Continue) }
-    async fn on_res_data(&self, context: &mut TFilterContext, data: &ResFramedData) -> anyhow::Result<()> { Ok(()) }
-    fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> { Ok(()) }
+    fn on_session_create(&self, context: &mut FilterContext) -> anyhow::Result<()> { Ok(()) }
+    fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> { Ok(()) }
+    async fn on_req_data(&self, context: &mut FilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> { Ok(FilterStatus::Continue) }
+    async fn on_res_data(&self, context: &mut FilterContext, data: &ResFramedData) -> anyhow::Result<()> { Ok(()) }
+    fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> { Ok(()) }
+    fn on_session_close(&self, context: &mut FilterContext) -> anyhow::Result<()> { Ok(()) }
+
 }
 
 #[derive(Debug, Eq, PartialEq)]

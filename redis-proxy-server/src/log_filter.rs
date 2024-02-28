@@ -17,8 +17,7 @@ impl LogFilter {
 }
 
 impl Filter for LogFilter {
-    fn post_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
-        let context = context.lock().unwrap();
+    fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
 
         let cmd_type = context.get_attr_as_cmd_type();
         let start = context.get_attr(START_INSTANT).ok_or(anyhow::anyhow!("start_instant not found"))?;

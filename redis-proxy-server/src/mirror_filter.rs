@@ -9,7 +9,7 @@ use tokio_util::codec::{BytesCodec, FramedRead};
 
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqFrameData;
-use crate::traits::{Value, Filter, FilterStatus, TFilterContext};
+use crate::traits::{Value, Filter, FilterStatus, TFilterContext, FilterContext};
 
 use crate::path_trie::PathTrie;
 
@@ -49,9 +49,9 @@ impl MirrorFilter {
 
 #[async_trait]
 impl Filter for MirrorFilter {
-    fn on_new_connection(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
+    fn on_session_create(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         let (tx, mut rx) = tokio::sync::mpsc::channel(self.queue_size);
-        context.lock().unwrap().set_attr(DATA_TX, Value::ChanSender(tx));
+        context.set_attr(DATA_TX, Value::ChanSender(tx));
 
         tokio::spawn({
             let mirror_address = self.mirror_address.clone();
@@ -80,14 +80,13 @@ impl Filter for MirrorFilter {
         Ok(())
     }
 
-    fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
-        context.lock().unwrap().remote_attr(SHOULD_MIRROR);
+    fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+        context.remote_attr(SHOULD_MIRROR);
         Ok(())
     }
 
-    async fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
+    async fn on_req_data(&self, context: &mut FilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
         let mut should_mirror = {
-            let context = context.lock().unwrap();
             context.get_attr_as_bool(SHOULD_MIRROR).unwrap_or(false)
         };
         let raw_data = data.raw_bytes.as_ref();
@@ -111,13 +110,12 @@ impl Filter for MirrorFilter {
                     should_mirror = self.should_mirror(&eager_read_list, raw_data);
                 }
             }
-            context.lock().unwrap().set_attr(SHOULD_MIRROR, Value::Bool(should_mirror));
+            context.set_attr(SHOULD_MIRROR, Value::Bool(should_mirror));
         }
 
         if should_mirror {
             // todo, handle block
             let tx = {
-                let context = context.lock().unwrap();
                 let tx = context.get_attr_as_sender(DATA_TX).ok_or(anyhow::anyhow!("data_tx not found"))?;
                 tx.clone()
             };

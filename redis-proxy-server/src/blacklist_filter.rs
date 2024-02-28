@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use redis_proxy_common::ReqFrameData;
-use crate::traits::{Filter, FilterStatus, TFilterContext, Value};
+use crate::traits::{Filter, FilterContext, FilterStatus, TFilterContext, Value};
 
 use crate::path_trie::PathTrie;
 
@@ -20,13 +20,13 @@ pub const BLOCKED: &'static str = "blacklist_blocked";
 
 #[async_trait]
 impl Filter for BlackListFilter {
-    fn pre_handle(&self, context: &mut TFilterContext) -> anyhow::Result<()> {
-        context.lock().unwrap().remote_attr(BLOCKED);
+    fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+        context.remote_attr(BLOCKED);
         Ok(())
     }
 
-    async fn on_req_data(&self, context: &mut TFilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
-        let blocked = context.lock().unwrap().get_attr_as_bool(BLOCKED).unwrap_or(false);
+    async fn on_req_data(&self, context: &mut FilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> {
+        let blocked = context.get_attr_as_bool(BLOCKED).unwrap_or(false);
         if blocked {
             return Ok(FilterStatus::Block);
         }
@@ -36,7 +36,7 @@ impl Filter for BlackListFilter {
             let key = eager_read_list.as_ref().and_then(|it| it.first().map(|it| &raw_bytes[it.start..it.end]));
             if let Some(key) = key {
                 if self.trie.exists_path(key) {
-                    context.lock().unwrap().set_attr(BLOCKED, Value::Bool(true));
+                    context.set_attr(BLOCKED, Value::Bool(true));
                     return Ok(FilterStatus::Block);
                 }
             }
