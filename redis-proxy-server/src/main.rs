@@ -15,8 +15,8 @@ mod blacklist_filter;
 mod config;
 mod filter_chain;
 mod traits;
-mod conn_pool;
 mod tiny_client;
+mod upstream_conn_pool;
 
 
 #[tokio::main]

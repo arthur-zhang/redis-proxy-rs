@@ -14,11 +14,10 @@ anyhow = "1.0.79"
 bytes = "1.5.0"
 redis-codec-core = { path = "../redis-codec-core" }
 env_logger = "0.11.0"
-#redis-proxy-filter = { path = "../redis-proxy-filter" }
 redis-proxy-common = { path = "../redis-proxy-common" }
 regex = "1.10.3"
 serde = { version = "1.0.197" ,features = ["derive"]}
 toml = "0.8.10"
 async-trait = "0.1.77"
 futures = "0.3.30"
-bb8 = "0.8.3"
+poolx = "0.1.2"

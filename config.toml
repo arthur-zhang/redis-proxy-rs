@@ -2,7 +2,7 @@
 address = "0.0.0.0:16379"
 
 [upstream]
-address = "0.0.0.0:6379"
+address = "redis://127.0.0.1:6379"
 
 [filter_chain]
 filters = ["blacklist", "mirror", "log"]

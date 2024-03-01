@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use bb8::Pool;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
 use tokio_util::codec::Framed;
@@ -12,7 +11,7 @@ use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
-use crate::conn_pool::ClientConnManager;
+use crate::upstream_conn_pool::Pool;
 
 pub enum Value {
     String(String),
@@ -81,10 +80,12 @@ pub type TFilterContext = Arc<Mutex<FilterContext>>;
 // per session filter context
 pub struct FilterContext {
     pub db: u64,
+    pub is_authed: bool,
+    pub cmd_type: CmdType,
     pub password: Option<String>,
     pub attrs: HashMap<String, Value>,
     pub framed: Framed<TcpStream, ReqPktDecoder>,
-    pub pool: Pool<ClientConnManager>,
+    pub pool: Pool,
 }
 
 impl FilterContext {
@@ -150,7 +151,6 @@ pub trait Filter: Send + Sync {
     async fn on_res_data(&self, context: &mut FilterContext, data: &ResFramedData) -> anyhow::Result<()> { Ok(()) }
     fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> { Ok(()) }
     fn on_session_close(&self, context: &mut FilterContext) -> anyhow::Result<()> { Ok(()) }
-
 }
 
 #[derive(Debug, Eq, PartialEq)]

@@ -13,7 +13,6 @@ use redis_proxy_common::tools::{CR, is_digit, LF, offset_from};
 use crate::error::DecodeError;
 
 pub struct ReqPktDecoder {
-    db: u8,
     state: State,
     cmd_type: CmdType,
     bulk_size: u64,
@@ -204,7 +203,6 @@ impl Decoder for ReqPktDecoder {
 impl ReqPktDecoder {
     pub fn new() -> Self {
         Self {
-            db: 0,
             state: State::ValueRootStart,
             cmd_type: CmdType::UNKNOWN,
             bulk_size: 0,
