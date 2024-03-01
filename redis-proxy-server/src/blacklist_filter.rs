@@ -31,7 +31,7 @@ impl Filter for BlackListFilter {
             return Ok(FilterStatus::Block);
         }
 
-        if data.is_first_frame {
+        if data.is_head_frame {
             let args = data.args();
             if let Some(key) = args {
                 for key in key {

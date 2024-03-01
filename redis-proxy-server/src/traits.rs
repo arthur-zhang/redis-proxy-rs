@@ -19,7 +19,6 @@ pub enum Value {
     Bool(bool),
     Instant(std::time::Instant),
     ChanSender(Sender<bytes::Bytes>),
-    CmdType(CmdType),
 }
 
 impl Value {
@@ -59,16 +58,9 @@ impl Value {
             _ => None
         }
     }
-    pub fn as_cmd_type(&self) -> Option<&CmdType> {
-        match self {
-            Value::CmdType(c) => Some(c),
-            _ => None
-        }
-    }
 }
 
 
-pub const CMD_TYPE_KEY: &'static str = "cmd_type";
 pub const RES_IS_ERROR: &'static str = "res_is_error";
 pub const START_INSTANT: &'static str = "log_start_instant";
 
@@ -85,7 +77,6 @@ pub struct FilterContext {
     pub password: Option<String>,
     pub attrs: HashMap<String, Value>,
     pub framed: Framed<TcpStream, ReqPktDecoder>,
-    pub pool: Pool,
 }
 
 impl FilterContext {
@@ -122,15 +113,6 @@ impl FilterContext {
         self.attrs.get(key).and_then(|it| {
             it.as_sender()
         })
-    }
-    pub fn set_attr_cmd_type(&mut self, cmd_type: CmdType) {
-        self.set_attr(CMD_TYPE_KEY, Value::CmdType(cmd_type));
-    }
-    pub fn get_attr_as_cmd_type(&self) -> CmdType {
-        self.attrs.get(CMD_TYPE_KEY)
-            .and_then(|it| it.as_cmd_type())
-            .map(|it| *it)
-            .unwrap_or(CmdType::UNKNOWN)
     }
     pub fn set_attr_res_is_error(&mut self, is_error: bool) {
         self.set_attr(RES_IS_ERROR, Value::Bool(is_error));

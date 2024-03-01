@@ -8,7 +8,7 @@ use log::info;
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqFrameData;
 
-use crate::traits::{CMD_TYPE_KEY, Filter, FilterContext, FilterStatus, REQ_SIZE, RES_IS_ERROR, RES_SIZE, START_INSTANT, Value};
+use crate::traits::{Filter, FilterContext, FilterStatus, REQ_SIZE, RES_IS_ERROR, RES_SIZE, START_INSTANT, Value};
 
 pub type TFilterChain = Arc<FilterChain>;
 
@@ -37,7 +37,6 @@ impl Filter for FilterChain {
 
     fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
         context.set_attr(START_INSTANT, Value::Instant(Instant::now()));
-        context.remote_attr(CMD_TYPE_KEY);
         context.remote_attr(RES_IS_ERROR);
         context.set_attr(REQ_SIZE, Value::U64(0));
         context.set_attr(RES_SIZE, Value::U64(0));

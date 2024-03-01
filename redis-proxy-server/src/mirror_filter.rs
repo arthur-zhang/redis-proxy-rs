@@ -88,7 +88,7 @@ impl Filter for MirrorFilter {
             context.get_attr_as_bool(SHOULD_MIRROR).unwrap_or(false)
         };
 
-        if data.is_first_frame {
+        if data.is_head_frame {
             // always mirror connection commands, like AUTH, PING, etc
             if data.cmd_type.is_connection_command() {
                 should_mirror = true;

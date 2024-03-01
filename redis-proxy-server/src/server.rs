@@ -133,7 +133,7 @@ impl Session {
     pub async fn handle(mut self) -> anyhow::Result<()> {
         let c2p_conn = self.c2p_conn.take().unwrap();
         let mut framed = Framed::with_capacity(c2p_conn, ReqPktDecoder::new(), 16384);
-        let mut ctx = FilterContext { db: 0, is_authed: false, cmd_type: CmdType::UNKNOWN, password: None, attrs: Default::default(), framed, pool: self.pool.clone() };
+        let mut ctx = FilterContext { db: 0, is_authed: false, cmd_type: CmdType::UNKNOWN, password: None, attrs: Default::default(), framed};
 
         self.filter_chains.on_session_create(&mut ctx)?;
         loop {
@@ -150,23 +150,20 @@ impl Session {
     }
 
     async fn process_req(&mut self, ctx: &mut FilterContext) -> anyhow::Result<()> {
-        let pool = ctx.pool.clone();
+        let pool = self.pool.clone();
         let mut client_conn = None;
         loop {
             match ctx.framed.next().await {
                 Some(Ok(data)) => {
-                    if data.is_first_frame {
-                        self.filter_chains.pre_handle(ctx)?;
+                    if data.is_head_frame {
                         ctx.cmd_type = data.cmd_type;
+                        self.filter_chains.pre_handle(ctx)?;
 
                         if data.cmd_type == CmdType::SELECT {
                             RedisService::on_select_db(ctx, &data)?;
                         } else if data.cmd_type == CmdType::AUTH {
                             RedisService::on_auth(ctx, &data)?;
                         }
-
-                        let cmd_type = data.cmd_type.clone();
-                        ctx.set_attr_cmd_type(cmd_type);
                     }
 
                     let status = self.filter_chains.on_req_data(ctx, &data).await?;

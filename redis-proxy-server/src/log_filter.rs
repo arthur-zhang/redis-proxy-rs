@@ -19,7 +19,6 @@ impl LogFilter {
 impl Filter for LogFilter {
     fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> {
 
-        let cmd_type = context.get_attr_as_cmd_type();
         let start = context.get_attr(START_INSTANT).ok_or(anyhow::anyhow!("start_instant not found"))?;
         let req_size = context.get_attr_as_u64(REQ_SIZE).ok_or(anyhow::anyhow!("req_size not found"))?;
         let res_size = context.get_attr_as_u64(RES_SIZE).ok_or(anyhow::anyhow!("res_size not found"))?;
@@ -28,7 +27,7 @@ impl Filter for LogFilter {
         if let Value::Instant(start) = start {
             let elapsed = start.elapsed();
             error!("[{:?}] elapsed:{:?}, req_size:{}, res_size:{}, res_is_error:{}",
-                cmd_type, elapsed, req_size, res_size, res_is_error);
+                context.cmd_type, elapsed, req_size, res_size, res_is_error);
             return Ok(());
         }
 
