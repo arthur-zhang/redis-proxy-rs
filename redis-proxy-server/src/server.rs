@@ -28,6 +28,7 @@ use crate::config::{Blacklist, Config, Mirror, TConfig};
 use crate::filter_chain::{FilterChain, TFilterChain};
 use crate::log_filter::LogFilter;
 use crate::mirror_filter::MirrorFilter;
+use crate::proxy::{MyProxy, RedisProxy, RedisSession};
 use crate::session::Session;
 use crate::tiny_client::TinyClient;
 use crate::traits::{Filter, FilterContext, FilterStatus, TFilterContext};
@@ -60,6 +61,8 @@ impl ProxyServer {
             .max_connections(50000)
             .connect_lazy_with(conn_option);
 
+        let inner = MyProxy {};
+        let app_logic = Arc::new(RedisProxy { inner: inner, upstream_pool: pool.clone() });
         loop {
             tokio::spawn({
                 let filter_chains = self.filter_chain.clone();
@@ -67,13 +70,29 @@ impl ProxyServer {
                 let config = self.config.clone();
                 // one connection per task
                 let pool = pool.clone();
-                let session = Session { filter_chains, c2p_conn: Some(c2p_conn), config, pool };
+
+
+                let framed = Framed::new(c2p_conn, ReqPktDecoder::new());
+                let redis_session = RedisSession { underlying_stream: framed };
+                // let session = Session { filter_chains, c2p_conn: Some(c2p_conn), config, pool };
+                let app_logic = app_logic.clone();
                 async move {
-                    let _ = session.handle().await;
+                    app_logic.handle_new_request(redis_session, pool).await;
+
+                    // let res = Self::handle_req(app_logic, redis_session).await;
+                    // let _ = session.handle().await;
                     info!("session done")
                 }
             });
         };
+    }
+}
+
+pub struct ServerApp {}
+
+impl ServerApp {
+    pub async fn process_new_request(&self, redis_session: RedisSession) -> anyhow::Result<()> {
+        Ok(())
     }
 }
 
