@@ -157,7 +157,7 @@ impl Session {
         Ok(())
     }
 
-    async fn process_req(&mut self, framed: &mut Framed<TcpStream, ReqPktDecoder>, ctx: &mut FilterContext) -> anyhow::Result<()> {
+    async fn process_req(&mut self, framed: &mut Framed<TcpStream, ReqPktDecoder>, ctx:&mut FilterContext) -> anyhow::Result<()> {
         let pool = self.pool.clone();
         let req_frame = match framed.next().await {
             None => { return Ok(()); }

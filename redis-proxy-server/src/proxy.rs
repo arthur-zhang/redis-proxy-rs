@@ -6,9 +6,9 @@ pub struct RedisProxy<P> {
     inner: P,
     upstream_pool: Pool,
 }
-impl<P> RedisProxy<P>{
 
-    async fn handle_new_request(&self, mut downstream_session:RedisSession){
+impl<P> RedisProxy<P> {
+    async fn handle_new_request(&self, mut downstream_session: RedisSession) {
 
     }
 }
