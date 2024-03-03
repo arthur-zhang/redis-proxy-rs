@@ -18,6 +18,7 @@ mod traits;
 mod tiny_client;
 mod upstream_conn_pool;
 mod proxy;
+mod session;
 
 
 #[tokio::main]
