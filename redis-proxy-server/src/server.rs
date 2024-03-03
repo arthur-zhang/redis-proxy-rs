@@ -8,7 +8,7 @@ use anyhow::{anyhow, bail};
 use bytes::Bytes;
 use futures::SinkExt;
 use log::{debug, error, info};
-use poolx::PoolOptions;
+use poolx::{PoolConnection, PoolOptions};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
@@ -76,6 +76,8 @@ impl ProxyServer {
     }
 }
 
+const TASK_BUFFER_SIZE: usize = 4;
+
 impl ProxyServer {
     fn get_filters(config: Arc<Config>) -> anyhow::Result<Vec<Box<dyn Filter>>> {
         let mut filters: Vec<Box<dyn Filter>> = vec![];
@@ -132,139 +134,161 @@ impl Session {
     // 4. write to client
     pub async fn handle(mut self) -> anyhow::Result<()> {
         let c2p_conn = self.c2p_conn.take().unwrap();
-        let mut framed = Framed::with_capacity(c2p_conn, ReqPktDecoder::new(), 16384);
-        let mut ctx = FilterContext { db: 0, is_authed: false, cmd_type: CmdType::UNKNOWN, password: None, attrs: Default::default(), framed};
+        let mut framed = Framed::with_capacity(c2p_conn, ReqPktDecoder::new(), 512);
 
-        self.filter_chains.on_session_create(&mut ctx)?;
+        let mut ctx = FilterContext {
+            db: 0,
+            is_authed: false,
+            cmd_type: CmdType::APPEND,
+            password: None,
+            attrs: Default::default(),
+        };
+        // self.filter_chains.on_session_create()?;
         loop {
-            self.filter_chains.pre_handle(&mut ctx)?;
-            let res = self.process_req(&mut ctx).await;
-            self.filter_chains.post_handle(&mut ctx)?;
+            let res = self.process_req(&mut framed, &mut ctx).await;
+            error!("process_req res: {:?}", res);
+            // self.filter_chains.post_handle(&mut ctx)?;
             if let Err(e) = res {
                 break;
             }
         }
-        self.filter_chains.on_session_close(&mut ctx)?;
+        // self.filter_chains.on_session_close()?;
 
         Ok(())
     }
 
-    async fn process_req(&mut self, ctx: &mut FilterContext) -> anyhow::Result<()> {
+    async fn process_req(&mut self, framed: &mut Framed<TcpStream, ReqPktDecoder>, ctx: &mut FilterContext) -> anyhow::Result<()> {
         let pool = self.pool.clone();
-        let mut client_conn = None;
-        loop {
-            match ctx.framed.next().await {
-                Some(Ok(data)) => {
-                    if data.is_head_frame {
-                        ctx.cmd_type = data.cmd_type;
-                        self.filter_chains.pre_handle(ctx)?;
-
-                        if data.cmd_type == CmdType::SELECT {
-                            RedisService::on_select_db(ctx, &data)?;
-                        } else if data.cmd_type == CmdType::AUTH {
-                            RedisService::on_auth(ctx, &data)?;
-                        }
-                    }
-
-                    let status = self.filter_chains.on_req_data(ctx, &data).await?;
-
-                    if status == FilterStatus::Block {
-                        if data.is_done {
-                            ctx.framed.send(Bytes::from_static(b"-ERR blocked\r\n")).await?;
-                        }
-                        continue;
-                    }
-                    if client_conn.is_none() {
-                        let mut conn = pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
-
-                        match (conn.is_authed, ctx.is_authed) {
-                            (true, true) | (false, false) => {}
-                            (false, true) => {
-                                // auth connection
-                                let authed = RedisService::auth_connection(&mut conn, ctx.password.as_ref().unwrap()).await?;
-                                if authed {
-                                    conn.is_authed = true;
-                                } else {
-                                    bail!("auth failed");
-                                }
-                            }
-                            (true, false) => {
-                                // connection is auth, but ctx is not auth, should return no auth
-                                if data.is_done {
-                                    ctx.framed.send(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await?;
-                                }
-                                continue;
-                            }
-                        }
-                        error!("get a connection : {}", conn.id);
-                        conn.session_attr.password = ctx.password.clone();
-                        if conn.session_attr.db != ctx.db {
-                            info!("rebuild session from {} to {}", conn.session_attr.db, ctx.db);
-                            RedisService::rebuild_session(&mut conn, ctx.db).await?;
-                        }
-                        error!("client connection is none, reconnect to backend server, id: {}", conn.id);
-                        client_conn = Some(conn);
-                    }
-
-                    let mut is_err = client_conn.as_mut().unwrap().w.write_all(&data.raw_bytes).await.is_err();
-                    if is_err {
-                        drop(client_conn);
-                        error!("write to backend server error1: {:?}", is_err);
-                        // drop(ctx.client_conn.take().unwrap());
-                        let mut conn = pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
-                        client_conn = Some(conn);
-                        is_err = client_conn.as_mut().unwrap().w.write_all(&data.raw_bytes).await.is_err();
-                        if is_err {
-                            error!("write to backend server error2: {:?}", is_err);
-                            bail!("write to backend server error2: {:?}", is_err);
-                        }
-                    };
-
-                    if data.is_done {
-                        break;
-                    }
-                }
-                _ => {
-                    error!("read from client error: None");
-                    bail!("read from client error: None");
-                }
+        let req_frame = match framed.next().await {
+            None => { return Ok(()); }
+            Some(req_frame) => {
+                req_frame.map_err(|e| anyhow!("decode req frame error: {:?}", e))?
             }
+        };
+        ctx.cmd_type = req_frame.cmd_type;
+        if req_frame.cmd_type == CmdType::SELECT {
+            RedisService::on_select_db(ctx, &req_frame)?;
+        } else if req_frame.cmd_type == CmdType::AUTH {
+            RedisService::on_auth(ctx, &req_frame)?;
         }
-        loop {
-            let conn = client_conn.as_mut().unwrap();
-
-            match conn.r.next().await {
-                Some(Ok(it)) => {
-                    ctx.framed.send(it.data).await?;
-                    if it.is_done {
-                        if ctx.cmd_type == CmdType::AUTH {
-                            ctx.is_authed = !it.is_error
-                        }
-                        break;
-                    }
-                }
-                _ => {
-                    error!("read from backend server error: None");
-                    let conn = client_conn.take().unwrap();
-                    drop(conn);
-                    bail!("read from backend server error: None");
-                }
+        let status = FilterStatus::Continue;
+        if status == FilterStatus::Block {
+            if req_frame.is_done {
+                framed.send(Bytes::from_static(b"-ERR blocked\r\n")).await?;
             }
+            return Ok(());
         }
+        let mut conn = pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
+        error!("get a connection : {:?}", conn.as_ref());
+        let response_sent = Self::auth_connection_if_needed(framed, ctx, &req_frame, &mut conn).await?;
+        if response_sent {
+            return Ok(());
+        }
+
+        conn.session_attr.password = ctx.password.clone();
+        if conn.session_attr.db != ctx.db {
+            info!("rebuild session from {} to {}", conn.session_attr.db, ctx.db);
+            RedisService::rebuild_session(&mut conn, ctx.db).await?;
+        }
+        error!("client connection is none, reconnect to backend server, id: {}", conn.id);
+        let (tx_upstream, rx_upstream) = mpsc::channel::<HttpTask>(TASK_BUFFER_SIZE);
+        let (tx_downstream, rx_downstream) = mpsc::channel::<HttpTask>(TASK_BUFFER_SIZE);
+
+        conn.w.write_all(&req_frame.raw_bytes).await?;
+
+        // bi-directional proxy
+        let res = tokio::try_join!(
+            self.proxy_handle_downstream(framed, tx_downstream, rx_upstream),
+            self.proxy_handle_upstream(conn, tx_upstream, rx_downstream)
+        );
+
+        error!(">>>>>>>>>>>>>>>>res: {:?}", res);
+
         Ok(())
     }
-}
 
-fn truncate_str(s: &str, max_chars: usize) -> &str {
-    if s.chars().count() <= max_chars {
-        s
-    } else {
-        match s.char_indices().nth(max_chars) {
-            Some((idx, _)) => &s[..idx],
-            None => s,
+    async fn auth_connection_if_needed(
+        framed: &mut Framed<TcpStream, ReqPktDecoder>,
+        ctx: &mut FilterContext,
+        req_frame: &ReqFrameData,
+        mut conn: &mut PoolConnection<RedisConnection>) -> anyhow::Result<bool> {
+        match (conn.is_authed, ctx.is_authed) {
+            (true, true) | (false, false) => {}
+            (false, true) => {
+                // auth connection
+                let authed = RedisService::auth_connection(&mut conn, ctx.password.as_ref().unwrap()).await?;
+                if authed {
+                    conn.is_authed = true;
+                } else {
+                    bail!("auth failed");
+                }
+            }
+            (true, false) => {
+                // connection is auth, but ctx is not auth, should return no auth
+                if req_frame.is_done {
+                    framed.send(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await?;
+                }
+                return Ok(true);
+            }
+        }
+        return Ok(false);
+    }
+    async fn proxy_handle_downstream(&self,
+                                     framed: &mut Framed<TcpStream, ReqPktDecoder>,
+                                     tx_downstream: Sender<HttpTask>,
+                                     mut rx_upstream: Receiver<HttpTask>) -> anyhow::Result<()> {
+        loop {
+            tokio::select! {
+                Some(Ok(data)) = framed.next() => {
+                    tx_downstream.send(HttpTask::Data(data.raw_bytes)).await?;
+                }
+                Some(task) = rx_upstream.recv() => {
+                    match task {
+                        HttpTask::Data(data) => {
+                            framed.send(data).await?;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    async fn proxy_handle_upstream(&self,
+                                   mut conn: PoolConnection<RedisConnection>,
+                                   tx_upstream: Sender<HttpTask>,
+                                   mut rx_downstream: Receiver<HttpTask>)
+                                   -> anyhow::Result<()> {
+        loop {
+            tokio::select! {
+                Some(task) = rx_downstream.recv() => {
+                    match task {
+                        HttpTask::Data(data) => {
+                            conn.w.write_all(&data).await?;
+                        }
+                    }
+                }
+                Some(Ok(data)) = conn.r.next() => {
+                    tx_upstream.send(HttpTask::Data(data.data)).await?;
+                }
+            }
+        }
+    }
+    fn truncate_str(s: &str, max_chars: usize) -> &str {
+        if s.chars().count() <= max_chars {
+            s
+        } else {
+            match s.char_indices().nth(max_chars) {
+                Some((idx, _)) => &s[..idx],
+                None => s,
+            }
         }
     }
 }
+
+pub enum HttpTask {
+    Data(Bytes)
+}
+
 
 pub struct RedisService {}
 

@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use log::info;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::StreamExt;
 use tokio_util::codec::{BytesCodec, FramedRead};
 
@@ -47,9 +48,8 @@ impl MirrorFilter {
 
 #[async_trait]
 impl Filter for MirrorFilter {
-    fn on_session_create(&self, context: &mut FilterContext) -> anyhow::Result<()> {
-        let (tx, mut rx) = tokio::sync::mpsc::channel(self.queue_size);
-        context.set_attr(DATA_TX, Value::ChanSender(tx));
+    fn on_session_create(&self) -> anyhow::Result<()> {
+        let (tx, mut rx): (Sender<bytes::Bytes>, Receiver<bytes::Bytes>) = tokio::sync::mpsc::channel(self.queue_size);
 
         tokio::spawn({
             let mirror_address = self.mirror_address.clone();

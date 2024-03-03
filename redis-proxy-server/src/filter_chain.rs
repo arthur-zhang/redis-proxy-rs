@@ -27,10 +27,10 @@ impl FilterChain {
 
 #[async_trait]
 impl Filter for FilterChain {
-    fn on_session_create(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+    fn on_session_create(&self) -> anyhow::Result<()> {
         info!("filter chain on_session_create");
         for filter in self.filters.iter() {
-            filter.on_session_create(context)?;
+            filter.on_session_create()?;
         }
         Ok(())
     }
@@ -75,10 +75,10 @@ impl Filter for FilterChain {
         }
         Ok(())
     }
-    fn on_session_close(&self, context: &mut FilterContext) -> anyhow::Result<()> {
+    fn on_session_close(&self) -> anyhow::Result<()> {
         info!("filter chain on_session_close");
         for filter in self.filters.iter() {
-            filter.on_session_close(context)?;
+            filter.on_session_close()?;
         }
         Ok(())
     }

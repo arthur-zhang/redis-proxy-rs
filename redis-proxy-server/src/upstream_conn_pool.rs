@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Display, Formatter};
 use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
@@ -46,6 +47,18 @@ pub struct RedisConnection {
     pub r: FramedRead<OwnedReadHalf, RespPktDecoder>,
     pub w: OwnedWriteHalf,
     pub session_attr: SessionAttr,
+}
+
+impl Display for RedisConnection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RedisConnection({})", self.id)
+    }
+}
+
+impl Debug for RedisConnection {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
+    }
 }
 
 impl Connection for RedisConnection {
@@ -120,7 +133,7 @@ impl ConnectOptions for RedisConnectionOption {
                         _ => {
                             Err(poolx::Error::ResponseError)
                         }
-                    }
+                    };
                 }
                 Ok(conn)
             }
