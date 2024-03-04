@@ -1,6 +1,7 @@
 [workspace]
+resolver = "2"
 members = [
     "redis-codec-core",
+    "redis-proxy",
     "redis-proxy-common",
-    #    "redis-proxy-filter",
     "redis-proxy-server"]

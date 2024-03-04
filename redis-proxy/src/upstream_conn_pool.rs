@@ -21,9 +21,7 @@ use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
 use crate::proxy::Session;
-use crate::server::RedisService;
 use crate::tiny_client::TinyClient;
-use crate::traits::FilterContext;
 
 pub type Pool = poolx::Pool<RedisConnection>;
 

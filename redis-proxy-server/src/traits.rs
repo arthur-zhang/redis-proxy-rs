@@ -2,16 +2,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
-use tokio_util::codec::Framed;
 
-use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
-
-use crate::upstream_conn_pool::Pool;
 
 pub enum Value {
     String(String),

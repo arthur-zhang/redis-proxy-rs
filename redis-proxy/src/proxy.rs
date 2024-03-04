@@ -18,10 +18,8 @@ use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
-use crate::filter_chain::FilterChain;
-use crate::server::{ProxyChanData, RedisService, TASK_BUFFER_SIZE};
+use crate::server::{ProxyChanData,  TASK_BUFFER_SIZE};
 use crate::tiny_client::TinyClient;
-use crate::traits::{FilterContext, FilterStatus};
 use crate::upstream_conn_pool::{Pool, RedisConnection};
 
 pub struct RedisProxy<P> {
@@ -226,7 +224,6 @@ impl Session {
     pub fn cmd_type(&self) -> CmdType {
         self.downstream_session.header_frame.as_ref().map(|it| it.cmd_type).unwrap_or(CmdType::UNKNOWN)
     }
-    pub fn reset(&mut self) {}
 }
 
 pub struct RedisSession {
@@ -250,32 +247,3 @@ pub trait Proxy {
 }
 
 
-pub struct MyProxy {
-    pub filter_chain: FilterChain,
-}
-
-#[async_trait]
-impl Proxy for MyProxy {
-    type CTX = FilterContext;
-
-    fn new_ctx(&self) -> Self::CTX {
-        FilterContext {
-            db: 0,
-            is_authed: false,
-            cmd_type: CmdType::UNKNOWN,
-            password: None,
-            attrs: Default::default(),
-        }
-    }
-
-    async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
-        if let Some(header_frame) = session.downstream_session.header_frame.as_ref() {
-            error!("cmd type: {:?}", header_frame.cmd_type);
-            if header_frame.cmd_type == CmdType::PING {
-                session.downstream_session.underlying_stream.send(Bytes::from_static(b"-nimei\r\n")).await?;
-                return Ok(true);
-            }
-        }
-        Ok(false)
-    }
-}

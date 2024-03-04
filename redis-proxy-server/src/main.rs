@@ -3,24 +3,21 @@ use std::path::Path;
 
 use anyhow::anyhow;
 use log::{debug, error, info};
+use redis_proxy::config;
+use redis_proxy::server::ProxyServer;
 
-use server::ProxyServer;
 
 use crate::filter_chain::FilterChain;
-use crate::proxy::MyProxy;
-
-mod server;
+use crate::proxy_impl::MyProxy;
 
 mod mirror_filter;
 mod path_trie;
 mod log_filter;
 mod blacklist_filter;
-mod config;
 mod filter_chain;
 mod traits;
-mod tiny_client;
-mod upstream_conn_pool;
-mod proxy;
+mod proxy_impl;
+mod tools;
 
 
 #[tokio::main]
