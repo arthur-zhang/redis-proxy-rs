@@ -51,7 +51,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let mut ctx = self.inner.new_ctx();
         let response_sent = self.inner.request_filter(&mut session, &mut ctx).await?;
         if response_sent {
-            session.downstream_session.drain_req().await?;
+            session.downstream_session.drain_req_until_done().await?;
             return Ok(Some(session));
         }
 
@@ -236,7 +236,7 @@ pub struct RedisSession {
 }
 
 impl RedisSession {
-    pub async fn drain_req(&mut self) -> anyhow::Result<()> {
+    pub async fn drain_req_until_done(&mut self) -> anyhow::Result<()> {
         while let Some(Ok(req_frame_data)) = self.underlying_stream.next().await {
             if req_frame_data.is_done {
                 return Ok(());
