@@ -18,7 +18,7 @@ use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
-use crate::server::{ProxyChanData,  TASK_BUFFER_SIZE};
+use crate::server::{ProxyChanData, TASK_BUFFER_SIZE};
 use crate::tiny_client::TinyClient;
 use crate::upstream_conn_pool::{Pool, RedisConnection};
 
@@ -51,6 +51,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let mut ctx = self.inner.new_ctx();
         let response_sent = self.inner.request_filter(&mut session, &mut ctx).await?;
         if response_sent {
+            session.downstream_session.drain_req().await?;
             return Ok(Some(session));
         }
 
@@ -234,6 +235,17 @@ pub struct RedisSession {
     pub is_authed: bool,
 }
 
+impl RedisSession {
+    pub async fn drain_req(&mut self) -> anyhow::Result<()> {
+        while let Some(Ok(req_frame_data)) = self.underlying_stream.next().await {
+            if req_frame_data.is_done {
+                return Ok(());
+            }
+        }
+        return Ok(());
+    }
+}
+
 // pub struct
 
 #[async_trait]
@@ -241,6 +253,15 @@ pub trait Proxy {
     type CTX;
     fn new_ctx(&self) -> Self::CTX;
 
+    /// Handle the incoming request.
+    ///
+    /// In this phase, users can parse, validate, rate limit, perform access control and/or
+    /// return a response for this request.
+    ///
+    /// If the user already sent a response to this request, a `Ok(true)` should be returned so that
+    /// the proxy would exit. The proxy continues to the next phases when `Ok(false)` is returned.
+    ///
+    /// By default this filter does nothing and returns `Ok(false)`.
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
         Ok(false)
     }
