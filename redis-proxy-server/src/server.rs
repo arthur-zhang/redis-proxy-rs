@@ -28,23 +28,21 @@ use crate::config::{Blacklist, Config, Mirror, TConfig};
 use crate::filter_chain::{FilterChain, TFilterChain};
 use crate::log_filter::LogFilter;
 use crate::mirror_filter::MirrorFilter;
-use crate::proxy::{MyProxy, RedisProxy, RedisSession};
-use crate::session::Session;
+use crate::proxy::{MyProxy, Proxy, RedisProxy, RedisSession, Session};
 use crate::tiny_client::TinyClient;
 use crate::traits::{Filter, FilterContext, FilterStatus, TFilterContext};
 use crate::upstream_conn_pool::{Pool, RedisConnection, RedisConnectionOption};
 
-pub struct ProxyServer {
+pub struct ProxyServer<P> {
     config: TConfig,
-    filter_chain: TFilterChain,
+    // filter_chain: TFilterChain,
+    proxy: P,
 }
 
-impl ProxyServer {
-    pub fn new(config: Config) -> anyhow::Result<Self> {
+impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX: Send + Sync {
+    pub fn new(config: Config, proxy: P) -> anyhow::Result<Self> {
         let config = Arc::new(config);
-        let filter_chain = Self::get_filters(config.clone())?;
-        let filter_chains = FilterChain::new(filter_chain);
-        Ok(ProxyServer { config, filter_chain: Arc::new(filter_chains) })
+        Ok(ProxyServer { config, proxy })
     }
 
     pub async fn start(self) -> anyhow::Result<()> {
@@ -53,7 +51,6 @@ impl ProxyServer {
             e
         })?;
 
-
         let conn_option = self.config.upstream.address.parse::<RedisConnectionOption>().unwrap();
         let pool: poolx::Pool<RedisConnection> = PoolOptions::new()
             .idle_timeout(std::time::Duration::from_secs(3))
@@ -61,44 +58,36 @@ impl ProxyServer {
             .max_connections(50000)
             .connect_lazy_with(conn_option);
 
-        let inner = MyProxy {};
-        let app_logic = Arc::new(RedisProxy { inner: inner, upstream_pool: pool.clone() });
+        let app_logic = Arc::new(RedisProxy { inner: self.proxy, upstream_pool: pool.clone() });
         loop {
             tokio::spawn({
-                let filter_chains = self.filter_chain.clone();
                 let (c2p_conn, _) = listener.accept().await?;
-                let config = self.config.clone();
                 // one connection per task
                 let pool = pool.clone();
 
-
                 let framed = Framed::new(c2p_conn, ReqPktDecoder::new());
-                let redis_session = RedisSession { underlying_stream: framed };
-                // let session = Session { filter_chains, c2p_conn: Some(c2p_conn), config, pool };
+                let mut session = Session { downstream_session: RedisSession { underlying_stream: framed, header_frame: None, password: None, db: 0, is_authed: false } };
                 let app_logic = app_logic.clone();
                 async move {
-                    app_logic.handle_new_request(redis_session, pool).await;
-
-                    // let res = Self::handle_req(app_logic, redis_session).await;
-                    // let _ = session.handle().await;
-                    info!("session done")
+                    loop {
+                        if let Some(s) = app_logic.handle_new_request(session, pool.clone()).await? {
+                            session = s;
+                        } else {
+                            break;
+                        }
+                    }
+                    info!("session done");
+                    Ok::<_, anyhow::Error>(())
                 }
             });
         };
     }
 }
 
-pub struct ServerApp {}
-
-impl ServerApp {
-    pub async fn process_new_request(&self, redis_session: RedisSession) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
 
 pub const TASK_BUFFER_SIZE: usize = 4;
 
-impl ProxyServer {
+impl<P> ProxyServer<P> {
     fn get_filters(config: Arc<Config>) -> anyhow::Result<Vec<Box<dyn Filter>>> {
         let mut filters: Vec<Box<dyn Filter>> = vec![];
         let mut filter_chain_conf = config.filter_chain.clone();
@@ -139,8 +128,11 @@ impl ProxyServer {
     }
 }
 
-pub enum HttpTask {
-    Data(Bytes)
+#[derive(Debug)]
+pub enum ProxyChanData {
+    // Data(Bytes, bool),
+    ReqFrameData(ReqFrameData),
+    ResFrameData(ResFramedData),
 }
 
 

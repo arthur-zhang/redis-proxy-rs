@@ -6,6 +6,9 @@ use log::{debug, error, info};
 
 use server::ProxyServer;
 
+use crate::filter_chain::FilterChain;
+use crate::proxy::MyProxy;
+
 mod server;
 
 mod mirror_filter;
@@ -18,7 +21,6 @@ mod traits;
 mod tiny_client;
 mod upstream_conn_pool;
 mod proxy;
-mod session;
 
 
 #[tokio::main]
@@ -31,7 +33,9 @@ async fn main() -> anyhow::Result<()> {
     debug!("{:?}", conf);
 
     info!("Starting server...");
-    let server = ProxyServer::new(conf)?;
+
+    let proxy = MyProxy { filter_chain: FilterChain::new(vec![]) };
+    let server = ProxyServer::new(conf, proxy)?;
     let _ = server.start().await;
     info!("Server quit.");
     Ok(())

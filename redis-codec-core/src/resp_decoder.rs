@@ -184,6 +184,7 @@ impl Decoder for RespPktDecoder {
     }
 }
 
+#[derive(Debug)]
 pub struct ResFramedData {
     pub data: bytes::Bytes,
     pub is_done: bool,
