@@ -68,10 +68,6 @@ pub const RES_SIZE: &'static str = "res_size";
 
 // per session filter context
 pub struct FilterContext {
-    pub db: u64,
-    pub is_authed: bool,
-    pub cmd_type: CmdType,
-    pub password: Option<String>,
     pub attrs: HashMap<String, Value>,
 }
 

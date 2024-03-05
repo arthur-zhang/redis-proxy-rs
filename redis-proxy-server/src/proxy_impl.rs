@@ -6,34 +6,31 @@ use async_trait::async_trait;
 
 use redis_proxy::config::Config;
 use redis_proxy::proxy::{Proxy, Session};
-use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
 use crate::filter_trait::{FilterContext, REQ_SIZE, RES_IS_OK, RES_SIZE, START_INSTANT, Value};
 
-pub struct MyProxy {
+pub struct RedisProxyImpl {
     pub filters: Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>>,
     pub conf: Arc<Config>,
 }
 
 
 #[async_trait]
-impl Proxy for MyProxy {
+impl Proxy for RedisProxyImpl {
     type CTX = FilterContext;
 
     fn new_ctx(&self) -> Self::CTX {
         FilterContext {
-            db: 0,
-            is_authed: false,
-            cmd_type: CmdType::UNKNOWN,
-            password: None,
             attrs: Default::default(),
         }
     }
     async fn on_session_create(&self) -> anyhow::Result<()> {
+        for filter in &self.filters {
+            filter.on_session_create()?;
+        }
         Ok(())
     }
-
 
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
         ctx.set_attr(START_INSTANT, Value::Instant(Instant::now()));

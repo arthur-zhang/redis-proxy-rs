@@ -16,7 +16,7 @@ use crate::blacklist_filter::BlackListFilter;
 use crate::filter_trait::FilterContext;
 use crate::log_filter::LogFilter;
 use crate::mirror_filter::Mirror;
-use crate::proxy_impl::MyProxy;
+use crate::proxy_impl::RedisProxyImpl;
 
 mod path_trie;
 mod proxy_impl;
@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
 
     let filters = load_filters(&conf);
 
-    let proxy = MyProxy { filters, conf: conf.clone() };
+    let proxy = RedisProxyImpl { filters, conf: conf.clone() };
     let server = ProxyServer::new(conf, proxy)?;
     let _ = server.start().await;
     info!("Server quit.");
