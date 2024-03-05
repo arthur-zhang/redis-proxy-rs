@@ -1,5 +1,6 @@
 use anyhow::bail;
 use async_trait::async_trait;
+use log::error;
 use poolx::PoolOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -57,8 +58,7 @@ impl Mirror {
 impl Proxy for Mirror {
     type CTX = FilterContext;
 
-    async fn proxy_upstream_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<()>
-    {
+    async fn proxy_upstream_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
         let data = session.downstream_session.header_frame.as_ref().unwrap();
         let should_mirror = if data.cmd_type.is_connection_command() {
             true
@@ -68,7 +68,7 @@ impl Proxy for Mirror {
             self.should_mirror(&data)
         };
         if !should_mirror {
-            return Ok(());
+            return Ok(false);
         }
         let mut conn = self.pool.acquire().await?;
         conn.init_from_session(session).await?;
@@ -109,7 +109,7 @@ impl Proxy for Mirror {
                 }
             }
         });
-        Ok(())
+        Ok(false)
     }
     async fn upstream_request_filter(&self, _session: &mut Session, upstream_request: &mut ReqFrameData, ctx: &mut Self::CTX) -> anyhow::Result<()> {
         let should_mirror = ctx.get_attr_as_bool(SHOULD_MIRROR).unwrap_or(false);

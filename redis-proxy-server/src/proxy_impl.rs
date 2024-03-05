@@ -27,7 +27,7 @@ impl Proxy for RedisProxyImpl {
     }
     async fn on_session_create(&self) -> anyhow::Result<()> {
         for filter in &self.filters {
-            filter.on_session_create()?;
+            filter.on_session_create().await?;
         }
         Ok(())
     }
@@ -47,11 +47,14 @@ impl Proxy for RedisProxyImpl {
         }
         Ok(false)
     }
-    async fn proxy_upstream_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<()> {
+    async fn proxy_upstream_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
         for filter in &self.filters {
-            filter.proxy_upstream_filter(session, ctx).await?;
+            let res = filter.proxy_upstream_filter(session, ctx).await?;
+            if res {
+                return Ok(true);
+            }
         }
-        Ok(())
+        Ok(false)
     }
     async fn upstream_request_filter(&self, session: &mut Session, upstream_request: &mut ReqFrameData, ctx: &mut Self::CTX) -> anyhow::Result<()> {
         for filter in &self.filters {

@@ -32,7 +32,7 @@ pub struct RedisProxy<P> {
 impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sync {
     pub async fn handle_new_request(&self, mut session: Session, pool: Pool) -> anyhow::Result<Option<Session>> {
         info!("handle_new_request..........");
-
+        self.inner.on_session_create().await?;
         // read header frame
         let mut req_frame = match session.downstream_session.underlying_stream.next().await {
             None => { return Ok(None); }
@@ -107,32 +107,36 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                                      tx_downstream: Sender<ProxyChanData>,
                                      mut rx_upstream: Receiver<ProxyChanData>,
                                      ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
-        let mut request_done = session.request_done();
+        let mut end_of_body = session.request_done();
         let mut response_done = false;
         // let mut request_done = false;
-        while !request_done || !response_done {
-            info!("proxy_handle_downstream.... {}, {}", request_done, response_done);
+        while !end_of_body || !response_done {
+            info!("proxy_handle_downstream.... {}, {}", end_of_body, response_done);
+            let send_permit = tx_downstream.try_reserve();
             tokio::select! {
-                data = session.downstream_session.underlying_stream.next(), if !request_done => {
-                    info!("framed next...., request_done:{}, {:?}", request_done, data);
+                data = session.downstream_session.underlying_stream.next(), if !end_of_body && send_permit.is_ok() => {
+                    info!("framed next...., request_done:{}, {:?}", end_of_body, data);
                     match data {
                         Some(Ok(mut data)) => {
                             let is_done = data.is_done;
-                            self.inner.upstream_request_filter(session, &mut data, ctx).await;
-
-                            tx_downstream.send(ProxyChanData::ReqFrameData(data)).await?;
-
-                            request_done = is_done;
+                            self.inner.upstream_request_filter(session, &mut data, ctx).await?;
+                            send_permit.unwrap().send(ProxyChanData::ReqFrameData(data));
+                            end_of_body = is_done;
                         }
                         Some(Err(e)) => {
-                            error!("proxy_handle_downstream, framed next error: {:?}", e);
-                            request_done = true;
+                            end_of_body = true;
+                            bail!("proxy_handle_downstream, framed next error: {:?}", e)
                         }
                         None => {
                             info!("proxy_handle_downstream, downstream eof");
+                            send_permit.unwrap().send(ProxyChanData::None);
+                            end_of_body = true;
                             return Ok(())
                         }
                     }
+                }
+                _ = tx_downstream.reserve(), if send_permit.is_err() => {
+
                 }
                 task = rx_upstream.recv(), if !response_done => {
                     info!("rx_upstream recv...., response_done:{}, {:?}", response_done, task);
@@ -155,6 +159,9 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                             response_done = true;
                         }
                     }
+                }
+                else => {
+                    break;
                 }
             }
         }
@@ -286,13 +293,13 @@ pub trait Proxy {
 
     /// Define where the proxy should sent the request to.
     ///
-    /// The returned [HttpPeer] contains the information regarding where and how this request should
+    /// The returned [RedisPeer] contains the information regarding where and how this request should
     /// be forwarded to.
-    // async fn upstream_peer(
-    //     &self,
-    //     session: &mut Session,
-    //     ctx: &mut Self::CTX,
-    // ) -> anyhow::Result<peer::RedisPeer>;
+    async fn upstream_peer(
+        &self,
+        session: &mut Session,
+        ctx: &mut Self::CTX,
+    ) -> anyhow::Result<peer::RedisPeer> { todo!() }
 
     /// Handle the incoming request.
     ///
@@ -307,18 +314,53 @@ pub trait Proxy {
         Ok(false)
     }
 
+
     async fn request_data_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<()> {
         Ok(())
     }
+    /// Decide if a request should continue to upstream
+    ///
+    /// returns: Ok(true) if the request should continue, Ok(false) if a response was written by the
+    /// callback and the session should be finished, or an error
+    ///
+    /// This filter can be used for deferring checks like rate limiting or access control
     async fn proxy_upstream_filter(&self, _session: &mut Session,
-                                   _ctx: &mut Self::CTX) -> anyhow::Result<()> {
-        Ok(())
+                                   _ctx: &mut Self::CTX) -> anyhow::Result<bool> {
+        Ok(false)
     }
 
 
+    /// Modify the request before it is sent to the upstream
+    ///
+    /// Unlike [Self::request_filter()], this filter allows to change the request data to send
+    /// to the upstream.
     async fn upstream_request_filter(&self, _session: &mut Session,
                                      _upstream_request: &mut ReqFrameData,
                                      _ctx: &mut Self::CTX) -> anyhow::Result<()> { Ok(()) }
+
+    /// Modify the response header from the upstream
+    ///
+    /// The modification is before caching so any change here will be stored in cache if enabled.
+    ///
+    /// Responses served from cache won't trigger this filter.
+    fn upstream_response_filter(
+        &self,
+        _session: &mut Session,
+        _upstream_response: &mut ResFramedData,
+        _ctx: &mut Self::CTX,
+    ) {}
+
+    /// Similar to [Self::upstream_response_filter()] but for response body
+    ///
+    /// This function will be called every time a piece of response body is received. The `body` is
+    /// **not the entire response body**.
+    fn upstream_response_body_filter(
+        &self,
+        _session: &mut Session,
+        _body: &Option<Bytes>,
+        _end_of_stream: bool,
+        _ctx: &mut Self::CTX,
+    ) {}
 
     async fn request_done(&self, _session: &mut Session, _e: Option<&anyhow::Error>, _ctx: &mut Self::CTX)
         where
