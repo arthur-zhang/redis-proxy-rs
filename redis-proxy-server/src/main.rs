@@ -7,7 +7,7 @@ use log::{debug, error, info};
 use poolx::PoolOptions;
 
 use redis_proxy::config;
-use redis_proxy::config::Blacklist;
+use redis_proxy::config::{Blacklist, Config};
 use redis_proxy::proxy::Proxy;
 use redis_proxy::server::ProxyServer;
 use redis_proxy::upstream_conn_pool::{RedisConnection, RedisConnectionOption};
@@ -38,8 +38,16 @@ async fn main() -> anyhow::Result<()> {
     let conf = Arc::new(conf);
     info!("Starting server...");
 
+    let filters = load_filters(&conf);
 
-    let log_filter = LogFilter {};
+    let proxy = MyProxy { filters, conf: conf.clone() };
+    let server = ProxyServer::new(conf, proxy)?;
+    let _ = server.start().await;
+    info!("Server quit.");
+    Ok(())
+}
+
+fn load_filters(conf: &Arc<Config>) -> Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>> {
     let mut filters: Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>> = vec![];
 
     if let Some(ref blacklist_filter) = conf.filter_chain.blacklist {
@@ -55,12 +63,7 @@ async fn main() -> anyhow::Result<()> {
         let log_filter = LogFilter {};
         filters.push(Box::new(log_filter));
     }
-
-    let proxy = MyProxy { filters, conf: conf.clone() };
-    let server = ProxyServer::new(conf, proxy)?;
-    let _ = server.start().await;
-    info!("Server quit.");
-    Ok(())
+    filters
 }
 
 fn get_conf(path: &Path) -> anyhow::Result<config::Config> {
