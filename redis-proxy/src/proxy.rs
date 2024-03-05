@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
@@ -18,6 +18,7 @@ use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
+use crate::peer;
 use crate::server::{ProxyChanData, TASK_BUFFER_SIZE};
 use crate::tiny_client::TinyClient;
 use crate::upstream_conn_pool::{Pool, RedisConnection};
@@ -31,7 +32,8 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     pub async fn handle_new_request(&self, mut session: Session, pool: Pool) -> anyhow::Result<Option<Session>> {
         info!("handle_new_request..........");
 
-        let req_frame = match session.downstream_session.underlying_stream.next().await {
+        // read header frame
+        let mut req_frame = match session.downstream_session.underlying_stream.next().await {
             None => { return Ok(None); }
             Some(req_frame) => {
                 req_frame.map_err(|e| anyhow!("decode req frame error: {:?}", e))?
@@ -39,7 +41,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         };
         error!("req_frame: {:?}", req_frame);
 
-        let req_frame = Arc::new(req_frame);
         session.downstream_session.header_frame = Some(req_frame.clone());
 
         if req_frame.cmd_type == CmdType::SELECT {
@@ -47,6 +48,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         } else if req_frame.cmd_type == CmdType::AUTH {
             on_auth(&mut session)?;
         }
+
 
         let mut ctx = self.inner.new_ctx();
         let response_sent = self.inner.request_filter(&mut session, &mut ctx).await?;
@@ -60,18 +62,26 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
         let response_sent = conn.init_from_session(&mut session).await?;
         if response_sent {
+            session.downstream_session.drain_req_until_done().await?;
             return Ok(Some(session));
+        }
+        if let Err(err) = self.inner.proxy_upstream_filter(&mut session, &mut ctx).await {
+            bail!("proxy_upstream_filter failed: {:?}", err)
+        }
+        if let Err(err) = self.inner.upstream_request_filter(&mut session, &mut req_frame, &mut ctx).await {
+            bail!("upstream_request_filter failed: {:?}", err)
         }
 
         error!("client connection is none, reconnect to backend server, id: {}", conn.id);
         let (tx_upstream, rx_upstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
         let (tx_downstream, rx_downstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
 
+
         conn.w.write_all(&req_frame.raw_bytes).await?;
 
         // bi-directional proxy
         let res = tokio::try_join!(
-            self.proxy_handle_downstream(&mut session, tx_downstream, rx_upstream),
+            self.proxy_handle_downstream(&mut session, tx_downstream, rx_upstream, &mut ctx),
             self.proxy_handle_upstream(conn, tx_upstream, rx_downstream)
         );
         match res {
@@ -87,7 +97,8 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     async fn proxy_handle_downstream(&self,
                                      session: &mut Session,
                                      tx_downstream: Sender<ProxyChanData>,
-                                     mut rx_upstream: Receiver<ProxyChanData>) -> anyhow::Result<()> {
+                                     mut rx_upstream: Receiver<ProxyChanData>,
+                                     ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let mut request_done = session.request_done();
         let mut response_done = false;
         // let mut request_done = false;
@@ -97,9 +108,12 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 data = session.downstream_session.underlying_stream.next(), if !request_done => {
                     info!("framed next...., request_done:{}, {:?}", request_done, data);
                     match data {
-                        Some(Ok(data)) => {
+                        Some(Ok(mut data)) => {
                             let is_done = data.is_done;
+                            self.inner.upstream_request_filter(session, &mut data, ctx).await;
+
                             tx_downstream.send(ProxyChanData::ReqFrameData(data)).await?;
+
                             request_done = is_done;
                         }
                         Some(Err(e)) => {
@@ -229,7 +243,7 @@ impl Session {
 
 pub struct RedisSession {
     pub underlying_stream: Framed<TcpStream, ReqPktDecoder>,
-    pub header_frame: Option<Arc<ReqFrameData>>,
+    pub header_frame: Option<ReqFrameData>,
     pub password: Option<String>,
     pub db: u64,
     pub is_authed: bool,
@@ -253,6 +267,21 @@ pub trait Proxy {
     type CTX;
     fn new_ctx(&self) -> Self::CTX;
 
+    async fn on_session_create(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+
+    /// Define where the proxy should sent the request to.
+    ///
+    /// The returned [HttpPeer] contains the information regarding where and how this request should
+    /// be forwarded to.
+    // async fn upstream_peer(
+    //     &self,
+    //     session: &mut Session,
+    //     ctx: &mut Self::CTX,
+    // ) -> anyhow::Result<peer::RedisPeer>;
+
     /// Handle the incoming request.
     ///
     /// In this phase, users can parse, validate, rate limit, perform access control and/or
@@ -261,10 +290,24 @@ pub trait Proxy {
     /// If the user already sent a response to this request, a `Ok(true)` should be returned so that
     /// the proxy would exit. The proxy continues to the next phases when `Ok(false)` is returned.
     ///
-    /// By default this filter does nothing and returns `Ok(false)`.
+    /// By default, this filter does nothing and returns `Ok(false)`.
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
         Ok(false)
     }
+
+
+    async fn request_data_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn proxy_upstream_filter(&self, _session: &mut Session,
+                                   _ctx: &mut Self::CTX) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+
+    async fn upstream_request_filter(&self, _session: &mut Session,
+                                     _upstream_request: &mut ReqFrameData,
+                                     _ctx: &mut Self::CTX) -> anyhow::Result<()> { Ok(()) }
 }
 
 

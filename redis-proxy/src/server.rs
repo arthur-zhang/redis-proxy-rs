@@ -35,8 +35,7 @@ pub struct ProxyServer<P> {
 }
 
 impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX: Send + Sync {
-    pub fn new(config: Config, proxy: P) -> anyhow::Result<Self> {
-        let config = Arc::new(config);
+    pub fn new(config: Arc<Config>, proxy: P) -> anyhow::Result<Self> {
         Ok(ProxyServer { config, proxy })
     }
 

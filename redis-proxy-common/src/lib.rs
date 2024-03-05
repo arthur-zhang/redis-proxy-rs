@@ -9,6 +9,7 @@ pub mod tools;
 
 pub type TDecodedFrame = Arc<ReqFrameData>;
 
+#[derive(Clone)]
 pub struct ReqFrameData {
     pub is_head_frame: bool,
     pub cmd_type: CmdType,

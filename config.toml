@@ -12,7 +12,7 @@ block_patterns = ["foo:bar:*", "x:*:y:z", "hello"]
 split_regex = "[:]"
 
 [filter_chain.mirror]
-address = "0.0.0.0:9001"
+address = "redis://0.0.0.0:9001"
 mirror_patterns = [
     "x",
     "y",

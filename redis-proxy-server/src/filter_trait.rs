@@ -1,10 +1,13 @@
+use redis_proxy::proxy::Proxy;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
+use poolx::PoolConnection;
 use tokio::sync::mpsc::Sender;
 
 use redis_codec_core::resp_decoder::ResFramedData;
+use redis_proxy::upstream_conn_pool::RedisConnection;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
@@ -14,6 +17,7 @@ pub enum Value {
     Bool(bool),
     Instant(std::time::Instant),
     ChanSender(Sender<bytes::Bytes>),
+    // Conn(PoolConnection<RedisConnection>)
 }
 
 impl Value {
@@ -116,21 +120,4 @@ impl FilterContext {
             .and_then(|it| it.as_bool())
             .unwrap_or(false)
     }
-}
-
-// stateless + nonblocking filter, mutable data is stored in FilterContext
-#[async_trait]
-pub trait Filter: Send + Sync {
-    fn on_session_create(&self) -> anyhow::Result<()> { Ok(()) }
-    fn pre_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> { Ok(()) }
-    async fn on_req_data(&self, context: &mut FilterContext, data: &ReqFrameData) -> anyhow::Result<FilterStatus> { Ok(FilterStatus::Continue) }
-    async fn on_res_data(&self, context: &mut FilterContext, data: &ResFramedData) -> anyhow::Result<()> { Ok(()) }
-    fn post_handle(&self, context: &mut FilterContext) -> anyhow::Result<()> { Ok(()) }
-    fn on_session_close(&self) -> anyhow::Result<()> { Ok(()) }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub enum FilterStatus {
-    Continue,
-    Block,
 }

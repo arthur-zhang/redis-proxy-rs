@@ -1,16 +1,20 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
-use bytes::Bytes;
-use futures::SinkExt;
 
+use redis_proxy::config::Config;
 use redis_proxy::proxy::{Proxy, Session};
+use redis_proxy::upstream_conn_pool::Pool;
 use redis_proxy_common::cmd::CmdType;
+use redis_proxy_common::ReqFrameData;
 
-use crate::filter_chain::FilterChain;
-use crate::traits::FilterContext;
+use crate::filter_trait::{FilterContext};
 
 pub struct MyProxy {
-    pub filter_chain: FilterChain,
+    pub filters: Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>>,
+    pub conf: Arc<Config>,
 }
+
 
 #[async_trait]
 impl Proxy for MyProxy {
@@ -25,13 +29,30 @@ impl Proxy for MyProxy {
             attrs: Default::default(),
         }
     }
+    async fn on_session_create(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
 
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
-        let cmd_type = session.cmd_type();
-        if cmd_type == CmdType::SET {
-            session.downstream_session.underlying_stream.send(Bytes::from_static(b"-nimei\r\n")).await?;
-            return Ok(true);
+        for filter in &self.filters {
+            let response_sent = filter.request_filter(session, ctx).await?;
+            if response_sent {
+                return Ok(true);
+            }
         }
         Ok(false)
+    }
+    async fn proxy_upstream_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<()> {
+        for filter in &self.filters {
+            filter.proxy_upstream_filter(session, ctx).await?;
+        }
+        Ok(())
+    }
+    async fn upstream_request_filter(&self, session: &mut Session, upstream_request: &mut ReqFrameData, ctx: &mut Self::CTX) -> anyhow::Result<()> {
+        for filter in &self.filters {
+            filter.upstream_request_filter(session, upstream_request, ctx).await?;
+        }
+        Ok(())
     }
 }
