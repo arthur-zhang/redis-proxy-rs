@@ -7,17 +7,24 @@ use log::{debug, error, info};
 use poolx::PoolOptions;
 
 use redis_proxy::config;
+use redis_proxy::config::Blacklist;
+use redis_proxy::proxy::Proxy;
 use redis_proxy::server::ProxyServer;
 use redis_proxy::upstream_conn_pool::{RedisConnection, RedisConnectionOption};
 
-use crate::mirror::Mirror;
+use crate::blacklist_filter::BlackListFilter;
+use crate::filter_trait::FilterContext;
+use crate::log_filter::LogFilter;
+use crate::mirror_filter::Mirror;
 use crate::proxy_impl::MyProxy;
 
 mod path_trie;
 mod proxy_impl;
 mod tools;
 mod filter_trait;
-mod mirror;
+mod mirror_filter;
+mod log_filter;
+mod blacklist_filter;
 
 
 #[tokio::main]
@@ -32,15 +39,24 @@ async fn main() -> anyhow::Result<()> {
     info!("Starting server...");
 
 
-    let conn_option = conf.filter_chain.mirror.as_ref().unwrap().address.parse::<RedisConnectionOption>().unwrap();
-    let pool: poolx::Pool<RedisConnection> = PoolOptions::new()
-        .idle_timeout(std::time::Duration::from_secs(3))
-        .min_connections(3)
-        .max_connections(50000)
-        .connect_lazy_with(conn_option);
+    let log_filter = LogFilter {};
+    let mut filters: Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>> = vec![];
 
-    let mirror = Mirror::new(pool);
-    let proxy = MyProxy { filters: vec![Box::new(mirror)], conf: conf.clone() };
+    if let Some(ref blacklist_filter) = conf.filter_chain.blacklist {
+        let blacklist_filter = BlackListFilter::new(blacklist_filter.block_patterns.clone(), &blacklist_filter.split_regex).unwrap();
+        filters.push(Box::new(blacklist_filter));
+    }
+
+    if let Some(ref mirror) = conf.filter_chain.mirror {
+        let mirror_filter = Mirror::new(&mirror.address, &mirror.mirror_patterns, &mirror.split_regex, mirror.queue_size).unwrap();
+        filters.push(Box::new(mirror_filter));
+    }
+    if let Some(ref log) = conf.filter_chain.log {
+        let log_filter = LogFilter {};
+        filters.push(Box::new(log_filter));
+    }
+
+    let proxy = MyProxy { filters, conf: conf.clone() };
     let server = ProxyServer::new(conf, proxy)?;
     let _ = server.start().await;
     info!("Server quit.");

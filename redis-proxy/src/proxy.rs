@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
@@ -36,6 +37,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let mut req_frame = match session.downstream_session.underlying_stream.next().await {
             None => { return Ok(None); }
             Some(req_frame) => {
+                session.downstream_session.req_start = session.downstream_session.underlying_stream.codec().req_start();
                 req_frame.map_err(|e| anyhow!("decode req frame error: {:?}", e))?
             }
         };
@@ -53,7 +55,11 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let mut ctx = self.inner.new_ctx();
         let response_sent = self.inner.request_filter(&mut session, &mut ctx).await?;
         if response_sent {
-            session.downstream_session.drain_req_until_done().await?;
+            info!("response sent: true");
+            if !req_frame.is_done {
+                session.downstream_session.drain_req_until_done().await?;
+            }
+            self.inner.request_done(&mut session, None, &mut ctx).await;
             return Ok(Some(session));
         }
 
@@ -63,6 +69,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let response_sent = conn.init_from_session(&mut session).await?;
         if response_sent {
             session.downstream_session.drain_req_until_done().await?;
+            self.inner.request_done(&mut session, None, &mut ctx).await;
             return Ok(Some(session));
         }
         if let Err(err) = self.inner.proxy_upstream_filter(&mut session, &mut ctx).await {
@@ -84,6 +91,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             self.proxy_handle_downstream(&mut session, tx_downstream, rx_upstream, &mut ctx),
             self.proxy_handle_upstream(conn, tx_upstream, rx_downstream)
         );
+        self.inner.request_done(&mut session, None, &mut ctx).await;
         match res {
             Ok(_) => {
                 info!("proxy done");
@@ -247,6 +255,10 @@ pub struct RedisSession {
     pub password: Option<String>,
     pub db: u64,
     pub is_authed: bool,
+    pub req_start: Instant,
+    pub resp_is_ok: bool,
+    pub req_end: Instant,
+
 }
 
 impl RedisSession {
@@ -265,7 +277,7 @@ impl RedisSession {
 #[async_trait]
 pub trait Proxy {
     type CTX;
-    fn new_ctx(&self) -> Self::CTX;
+    fn new_ctx(&self) -> Self::CTX { todo!() }
 
     async fn on_session_create(&self) -> anyhow::Result<()> {
         Ok(())
@@ -295,7 +307,6 @@ pub trait Proxy {
         Ok(false)
     }
 
-
     async fn request_data_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<()> {
         Ok(())
     }
@@ -308,6 +319,10 @@ pub trait Proxy {
     async fn upstream_request_filter(&self, _session: &mut Session,
                                      _upstream_request: &mut ReqFrameData,
                                      _ctx: &mut Self::CTX) -> anyhow::Result<()> { Ok(()) }
+
+    async fn request_done(&self, _session: &mut Session, _e: Option<&anyhow::Error>, _ctx: &mut Self::CTX)
+        where
+            Self::CTX: Send + Sync {}
 }
 
 

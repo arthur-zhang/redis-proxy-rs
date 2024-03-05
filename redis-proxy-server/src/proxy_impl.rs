@@ -1,14 +1,15 @@
 use std::sync::Arc;
+use std::time::Instant;
 
+use anyhow::Error;
 use async_trait::async_trait;
 
 use redis_proxy::config::Config;
 use redis_proxy::proxy::{Proxy, Session};
-use redis_proxy::upstream_conn_pool::Pool;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
-use crate::filter_trait::{FilterContext};
+use crate::filter_trait::{FilterContext, REQ_SIZE, RES_IS_OK, RES_SIZE, START_INSTANT, Value};
 
 pub struct MyProxy {
     pub filters: Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>>,
@@ -35,6 +36,12 @@ impl Proxy for MyProxy {
 
 
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
+        ctx.set_attr(START_INSTANT, Value::Instant(Instant::now()));
+        ctx.remote_attr(RES_IS_OK);
+        ctx.set_attr(REQ_SIZE, Value::U64(0));
+        ctx.set_attr(RES_SIZE, Value::U64(0));
+
+
         for filter in &self.filters {
             let response_sent = filter.request_filter(session, ctx).await?;
             if response_sent {
@@ -54,5 +61,10 @@ impl Proxy for MyProxy {
             filter.upstream_request_filter(session, upstream_request, ctx).await?;
         }
         Ok(())
+    }
+    async fn request_done(&self, session: &mut Session, e: Option<&Error>, ctx: &mut Self::CTX) where Self::CTX: Send + Sync {
+        for filter in &self.filters {
+            filter.request_done(session, e, ctx).await;
+        }
     }
 }

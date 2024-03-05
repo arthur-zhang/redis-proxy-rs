@@ -47,7 +47,7 @@ pub struct Mirror {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-struct Log {}
+pub struct Log {}
 
 impl Config {
     pub fn load(path: &Path) -> anyhow::Result<Self> {

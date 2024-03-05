@@ -1,6 +1,7 @@
 use std::cmp::min;
 use std::fmt::{Debug, Display};
 use std::ops::Range;
+use std::time::Instant;
 
 use bytes::{Buf, Bytes, BytesMut};
 use log::debug;
@@ -20,6 +21,7 @@ pub struct ReqPktDecoder {
     bulk_read_size: u64,
     bulk_read_index: u64,
     bulk_read_args: Option<Vec<Range<usize>>>,
+    req_start: Instant,
 }
 
 
@@ -210,6 +212,7 @@ impl ReqPktDecoder {
             bulk_read_size: 0,
             bulk_read_index: 0,
             bulk_read_args: Some(Vec::new()),
+            req_start: Instant::now(),
         }
     }
     pub fn reset(&mut self) {
@@ -220,6 +223,7 @@ impl ReqPktDecoder {
         self.bulk_read_size = 0;
         self.bulk_read_index = 0;
         self.bulk_read_args.as_mut().map(Vec::clear);
+        self.req_start = Instant::now();
     }
 
     fn bulk_read_count(&self) -> u64 {
@@ -235,6 +239,9 @@ impl ReqPktDecoder {
     // }
     pub fn cmd_type(&self) -> &CmdType {
         &self.cmd_type
+    }
+    pub fn req_start(&self)-> Instant {
+        self.req_start
     }
     pub fn eager_read_list(&self) -> &Option<Vec<Range<usize>>> {
         &self.bulk_read_args

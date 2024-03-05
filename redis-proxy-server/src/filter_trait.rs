@@ -60,13 +60,11 @@ impl Value {
 }
 
 
-pub const RES_IS_ERROR: &'static str = "res_is_error";
+pub const RES_IS_OK: &'static str = "res_is_error";
 pub const START_INSTANT: &'static str = "log_start_instant";
 
 pub const REQ_SIZE: &'static str = "req_size";
 pub const RES_SIZE: &'static str = "res_size";
-
-pub type TFilterContext = Arc<Mutex<FilterContext>>;
 
 // per session filter context
 pub struct FilterContext {
@@ -112,11 +110,11 @@ impl FilterContext {
             it.as_sender()
         })
     }
-    pub fn set_attr_res_is_error(&mut self, is_error: bool) {
-        self.set_attr(RES_IS_ERROR, Value::Bool(is_error));
+    pub fn set_attr_res_is_ok(&mut self, is_error: bool) {
+        self.set_attr(RES_IS_OK, Value::Bool(is_error));
     }
-    pub fn get_attr_res_is_error(&self) -> bool {
-        self.attrs.get(RES_IS_ERROR)
+    pub fn get_attr_res_is_ok(&self) -> bool {
+        self.attrs.get(RES_IS_OK)
             .and_then(|it| it.as_bool())
             .unwrap_or(false)
     }
