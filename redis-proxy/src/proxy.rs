@@ -7,7 +7,7 @@ use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
 use futures::future::ok;
 use futures::stream::TryNext;
-use log::{error, info};
+use log::{debug, error, info};
 use poolx::PoolConnection;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
@@ -86,7 +86,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         }
         let mut conn = try_or_invoke_done!(self, &mut session, &mut ctx, pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e)));
 
-        error!("get a connection : {:?}", conn.as_ref());
+        debug!("get a connection : {:?}", conn.as_ref());
 
         let response_sent = try_or_invoke_done!(self, &mut session, &mut ctx, conn.init_from_session(&mut session).await);
         if response_sent {
@@ -118,9 +118,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                                      ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let mut end_of_body = session.request_done();
         let mut response_done = false;
-        // let mut request_done = false;
         while !end_of_body || !response_done {
-            info!("proxy_handle_downstream.... {}, {}", end_of_body, response_done);
             let send_permit = tx_downstream.try_reserve();
             tokio::select! {
                 data = session.downstream_session.underlying_stream.next(), if !end_of_body && send_permit.is_ok() => {
@@ -183,7 +181,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let mut request_done = false;
         let mut response_done = false;
         while !request_done || !response_done {
-            error!("in proxy_handle_upstream, request_done: {}, response_done: {}", request_done, response_done);
             tokio::select! {
                 task = rx_downstream.recv(), if !request_done => {
                     match task {
@@ -193,8 +190,8 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                         }
 
                         Some(a) =>{
-                            error ! ("unexpected data: {:?}", a);
-                            todo !()
+                            error!("unexpected data: {:?}", a);
+                            todo!()
                         }
                         _ => {
                             request_done = true;
