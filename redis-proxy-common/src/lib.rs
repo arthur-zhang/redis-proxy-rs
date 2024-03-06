@@ -7,8 +7,6 @@ use crate::cmd::CmdType;
 pub mod cmd;
 pub mod tools;
 
-pub type TDecodedFrame = Arc<ReqFrameData>;
-
 #[derive(Clone)]
 pub struct ReqFrameData {
     pub is_head_frame: bool,
@@ -17,7 +15,6 @@ pub struct ReqFrameData {
     pub raw_bytes: bytes::Bytes,
     pub end_of_body: bool,
 }
-
 
 impl ReqFrameData {
     pub fn new(is_first_frame: bool, cmd_type: CmdType, bulk_read_args: Option<Vec<Range<usize>>>, raw_bytes: bytes::Bytes, is_done: bool) -> Self {

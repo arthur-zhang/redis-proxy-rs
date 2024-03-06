@@ -233,7 +233,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 pub struct Session {
     pub underlying_stream: Framed<TcpStream, ReqPktDecoder>,
     pub header_frame: Option<ReqFrameData>,
-    pub password: Option<String>,
+    pub password: Option<Vec<u8>>,
     pub db: u64,
     pub is_authed: bool,
     pub req_start: Instant,
@@ -291,7 +291,7 @@ impl Session {
         if let Some(ref header_frame) = self.header_frame {
             if let Some(args) = header_frame.args() {
                 if args.len() > 0 {
-                    let auth_password = std::str::from_utf8(args[0]).unwrap_or("").to_owned();
+                    let auth_password = args[0].to_vec();
                     self.password = Some(auth_password);
                 }
             }
