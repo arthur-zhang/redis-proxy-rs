@@ -1,11 +1,12 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Error};
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
 use futures::future::ok;
+use futures::stream::TryNext;
 use log::{error, info};
 use poolx::PoolConnection;
 use tokio::io::AsyncWriteExt;
@@ -29,78 +30,88 @@ pub struct RedisProxy<P> {
     pub upstream_pool: Pool,
 }
 
+macro_rules! try_or_return {
+    ($self:expr, $expr:expr) => {
+        match $expr {
+            Ok(val) => val,
+            Err(_) => {
+                return None;
+            }
+        }
+    };
+}
+
+
+macro_rules! try_or_invoke_done {
+    ($self:expr, $session:expr, $ctx:expr, $expr:expr) => {
+        match $expr {
+            Ok(val) => val,
+            Err(err) => {
+                $self.inner.request_done($session, Some(&err), $ctx).await;
+                return None;
+            }
+        }
+    };
+}
+
 impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sync {
-    pub async fn handle_new_request(&self, mut session: Session, pool: Pool) -> anyhow::Result<Option<Session>> {
+    pub async fn handle_new_request(&self, mut session: Session, pool: Pool) -> Option<Session> {
         info!("handle_new_request..........");
-        self.inner.on_session_create().await?;
+        try_or_return!(self, self.inner.on_session_create().await);
         // read header frame
         let mut req_frame = match session.downstream_session.underlying_stream.next().await {
-            None => { return Ok(None); }
+            None => { return None; }
             Some(req_frame) => {
-                session.downstream_session.req_start = session.downstream_session.underlying_stream.codec().req_start();
-                req_frame.map_err(|e| anyhow!("decode req frame error: {:?}", e))?
+                try_or_return!(self, req_frame)
             }
         };
+        // let mut req_frame = try_or_return!(self, session.downstream_session.underlying_stream.next().await.ok_or(anyhow!("read error")));
+        session.downstream_session.req_start = session.downstream_session.underlying_stream.codec().req_start();
         error!("req_frame: {:?}", req_frame);
 
         session.downstream_session.header_frame = Some(req_frame.clone());
 
         if req_frame.cmd_type == CmdType::SELECT {
-            on_select_db(&mut session)?;
+            session.on_select_db();
         } else if req_frame.cmd_type == CmdType::AUTH {
-            on_auth(&mut session)?;
+            session.on_auth();
         }
-
 
         let mut ctx = self.inner.new_ctx();
-        let response_sent = self.inner.request_filter(&mut session, &mut ctx).await?;
+        let response_sent = try_or_invoke_done!(self, &mut session, &mut ctx, self.inner.request_filter(&mut session, &mut ctx).await);
         if response_sent {
-            info!("response sent: true");
             if !req_frame.is_done {
-                session.downstream_session.drain_req_until_done().await?;
+                try_or_invoke_done!(self, &mut session, &mut ctx, session.drain_req_until_done().await);
             }
-            self.inner.request_done(&mut session, None, &mut ctx).await;
-            return Ok(Some(session));
+            return Some(session);
         }
+        let mut conn = try_or_invoke_done!(self, &mut session, &mut ctx, pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e)));
 
-        let mut conn = pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
         error!("get a connection : {:?}", conn.as_ref());
 
-        let response_sent = conn.init_from_session(&mut session).await?;
+        let response_sent = try_or_invoke_done!(self, &mut session, &mut ctx, conn.init_from_session(&mut session).await);
         if response_sent {
-            session.downstream_session.drain_req_until_done().await?;
-            self.inner.request_done(&mut session, None, &mut ctx).await;
-            return Ok(Some(session));
+            try_or_invoke_done!(self, &mut session, &mut ctx, session.drain_req_until_done().await);
         }
-        if let Err(err) = self.inner.proxy_upstream_filter(&mut session, &mut ctx).await {
-            bail!("proxy_upstream_filter failed: {:?}", err)
-        }
-        if let Err(err) = self.inner.upstream_request_filter(&mut session, &mut req_frame, &mut ctx).await {
-            bail!("upstream_request_filter failed: {:?}", err)
-        }
+
+        try_or_invoke_done!(self, &mut session, &mut ctx, self.inner.proxy_upstream_filter(&mut session, &mut ctx).await);
+        try_or_invoke_done!(self, &mut session, &mut ctx, self.inner.upstream_request_filter(&mut session, &mut req_frame, &mut ctx).await);
 
         error!("client connection is none, reconnect to backend server, id: {}", conn.id);
         let (tx_upstream, rx_upstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
         let (tx_downstream, rx_downstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
 
 
-        conn.w.write_all(&req_frame.raw_bytes).await?;
+        try_or_invoke_done!(self, &mut session, &mut ctx, conn.w.write_all(&req_frame.raw_bytes).await.map_err(|e|anyhow!("send error :{:?}", e)));
 
         // bi-directional proxy
-        let res = tokio::try_join!(
-            self.proxy_handle_downstream(&mut session, tx_downstream, rx_upstream, &mut ctx),
-            self.proxy_handle_upstream(conn, tx_upstream, rx_downstream)
-        );
-        self.inner.request_done(&mut session, None, &mut ctx).await;
-        match res {
-            Ok(_) => {
-                info!("proxy done");
-            }
-            Err(e) => {
-                error!("proxy error: {:?}", e);
-            }
-        }
-        Ok(Some(session))
+        try_or_invoke_done!(self, &mut session, &mut ctx,
+            tokio::try_join!(
+                self.proxy_handle_downstream(&mut session, tx_downstream, rx_upstream, &mut ctx),
+                self.proxy_handle_upstream(conn, tx_upstream, rx_downstream)
+        ));
+
+        return Some(session);
     }
     async fn proxy_handle_downstream(&self,
                                      session: &mut Session,
@@ -115,55 +126,53 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             let send_permit = tx_downstream.try_reserve();
             tokio::select! {
                 data = session.downstream_session.underlying_stream.next(), if !end_of_body && send_permit.is_ok() => {
-                    info!("framed next...., request_done:{}, {:?}", end_of_body, data);
+                    info ! ("framed next...., request_done:{}, {:?}", end_of_body, data);
                     match data {
-                        Some(Ok(mut data)) => {
+                        Some(Ok( mut data)) => {
                             let is_done = data.is_done;
-                            self.inner.upstream_request_filter(session, &mut data, ctx).await?;
+                            self.inner.upstream_request_filter(session, & mut data, ctx).await ?;
                             send_permit.unwrap().send(ProxyChanData::ReqFrameData(data));
                             end_of_body = is_done;
                         }
                         Some(Err(e)) => {
                             end_of_body = true;
-                            bail!("proxy_handle_downstream, framed next error: {:?}", e)
+                            bail ! ("proxy_handle_downstream, framed next error: {:?}", e)
                         }
                         None => {
-                            info!("proxy_handle_downstream, downstream eof");
+                            info ! ("proxy_handle_downstream, downstream eof");
                             send_permit.unwrap().send(ProxyChanData::None);
                             end_of_body = true;
                             return Ok(())
                         }
                     }
                 }
-                _ = tx_downstream.reserve(), if send_permit.is_err() => {
+            _ = tx_downstream.reserve(), if send_permit.is_err() => {}
+            task = rx_upstream.recv(), if !response_done => {
+                info ! ("rx_upstream recv...., response_done:{}, {:?}", response_done, task);
 
-                }
-                task = rx_upstream.recv(), if !response_done => {
-                    info!("rx_upstream recv...., response_done:{}, {:?}", response_done, task);
+                match task {
+                    Some(ProxyChanData::ResFrameData(res_framed_data)) => {
+                        session.downstream_session.underlying_stream.send(res_framed_data.data).await?;
+                        response_done = res_framed_data.is_done;
 
-                    match task {
-                        Some(ProxyChanData::ResFrameData(res_framed_data)) => {
-                            session.downstream_session.underlying_stream.send(res_framed_data.data).await?;
-                            response_done = res_framed_data.is_done;
-
-                            let cmd_type = session.cmd_type();
-                            if cmd_type == CmdType::AUTH && res_framed_data.is_done {
-                                session.downstream_session.is_authed = !res_framed_data.is_error;
-                            }
-                        }
-                        Some(_)=>{
-                            todo!()
-                        }
-
-                        None => {
-                            response_done = true;
+                        let cmd_type = session.cmd_type();
+                        if cmd_type == CmdType::AUTH && res_framed_data.is_done {
+                            session.downstream_session.is_authed = ! res_framed_data.is_error;
                         }
                     }
-                }
-                else => {
-                    break;
+                    Some(_) => {
+                        todo ! ()
+                    }
+
+                    None => {
+                        response_done = true;
+                    }
                 }
             }
+            else => {
+                break;
+            }
+        }
         }
         Ok(())
     }
@@ -181,20 +190,20 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 task = rx_downstream.recv(), if !request_done => {
                     match task {
                         Some(ProxyChanData::ReqFrameData(frame_data)) => {
-                            conn.w.write_all(&frame_data.raw_bytes).await?;
+                            conn.w.write_all( & frame_data.raw_bytes).await ?;
                             request_done = frame_data.is_done;
                         }
 
-                        Some(a)=>{
-                            error!("unexpected data: {:?}", a);
-                            todo!()
+                        Some(a) =>{
+                            error ! ("unexpected data: {:?}", a);
+                            todo !()
                         }
                         _ => {
                             request_done = true;
                         }
                     }
                 }
-                data = conn.r.next(), if !response_done => {
+                data = conn.r.next(), if ! response_done => {
                     match data {
                         Some(Ok(data)) => {
                             let is_done = data.is_done;
@@ -202,10 +211,9 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                             if is_done {
                                 response_done = true;
                             }
-
                         }
-                        Some(Err(err))=> {
-                            todo!()
+                        Some(Err(err)) => {
+                            todo ! ()
                         }
 
                         None => {
@@ -217,28 +225,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         }
         Ok(())
     }
-}
-
-fn on_select_db(session: &mut Session) -> anyhow::Result<()> {
-    if let Some(ref header_frame) = session.downstream_session.header_frame {
-        if let Some(args) = header_frame.args() {
-            let db = std::str::from_utf8(args[0])?.parse::<u64>().unwrap_or(0);
-            session.downstream_session.db = db;
-        }
-    }
-    Ok(())
-}
-
-pub fn on_auth(session: &mut Session) -> anyhow::Result<()> {
-    if let Some(ref header_frame) = session.downstream_session.header_frame {
-        if let Some(args) = header_frame.args() {
-            if args.len() > 0 {
-                let auth_password = std::str::from_utf8(args[0]).unwrap_or("").to_owned();
-                session.downstream_session.password = Some(auth_password);
-            }
-        }
-    }
-    Ok(())
 }
 
 
@@ -264,18 +250,35 @@ pub struct RedisSession {
     pub is_authed: bool,
     pub req_start: Instant,
     pub resp_is_ok: bool,
-    pub req_end: Instant,
-
 }
 
-impl RedisSession {
+impl Session {
     pub async fn drain_req_until_done(&mut self) -> anyhow::Result<()> {
-        while let Some(Ok(req_frame_data)) = self.underlying_stream.next().await {
+        while let Some(Ok(req_frame_data)) = self.downstream_session.underlying_stream.next().await {
             if req_frame_data.is_done {
                 return Ok(());
             }
         }
-        return Ok(());
+        bail!("drain req failed")
+    }
+
+    fn on_select_db(&mut self) {
+        if let Some(ref header_frame) = self.downstream_session.header_frame {
+            if let Some(args) = header_frame.args() {
+                let db = std::str::from_utf8(args[0]).map(|it| it.parse::<u64>().unwrap_or(0)).unwrap_or(0);
+                self.downstream_session.db = db;
+            }
+        }
+    }
+    pub fn on_auth(&mut self) {
+        if let Some(ref header_frame) = self.downstream_session.header_frame {
+            if let Some(args) = header_frame.args() {
+                if args.len() > 0 {
+                    let auth_password = std::str::from_utf8(args[0]).unwrap_or("").to_owned();
+                    self.downstream_session.password = Some(auth_password);
+                }
+            }
+        }
     }
 }
 
@@ -362,7 +365,7 @@ pub trait Proxy {
         _ctx: &mut Self::CTX,
     ) {}
 
-    async fn request_done(&self, _session: &mut Session, _e: Option<&anyhow::Error>, _ctx: &mut Self::CTX)
+    async fn request_done(&self, session: &mut Session, e: Option<&anyhow::Error>, ctx: &mut Self::CTX)
         where
             Self::CTX: Send + Sync {}
 }

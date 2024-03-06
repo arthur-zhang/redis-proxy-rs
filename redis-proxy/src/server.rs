@@ -69,16 +69,18 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
                         is_authed: false,
                         req_start: Instant::now(),
                         resp_is_ok: false,
-                        req_end: Instant::now(),
                     }
                 };
                 let app_logic = app_logic.clone();
                 async move {
                     loop {
-                        if let Some(s) = app_logic.handle_new_request(session, pool.clone()).await? {
-                            session = s;
-                        } else {
-                            break;
+                        match app_logic.handle_new_request(session, pool.clone()).await {
+                            Some(s) => {
+                                session = s
+                            }
+                            None => {
+                                break;
+                            }
                         }
                     }
                     info!("session done");
