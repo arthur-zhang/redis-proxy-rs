@@ -56,6 +56,7 @@ macro_rules! try_or_invoke_done {
 
 impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sync {
     pub async fn handle_new_request(&self, mut session: Session, pool: Pool) -> Option<Session> {
+        info!("handle new request");
         try_or_return!(self, self.inner.on_session_create().await);
         let mut req_frame = match session.downstream_session.underlying_stream.next().await {
             None => { return None; }
@@ -68,9 +69,10 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         session.downstream_session.req_start = session.downstream_session.underlying_stream.codec().req_start();
         session.downstream_session.header_frame = Some(req_frame.clone());
 
-        if req_frame.cmd_type == CmdType::SELECT {
+        let cmd_type = req_frame.cmd_type;
+        if cmd_type == CmdType::SELECT {
             session.on_select_db();
-        } else if req_frame.cmd_type == CmdType::AUTH {
+        } else if cmd_type == CmdType::AUTH {
             session.on_auth();
         }
 
@@ -84,17 +86,18 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         }
         let mut conn = try_or_invoke_done!(self, &mut session, &mut ctx, pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e)));
 
-        debug!("get a connection : {:?}", conn.as_ref());
+        info!("get a connection : {:?}", conn.as_ref());
 
         let response_sent = try_or_invoke_done!(self, &mut session, &mut ctx, conn.init_from_session(&mut session).await);
+        info!("init from session done: {}", response_sent);
         if response_sent {
             try_or_invoke_done!(self, &mut session, &mut ctx, session.drain_req_until_done().await);
+            return Some(session);
         }
 
         try_or_invoke_done!(self, &mut session, &mut ctx, self.inner.proxy_upstream_filter(&mut session, &mut ctx).await);
         try_or_invoke_done!(self, &mut session, &mut ctx, self.inner.upstream_request_filter(&mut session, &mut req_frame, &mut ctx).await);
 
-        error!("client connection is none, reconnect to backend server, id: {}", conn.id);
         let (tx_upstream, rx_upstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
         let (tx_downstream, rx_downstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
 
@@ -104,9 +107,10 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         try_or_invoke_done!(self, &mut session, &mut ctx,
             tokio::try_join!(
                 self.proxy_handle_downstream(&mut session, tx_downstream, rx_upstream, &mut ctx),
-                self.proxy_handle_upstream(conn, tx_upstream, rx_downstream)
+                self.proxy_handle_upstream(conn, tx_upstream, rx_downstream, cmd_type)
         ));
         self.inner.request_done(&mut session, None, &mut ctx).await;
+        info!("session done");
         return Some(session);
     }
     async fn proxy_handle_downstream(&self,
@@ -140,36 +144,35 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                         }
                     }
                 }
-            _ = tx_downstream.reserve(), if send_permit.is_err() => {}
-            task = rx_upstream.recv(), if !response_done => {
-                match task {
-                    Some(ProxyChanData::ResFrameData(res_framed_data)) => {
-                        if res_framed_data.is_done {
-                            session.downstream_session.res_is_ok = res_framed_data.res_is_ok;
+                task = rx_upstream.recv(), if !response_done => {
+                    match task {
+                        Some(ProxyChanData::ResFrameData(res_framed_data)) => {
+                            if res_framed_data.is_done {
+                                session.downstream_session.res_is_ok = res_framed_data.res_is_ok;
+                            }
+                            session.downstream_session.res_size += res_framed_data.data.len();
+                            session.downstream_session.underlying_stream.send(res_framed_data.data).await?;
+
+                            response_done = res_framed_data.is_done;
+
+                            let cmd_type = session.cmd_type();
+                            if cmd_type == CmdType::AUTH && res_framed_data.is_done {
+                                session.downstream_session.is_authed = res_framed_data.res_is_ok;
+                            }
                         }
-                        session.downstream_session.res_size += res_framed_data.data.len();
-                        session.downstream_session.underlying_stream.send(res_framed_data.data).await?;
-
-                        response_done = res_framed_data.is_done;
-
-                        let cmd_type = session.cmd_type();
-                        if cmd_type == CmdType::AUTH && res_framed_data.is_done {
-                            session.downstream_session.is_authed = res_framed_data.res_is_ok;
+                        Some(_) => {
+                            todo ! ()
                         }
-                    }
-                    Some(_) => {
-                        todo ! ()
-                    }
 
-                    None => {
-                        response_done = true;
+                        None => {
+                            response_done = true;
+                        }
                     }
                 }
+                else => {
+                    break;
+                }
             }
-            else => {
-                break;
-            }
-        }
         }
         Ok(())
     }
@@ -177,7 +180,8 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     async fn proxy_handle_upstream(&self,
                                    mut conn: PoolConnection<RedisConnection>,
                                    tx_upstream: Sender<ProxyChanData>,
-                                   mut rx_downstream: Receiver<ProxyChanData>)
+                                   mut rx_downstream: Receiver<ProxyChanData>,
+                                   cmd_type: CmdType)
                                    -> anyhow::Result<()> {
         let mut request_done = false;
         let mut response_done = false;
@@ -188,6 +192,9 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                     match data {
                         Some(Ok(data)) => {
                             let is_done = data.is_done;
+                            if cmd_type == CmdType::AUTH {
+                                conn.is_authed = data.res_is_ok;
+                            }
                             tx_upstream.send(ProxyChanData::ResFrameData(data)).await?;
                             if is_done {
                                 response_done = true;
@@ -242,6 +249,11 @@ impl Session {
 
 impl Session {
     pub async fn drain_req_until_done(&mut self) -> anyhow::Result<()> {
+        if let Some(ref header_frame) = self.downstream_session.header_frame {
+            if header_frame.end_of_body {
+                return Ok(());
+            }
+        }
         while let Some(Ok(req_frame_data)) = self.downstream_session.underlying_stream.next().await {
             if req_frame_data.end_of_body {
                 return Ok(());

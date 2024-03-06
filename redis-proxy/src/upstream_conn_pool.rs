@@ -97,6 +97,8 @@ impl RedisConnection {
         &mut self,
         session: &mut Session,
     ) -> anyhow::Result<bool> {
+        info!("auth connection if needed: conn authed: {}, session authed: {}", self.is_authed, session.downstream_session.is_authed);
+
         match (self.is_authed, session.downstream_session.is_authed) {
             (true, true) | (false, false) => {}
             (false, true) => {
@@ -110,11 +112,7 @@ impl RedisConnection {
             }
             (true, false) => {
                 // connection is auth, but ctx is not auth, should return no auth
-                if let Some(ref header_frame) = session.downstream_session.header_frame {
-                    if header_frame.end_of_body {
-                        session.downstream_session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required nimei.\r\n")).await?;
-                    }
-                }
+                session.downstream_session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await?;
                 return Ok(true);
             }
         }
@@ -124,7 +122,7 @@ impl RedisConnection {
 
 impl Display for RedisConnection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RedisConnection({})", self.id)
+        write!(f, "RedisConnection[{}]: is_authed:{}, attrs: {:?}", self.id, self.is_authed, self.session_attr)
     }
 }
 
