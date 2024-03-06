@@ -60,17 +60,8 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
                 let pool = pool.clone();
 
                 let framed = Framed::new(c2p_conn, ReqPktDecoder::new());
-                let mut session = Session {
-                    downstream_session: RedisSession {
-                        underlying_stream: framed,
-                        header_frame: None,
-                        password: None,
-                        db: 0,
-                        is_authed: false,
-                        req_start: Instant::now(),
-                        resp_is_ok: false,
-                    }
-                };
+                let mut session = Session { downstream_session: RedisSession::new(framed) };
+
                 let app_logic = app_logic.clone();
                 async move {
                     loop {

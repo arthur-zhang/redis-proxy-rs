@@ -15,8 +15,9 @@ pub struct ReqFrameData {
     pub cmd_type: CmdType,
     bulk_read_args: Option<Vec<Range<usize>>>,
     pub raw_bytes: bytes::Bytes,
-    pub is_done: bool,
+    pub end_of_body: bool,
 }
+
 
 impl ReqFrameData {
     pub fn new(is_first_frame: bool, cmd_type: CmdType, bulk_read_args: Option<Vec<Range<usize>>>, raw_bytes: bytes::Bytes, is_done: bool) -> Self {
@@ -25,7 +26,7 @@ impl ReqFrameData {
             cmd_type,
             bulk_read_args,
             raw_bytes,
-            is_done,
+            end_of_body: is_done,
         }
     }
     pub fn args(&self) -> Option<Vec<&[u8]>> {

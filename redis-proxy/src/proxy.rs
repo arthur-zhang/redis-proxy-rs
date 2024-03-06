@@ -65,10 +65,9 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 try_or_return!(self, req_frame)
             }
         };
-        // let mut req_frame = try_or_return!(self, session.downstream_session.underlying_stream.next().await.ok_or(anyhow!("read error")));
+        session.downstream_session.req_size = req_frame.raw_bytes.len();
+        session.downstream_session.res_size = 0;
         session.downstream_session.req_start = session.downstream_session.underlying_stream.codec().req_start();
-        error!("req_frame: {:?}", req_frame);
-
         session.downstream_session.header_frame = Some(req_frame.clone());
 
         if req_frame.cmd_type == CmdType::SELECT {
@@ -80,7 +79,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let mut ctx = self.inner.new_ctx();
         let response_sent = try_or_invoke_done!(self, &mut session, &mut ctx, self.inner.request_filter(&mut session, &mut ctx).await);
         if response_sent {
-            if !req_frame.is_done {
+            if !req_frame.end_of_body {
                 try_or_invoke_done!(self, &mut session, &mut ctx, session.drain_req_until_done().await);
             }
             return Some(session);
@@ -101,8 +100,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let (tx_upstream, rx_upstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
         let (tx_downstream, rx_downstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
 
-
-        try_or_invoke_done!(self, &mut session, &mut ctx, conn.w.write_all(&req_frame.raw_bytes).await.map_err(|e|anyhow!("send error :{:?}", e)));
+        try_or_invoke_done!(self, &mut session, &mut ctx, conn.w.write_all(&req_frame.raw_bytes).await.map_err(|e| anyhow!("send error :{:?}", e)));
 
         // bi-directional proxy
         try_or_invoke_done!(self, &mut session, &mut ctx,
@@ -110,7 +108,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 self.proxy_handle_downstream(&mut session, tx_downstream, rx_upstream, &mut ctx),
                 self.proxy_handle_upstream(conn, tx_upstream, rx_downstream)
         ));
-
+        self.inner.request_done(&mut session, None, &mut ctx).await;
         return Some(session);
     }
     async fn proxy_handle_downstream(&self,
@@ -126,20 +124,20 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             let send_permit = tx_downstream.try_reserve();
             tokio::select! {
                 data = session.downstream_session.underlying_stream.next(), if !end_of_body && send_permit.is_ok() => {
-                    info ! ("framed next...., request_done:{}, {:?}", end_of_body, data);
                     match data {
-                        Some(Ok( mut data)) => {
-                            let is_done = data.is_done;
-                            self.inner.upstream_request_filter(session, & mut data, ctx).await ?;
+                        Some(Ok(mut data)) => {
+                            let is_done = data.end_of_body;
+                            self.inner.upstream_request_filter(session, &mut data, ctx).await?;
+                            session.downstream_session.req_size += data.raw_bytes.len();
                             send_permit.unwrap().send(ProxyChanData::ReqFrameData(data));
                             end_of_body = is_done;
                         }
                         Some(Err(e)) => {
                             end_of_body = true;
-                            bail ! ("proxy_handle_downstream, framed next error: {:?}", e)
+                            bail!("proxy_handle_downstream, framed next error: {:?}", e)
                         }
                         None => {
-                            info ! ("proxy_handle_downstream, downstream eof");
+                            info!("proxy_handle_downstream, downstream eof");
                             send_permit.unwrap().send(ProxyChanData::None);
                             end_of_body = true;
                             return Ok(())
@@ -148,16 +146,16 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 }
             _ = tx_downstream.reserve(), if send_permit.is_err() => {}
             task = rx_upstream.recv(), if !response_done => {
-                info ! ("rx_upstream recv...., response_done:{}, {:?}", response_done, task);
-
                 match task {
                     Some(ProxyChanData::ResFrameData(res_framed_data)) => {
+                        session.downstream_session.res_size += res_framed_data.data.len();
                         session.downstream_session.underlying_stream.send(res_framed_data.data).await?;
+
                         response_done = res_framed_data.is_done;
 
                         let cmd_type = session.cmd_type();
                         if cmd_type == CmdType::AUTH && res_framed_data.is_done {
-                            session.downstream_session.is_authed = ! res_framed_data.is_error;
+                            session.downstream_session.is_authed = !res_framed_data.is_error;
                         }
                     }
                     Some(_) => {
@@ -191,7 +189,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                     match task {
                         Some(ProxyChanData::ReqFrameData(frame_data)) => {
                             conn.w.write_all( & frame_data.raw_bytes).await ?;
-                            request_done = frame_data.is_done;
+                            request_done = frame_data.end_of_body;
                         }
 
                         Some(a) =>{
@@ -230,32 +228,21 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
 pub struct Session {
     pub downstream_session: RedisSession,
-
 }
 
 impl Session {
     pub fn request_done(&self) -> bool {
-        self.downstream_session.header_frame.as_ref().map(|it| it.is_done).unwrap_or(false)
+        self.downstream_session.header_frame.as_ref().map(|it| it.end_of_body).unwrap_or(false)
     }
     pub fn cmd_type(&self) -> CmdType {
         self.downstream_session.header_frame.as_ref().map(|it| it.cmd_type).unwrap_or(CmdType::UNKNOWN)
     }
 }
 
-pub struct RedisSession {
-    pub underlying_stream: Framed<TcpStream, ReqPktDecoder>,
-    pub header_frame: Option<ReqFrameData>,
-    pub password: Option<String>,
-    pub db: u64,
-    pub is_authed: bool,
-    pub req_start: Instant,
-    pub resp_is_ok: bool,
-}
-
 impl Session {
     pub async fn drain_req_until_done(&mut self) -> anyhow::Result<()> {
         while let Some(Ok(req_frame_data)) = self.downstream_session.underlying_stream.next().await {
-            if req_frame_data.is_done {
+            if req_frame_data.end_of_body {
                 return Ok(());
             }
         }
@@ -282,7 +269,33 @@ impl Session {
     }
 }
 
-// pub struct
+pub struct RedisSession {
+    pub underlying_stream: Framed<TcpStream, ReqPktDecoder>,
+    pub header_frame: Option<ReqFrameData>,
+    pub password: Option<String>,
+    pub db: u64,
+    pub is_authed: bool,
+    pub req_start: Instant,
+    pub resp_is_ok: bool,
+    pub req_size: usize,
+    pub res_size: usize,
+}
+
+impl RedisSession {
+    pub fn new(underlying_stream: Framed<TcpStream, ReqPktDecoder>) -> Self {
+        RedisSession {
+            underlying_stream,
+            header_frame: None,
+            password: None,
+            db: 0,
+            is_authed: false,
+            req_start: Instant::now(),
+            resp_is_ok: false,
+            req_size: 0,
+            res_size: 0,
+        }
+    }
+}
 
 #[async_trait]
 pub trait Proxy {

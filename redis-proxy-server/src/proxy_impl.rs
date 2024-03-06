@@ -38,7 +38,6 @@ impl Proxy for RedisProxyImpl {
         ctx.set_attr(REQ_SIZE, Value::U64(0));
         ctx.set_attr(RES_SIZE, Value::U64(0));
 
-
         for filter in &self.filters {
             let response_sent = filter.request_filter(session, ctx).await?;
             if response_sent {

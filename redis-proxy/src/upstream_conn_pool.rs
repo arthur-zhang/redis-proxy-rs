@@ -111,7 +111,7 @@ impl RedisConnection {
             (true, false) => {
                 // connection is auth, but ctx is not auth, should return no auth
                 if let Some(ref header_frame) = session.downstream_session.header_frame {
-                    if header_frame.is_done {
+                    if header_frame.end_of_body {
                         session.downstream_session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required nimei.\r\n")).await?;
                     }
                 }
