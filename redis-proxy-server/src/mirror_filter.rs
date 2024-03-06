@@ -59,7 +59,7 @@ impl Proxy for Mirror {
     type CTX = FilterContext;
 
     async fn proxy_upstream_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
-        let data = session.downstream_session.header_frame.as_ref().unwrap();
+        let data = session.header_frame.as_ref().unwrap();
         let should_mirror = if data.cmd_type.is_connection_command() {
             true
         } else if data.cmd_type.is_read_cmd() {

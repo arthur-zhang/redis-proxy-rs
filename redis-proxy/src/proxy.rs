@@ -57,16 +57,16 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     pub async fn handle_new_request(&self, mut session: Session, pool: Pool) -> Option<Session> {
         info!("handle new request");
         try_or_return!(self, self.inner.on_session_create().await);
-        let mut req_frame = match session.downstream_session.underlying_stream.next().await {
+        let mut req_frame = match session.underlying_stream.next().await {
             None => { return None; }
             Some(req_frame) => {
                 try_or_return!(self, req_frame)
             }
         };
-        session.downstream_session.req_size = req_frame.raw_bytes.len();
-        session.downstream_session.res_size = 0;
-        session.downstream_session.req_start = session.downstream_session.underlying_stream.codec().req_start();
-        session.downstream_session.header_frame = Some(req_frame.clone());
+        session.req_size = req_frame.raw_bytes.len();
+        session.res_size = 0;
+        session.req_start = session.underlying_stream.codec().req_start();
+        session.header_frame = Some(req_frame.clone());
 
         let cmd_type = req_frame.cmd_type;
         if cmd_type == CmdType::SELECT {
@@ -119,12 +119,12 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         while !end_of_body || !response_done {
             let send_permit = tx_downstream.try_reserve();
             tokio::select! {
-                data = session.downstream_session.underlying_stream.next(), if !end_of_body && send_permit.is_ok() => {
+                data = session.underlying_stream.next(), if !end_of_body && send_permit.is_ok() => {
                     match data {
                         Some(Ok(mut data)) => {
                             let is_done = data.end_of_body;
                             self.inner.upstream_request_filter(session, &mut data, ctx).await?;
-                            session.downstream_session.req_size += data.raw_bytes.len();
+                            session.req_size += data.raw_bytes.len();
                             send_permit.unwrap().send(ProxyChanData::ReqFrameData(data));
                             end_of_body = is_done;
                         }
@@ -144,16 +144,16 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                     match task {
                         Some(ProxyChanData::ResFrameData(res_framed_data)) => {
                             if res_framed_data.is_done {
-                                session.downstream_session.res_is_ok = res_framed_data.res_is_ok;
+                                session.res_is_ok = res_framed_data.res_is_ok;
                             }
-                            session.downstream_session.res_size += res_framed_data.data.len();
-                            session.downstream_session.underlying_stream.send(res_framed_data.data).await?;
+                            session.res_size += res_framed_data.data.len();
+                            session.underlying_stream.send(res_framed_data.data).await?;
 
                             response_done = res_framed_data.is_done;
 
                             let cmd_type = session.cmd_type();
                             if cmd_type == CmdType::AUTH && res_framed_data.is_done {
-                                session.downstream_session.is_authed = res_framed_data.res_is_ok;
+                                session.is_authed = res_framed_data.res_is_ok;
                             }
                         }
                         Some(_) => {
@@ -231,54 +231,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
 
 pub struct Session {
-    pub downstream_session: RedisSession,
-}
-
-impl Session {
-    pub fn request_done(&self) -> bool {
-        self.downstream_session.header_frame.as_ref().map(|it| it.end_of_body).unwrap_or(false)
-    }
-    pub fn cmd_type(&self) -> CmdType {
-        self.downstream_session.header_frame.as_ref().map(|it| it.cmd_type).unwrap_or(CmdType::UNKNOWN)
-    }
-}
-
-impl Session {
-    pub async fn drain_req_until_done(&mut self) -> anyhow::Result<()> {
-        if let Some(ref header_frame) = self.downstream_session.header_frame {
-            if header_frame.end_of_body {
-                return Ok(());
-            }
-        }
-        while let Some(Ok(req_frame_data)) = self.downstream_session.underlying_stream.next().await {
-            if req_frame_data.end_of_body {
-                return Ok(());
-            }
-        }
-        bail!("drain req failed")
-    }
-
-    fn on_select_db(&mut self) {
-        if let Some(ref header_frame) = self.downstream_session.header_frame {
-            if let Some(args) = header_frame.args() {
-                let db = std::str::from_utf8(args[0]).map(|it| it.parse::<u64>().unwrap_or(0)).unwrap_or(0);
-                self.downstream_session.db = db;
-            }
-        }
-    }
-    pub fn on_auth(&mut self) {
-        if let Some(ref header_frame) = self.downstream_session.header_frame {
-            if let Some(args) = header_frame.args() {
-                if args.len() > 0 {
-                    let auth_password = std::str::from_utf8(args[0]).unwrap_or("").to_owned();
-                    self.downstream_session.password = Some(auth_password);
-                }
-            }
-        }
-    }
-}
-
-pub struct RedisSession {
     pub underlying_stream: Framed<TcpStream, ReqPktDecoder>,
     pub header_frame: Option<ReqFrameData>,
     pub password: Option<String>,
@@ -290,18 +242,59 @@ pub struct RedisSession {
     pub res_size: usize,
 }
 
-impl RedisSession {
+impl Session {
     pub fn new(underlying_stream: Framed<TcpStream, ReqPktDecoder>) -> Self {
-        RedisSession {
+        Session {
             underlying_stream,
             header_frame: None,
             password: None,
             db: 0,
             is_authed: false,
             req_start: Instant::now(),
-            res_is_ok: false,
+            res_is_ok: true,
             req_size: 0,
             res_size: 0,
+        }
+    }
+    pub fn request_done(&self) -> bool {
+        self.header_frame.as_ref().map(|it| it.end_of_body).unwrap_or(false)
+    }
+    pub fn cmd_type(&self) -> CmdType {
+        self.header_frame.as_ref().map(|it| it.cmd_type).unwrap_or(CmdType::UNKNOWN)
+    }
+}
+
+impl Session {
+    pub async fn drain_req_until_done(&mut self) -> anyhow::Result<()> {
+        if let Some(ref header_frame) = self.header_frame {
+            if header_frame.end_of_body {
+                return Ok(());
+            }
+        }
+        while let Some(Ok(req_frame_data)) = self.underlying_stream.next().await {
+            if req_frame_data.end_of_body {
+                return Ok(());
+            }
+        }
+        bail!("drain req failed")
+    }
+
+    fn on_select_db(&mut self) {
+        if let Some(ref header_frame) = self.header_frame {
+            if let Some(args) = header_frame.args() {
+                let db = std::str::from_utf8(args[0]).map(|it| it.parse::<u64>().unwrap_or(0)).unwrap_or(0);
+                self.db = db;
+            }
+        }
+    }
+    pub fn on_auth(&mut self) {
+        if let Some(ref header_frame) = self.header_frame {
+            if let Some(args) = header_frame.args() {
+                if args.len() > 0 {
+                    let auth_password = std::str::from_utf8(args[0]).unwrap_or("").to_owned();
+                    self.password = Some(auth_password);
+                }
+            }
         }
     }
 }

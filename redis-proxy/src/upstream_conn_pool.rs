@@ -78,10 +78,10 @@ impl RedisConnection {
                 return Ok(true);
             }
         }
-        self.session_attr.password = session.downstream_session.password.clone();
-        if self.session_attr.db != session.downstream_session.db {
-            info!("rebuild session from {} to {}", self.session_attr.db,  session.downstream_session.db);
-            self.select_db(session.downstream_session.db).await?;
+        self.session_attr.password = session.password.clone();
+        if self.session_attr.db != session.db {
+            info!("rebuild session from {} to {}", self.session_attr.db,  session.db);
+            self.select_db(session.db).await?;
         }
         Ok(false)
     }
@@ -98,13 +98,13 @@ impl RedisConnection {
         &mut self,
         session: &mut Session,
     ) -> anyhow::Result<bool> {
-        info!("auth connection if needed: conn authed: {}, session authed: {}", self.is_authed, session.downstream_session.is_authed);
+        info!("auth connection if needed: conn authed: {}, session authed: {}", self.is_authed, session.is_authed);
 
-        match (self.is_authed, session.downstream_session.is_authed) {
+        match (self.is_authed, session.is_authed) {
             (true, true) | (false, false) => {}
             (false, true) => {
                 // auth connection
-                let authed = self.auth_connection(session.downstream_session.password.as_ref().unwrap()).await?;
+                let authed = self.auth_connection(session.password.as_ref().unwrap()).await?;
                 if authed {
                     self.is_authed = true;
                 } else {
@@ -113,7 +113,7 @@ impl RedisConnection {
             }
             (true, false) => {
                 // connection is auth, but ctx is not auth, should return no auth
-                session.downstream_session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await?;
+                session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await?;
                 return Ok(true);
             }
         }
