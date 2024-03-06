@@ -56,9 +56,7 @@ macro_rules! try_or_invoke_done {
 
 impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sync {
     pub async fn handle_new_request(&self, mut session: Session, pool: Pool) -> Option<Session> {
-        info!("handle_new_request..........");
         try_or_return!(self, self.inner.on_session_create().await);
-        // read header frame
         let mut req_frame = match session.downstream_session.underlying_stream.next().await {
             None => { return None; }
             Some(req_frame) => {
@@ -182,22 +180,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let mut response_done = false;
         while !request_done || !response_done {
             tokio::select! {
-                task = rx_downstream.recv(), if !request_done => {
-                    match task {
-                        Some(ProxyChanData::ReqFrameData(frame_data)) => {
-                            conn.w.write_all( & frame_data.raw_bytes).await ?;
-                            request_done = frame_data.end_of_body;
-                        }
-
-                        Some(a) =>{
-                            error!("unexpected data: {:?}", a);
-                            todo!()
-                        }
-                        _ => {
-                            request_done = true;
-                        }
-                    }
-                }
+                // get response data from upstream, send to downstream
                 data = conn.r.next(), if ! response_done => {
                     match data {
                         Some(Ok(data)) => {
@@ -215,6 +198,25 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                             response_done = true;
                         }
                     }
+                }
+                task = rx_downstream.recv(), if !request_done => {
+                    match task {
+                        Some(ProxyChanData::ReqFrameData(frame_data)) => {
+                            conn.w.write_all( & frame_data.raw_bytes).await ?;
+                            request_done = frame_data.end_of_body;
+                        }
+
+                        Some(a) =>{
+                            error!("unexpected data: {:?}", a);
+                            todo!()
+                        }
+                        _ => {
+                            request_done = true;
+                        }
+                    }
+                }
+                else => {
+                    break;
                 }
             }
         }

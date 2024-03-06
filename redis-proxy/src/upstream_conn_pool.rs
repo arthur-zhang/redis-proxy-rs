@@ -181,7 +181,6 @@ impl ConnectOptions for RedisConnectionOption {
         Box::pin({
             let addr = self.addr;
             async move {
-                error!("connect to redis: {:?}", addr);
                 let (r, w) = tokio::net::TcpStream::connect(addr).await.map_err(|e| poolx::Error::Io(std::io::Error::from(e)))?.into_split();
 
                 let mut conn = RedisConnection {
@@ -196,7 +195,6 @@ impl ConnectOptions for RedisConnectionOption {
                     let cmd = format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", pass.len(), pass);
                     // todo
                     let ok = TinyClient::query(&mut conn, cmd.as_bytes()).await;
-                    error!("auth .............. {:?}", ok);
 
                     return match ok {
                         Ok(true) => {
