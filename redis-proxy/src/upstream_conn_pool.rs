@@ -62,7 +62,7 @@ impl RedisConnection {
     async fn select_db(&mut self, db: u64) -> anyhow::Result<()> {
         let db_index = format!("{}", db);
         let cmd = format!("*2\r\n$6\r\nselect\r\n${}\r\n{}\r\n", db_index.len(), db_index);
-        let ok = self.query(cmd.as_bytes()).await?;
+        let (ok, _) = self.query_with_resp(cmd.as_bytes()).await?;
         if !ok {
             return Err(anyhow!("rebuild session failed"));
         }
@@ -91,11 +91,8 @@ impl RedisConnection {
         if !query_ok || resp_data.len() == 0 {
             return Ok(false);
         }
-        let mut data = bytes::BytesMut::with_capacity(resp_data.first().unwrap().len());
-        for d in resp_data {
-            data.extend_from_slice(&d);
-        }
-        return Ok(data.as_ref() == b"+OK\r\n");
+
+        return Ok(resp_data.as_ref() == b"+OK\r\n");
     }
     async fn auth_connection_if_needed(
         &mut self,
@@ -123,36 +120,19 @@ impl RedisConnection {
         return Ok(false);
     }
 
-    pub async fn query(&mut self, data: &[u8]) -> anyhow::Result<bool> {
+    pub async fn query_with_resp(&mut self, data: &[u8]) -> anyhow::Result<(bool, Bytes)> {
+        let mut bytes = bytes::BytesMut::new();
         self.w.write_all(data.as_ref()).await?;
         while let Some(it) = self.r.next().await {
             match it {
                 Ok(it) => {
+                    bytes.extend_from_slice(&it.data);
                     if it.is_done {
-                        return Ok(it.res_is_ok);
+                        return Ok((it.res_is_ok, bytes.freeze()));
                     }
                 }
-                Err(_) => {
-                    bail!("read error");
-                }
-            }
-        }
-        bail!("read eof");
-    }
-
-    pub async fn query_with_resp(&mut self, data: &[u8]) -> anyhow::Result<(bool, Vec<Bytes>)> {
-        let mut bytes = vec![];
-        self.w.write_all(data.as_ref()).await?;
-        while let Some(it) = self.r.next().await {
-            match it {
-                Ok(it) => {
-                    bytes.push(it.data);
-                    if it.is_done {
-                        return Ok((it.res_is_ok, bytes));
-                    }
-                }
-                Err(_) => {
-                    bail!("read error");
+                Err(e) => {
+                    bail!("read error {:?}", e);
                 }
             }
         }
@@ -231,11 +211,9 @@ impl ConnectOptions for RedisConnectionOption {
 
                 if let Some(ref pass) = self.password {
                     let cmd = format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", pass.len(), pass);
-                    // todo
-                    let ok = conn.query(cmd.as_bytes()).await;
 
-                    return match ok {
-                        Ok(true) => {
+                    return match conn.query_with_resp(cmd.as_bytes()).await {
+                        Ok((true, _)) => {
                             conn.is_authed = true;
                             Ok(conn)
                         }
@@ -250,4 +228,27 @@ impl ConnectOptions for RedisConnectionOption {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_query() -> anyhow::Result<()> {
+        let inner = TcpStream::connect("127.0.0.1:6379").await?;
+        let (r, w) = inner.into_split();
+
+        let mut conn = RedisConnection {
+            id: 0,
+            is_authed: false,
+            r: FramedRead::new(r, RespPktDecoder::new()),
+            w,
+            session_attr: SessionAttr::default(),
+        };
+
+        tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+        let resp = conn.query_with_resp("*1\r\n$4\r\nPING\r\n".as_bytes()).await;
+        println!("resp: {:?}", resp);
+        Ok(())
+    }
+}
 
