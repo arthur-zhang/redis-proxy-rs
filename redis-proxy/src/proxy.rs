@@ -106,7 +106,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 self.proxy_handle_upstream(conn, tx_upstream, rx_downstream, cmd_type)
         ));
         self.inner.request_done(&mut session, None, &mut ctx).await;
-        info!("session done");
+        debug!("request done");
         return Some(session);
     }
     async fn proxy_handle_downstream(&self,

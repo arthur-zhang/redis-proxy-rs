@@ -53,30 +53,29 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
 
         let app_logic = Arc::new(RedisProxy { inner: self.proxy, upstream_pool: pool.clone() });
         loop {
-            tokio::spawn({
-                let (c2p_conn, _) = listener.accept().await?;
-                // one connection per task
-                let pool = pool.clone();
+            // one connection per task
+            let (c2p_conn, peer_addr) = listener.accept().await?;
+            info!("session start: {:?}", peer_addr);
 
-                let framed = Framed::new(c2p_conn, ReqPktDecoder::new());
-                let mut session = Session::new(framed);
-
-                let app_logic = app_logic.clone();
-                async move {
-                    loop {
-                        match app_logic.handle_new_request(session, pool.clone()).await {
-                            Some(s) => {
-                                session = s
-                            }
-                            None => {
-                                break;
-                            }
+            let framed = Framed::new(c2p_conn, ReqPktDecoder::new());
+            let mut session = Session::new(framed);
+            let app_logic = app_logic.clone();
+            let pool = pool.clone();
+            tokio::spawn(async move {
+                loop {
+                    match app_logic.handle_new_request(session, pool.clone()).await {
+                        Some(s) => {
+                            session = s
+                        }
+                        None => {
+                            break;
                         }
                     }
-                    info!("session done");
-                    Ok::<_, anyhow::Error>(())
                 }
-            });
+                info!("session done: {:?}", peer_addr);
+                Ok::<_, anyhow::Error>(())
+            }
+            );
         };
     }
 }
