@@ -19,7 +19,7 @@ impl Proxy for LogFilter {
         let start = session.downstream_session.req_start;
         let time_cost = start.elapsed();
         let cmd = session.cmd_type();
-        let resp_is_ok = session.downstream_session.resp_is_ok;
+        let resp_is_ok = session.downstream_session.res_is_ok;
         info!("cmd: {:?}, time_cost: {:?}, resp_is_ok: {}, req_size: {}, res_size:{}",
             cmd, time_cost, resp_is_ok, session.downstream_session.req_size,
         session.downstream_session.res_size);

@@ -144,6 +144,9 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             task = rx_upstream.recv(), if !response_done => {
                 match task {
                     Some(ProxyChanData::ResFrameData(res_framed_data)) => {
+                        if res_framed_data.is_done {
+                            session.downstream_session.res_is_ok = res_framed_data.res_is_ok;
+                        }
                         session.downstream_session.res_size += res_framed_data.data.len();
                         session.downstream_session.underlying_stream.send(res_framed_data.data).await?;
 
@@ -151,7 +154,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
                         let cmd_type = session.cmd_type();
                         if cmd_type == CmdType::AUTH && res_framed_data.is_done {
-                            session.downstream_session.is_authed = !res_framed_data.is_error;
+                            session.downstream_session.is_authed = res_framed_data.res_is_ok;
                         }
                     }
                     Some(_) => {
@@ -181,7 +184,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         while !request_done || !response_done {
             tokio::select! {
                 // get response data from upstream, send to downstream
-                data = conn.r.next(), if ! response_done => {
+                data = conn.r.next(), if !response_done => {
                     match data {
                         Some(Ok(data)) => {
                             let is_done = data.is_done;
@@ -191,9 +194,8 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                             }
                         }
                         Some(Err(err)) => {
-                            todo ! ()
+                            bail!("read response from upstream failed: {:?}", err)
                         }
-
                         None => {
                             response_done = true;
                         }
@@ -275,7 +277,7 @@ pub struct RedisSession {
     pub db: u64,
     pub is_authed: bool,
     pub req_start: Instant,
-    pub resp_is_ok: bool,
+    pub res_is_ok: bool,
     pub req_size: usize,
     pub res_size: usize,
 }
@@ -289,7 +291,7 @@ impl RedisSession {
             db: 0,
             is_authed: false,
             req_start: Instant::now(),
-            resp_is_ok: false,
+            res_is_ok: false,
             req_size: 0,
             res_size: 0,
         }

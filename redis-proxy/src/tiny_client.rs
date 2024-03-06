@@ -15,7 +15,7 @@ impl TinyClient {
             match it {
                 Ok(it) => {
                     if it.is_done {
-                        return Ok(!it.is_error);
+                        return Ok(it.res_is_ok);
                     }
                 }
                 Err(_) => {
@@ -34,7 +34,7 @@ impl TinyClient {
                 Ok(it) => {
                     bytes.push(it.data);
                     if it.is_done {
-                        return Ok((!it.is_error, bytes));
+                        return Ok((it.res_is_ok, bytes));
                     }
                 }
                 Err(_) => {
