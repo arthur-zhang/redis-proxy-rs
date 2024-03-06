@@ -25,7 +25,6 @@ use redis_proxy_common::ReqFrameData;
 
 use crate::config::{Blacklist, Config, Mirror, TConfig};
 use crate::proxy::{Proxy, RedisProxy, RedisSession, Session};
-use crate::tiny_client::TinyClient;
 use crate::upstream_conn_pool::{Pool, RedisConnection, RedisConnectionOption};
 
 pub struct ProxyServer<P> {

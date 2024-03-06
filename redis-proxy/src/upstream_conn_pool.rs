@@ -11,8 +11,10 @@ use futures::SinkExt;
 use log::{error, info};
 use poolx::{Connection, ConnectOptions, Error, PoolConnection};
 use poolx::url::Url;
+use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
+use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, FramedRead};
 
 use redis_codec_core::req_decoder::ReqPktDecoder;
@@ -21,7 +23,6 @@ use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
 use crate::proxy::Session;
-use crate::tiny_client::TinyClient;
 
 pub type Pool = poolx::Pool<RedisConnection>;
 
@@ -58,32 +59,35 @@ pub struct RedisConnection {
 }
 
 impl RedisConnection {
-    async fn rebuild_session(&mut self, db: u64) -> anyhow::Result<()> {
+    async fn select_db(&mut self, db: u64) -> anyhow::Result<()> {
         let db_index = format!("{}", db);
         let cmd = format!("*2\r\n$6\r\nselect\r\n${}\r\n{}\r\n", db_index.len(), db_index);
-        let ok = TinyClient::query(self, cmd.as_bytes()).await?;
-        self.session_attr.db = db;
+        let ok = self.query(cmd.as_bytes()).await?;
         if !ok {
             return Err(anyhow!("rebuild session failed"));
         }
+        self.session_attr.db = db;
         Ok(())
     }
 
     // get password and db from session, auth connection if needed
     pub async fn init_from_session(&mut self, session: &mut Session) -> anyhow::Result<bool> {
+        if session.cmd_type() != CmdType::AUTH {
+            let response_sent = self.auth_connection_if_needed(session).await?;
+            if response_sent {
+                return Ok(true);
+            }
+        }
         self.session_attr.password = session.downstream_session.password.clone();
         if self.session_attr.db != session.downstream_session.db {
             info!("rebuild session from {} to {}", self.session_attr.db,  session.downstream_session.db);
-            self.rebuild_session(session.downstream_session.db).await?;
-        }
-        if session.cmd_type() != CmdType::AUTH {
-            return self.auth_connection_if_needed(session).await;
+            self.select_db(session.downstream_session.db).await?;
         }
         Ok(false)
     }
     async fn auth_connection(&mut self, pass: &str) -> anyhow::Result<bool> {
         let cmd = format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", pass.len(), pass);
-        let (query_ok, resp_data) = TinyClient::query_with_resp(self, cmd.as_bytes()).await?;
+        let (query_ok, resp_data) = self.query_with_resp(cmd.as_bytes()).await?;
         if !query_ok || resp_data.len() == 0 {
             return Ok(false);
         }
@@ -117,6 +121,42 @@ impl RedisConnection {
             }
         }
         return Ok(false);
+    }
+
+    pub async fn query(&mut self, data: &[u8]) -> anyhow::Result<bool> {
+        self.w.write_all(data.as_ref()).await?;
+        while let Some(it) = self.r.next().await {
+            match it {
+                Ok(it) => {
+                    if it.is_done {
+                        return Ok(it.res_is_ok);
+                    }
+                }
+                Err(_) => {
+                    bail!("read error");
+                }
+            }
+        }
+        bail!("read eof");
+    }
+
+    pub async fn query_with_resp(&mut self, data: &[u8]) -> anyhow::Result<(bool, Vec<Bytes>)> {
+        let mut bytes = vec![];
+        self.w.write_all(data.as_ref()).await?;
+        while let Some(it) = self.r.next().await {
+            match it {
+                Ok(it) => {
+                    bytes.push(it.data);
+                    if it.is_done {
+                        return Ok((it.res_is_ok, bytes));
+                    }
+                }
+                Err(_) => {
+                    bail!("read error");
+                }
+            }
+        }
+        bail!("read eof");
     }
 }
 
@@ -192,7 +232,7 @@ impl ConnectOptions for RedisConnectionOption {
                 if let Some(ref pass) = self.password {
                     let cmd = format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", pass.len(), pass);
                     // todo
-                    let ok = TinyClient::query(&mut conn, cmd.as_bytes()).await;
+                    let ok = conn.query(cmd.as_bytes()).await;
 
                     return match ok {
                         Ok(true) => {

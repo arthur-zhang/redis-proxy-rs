@@ -22,7 +22,6 @@ use redis_proxy_common::ReqFrameData;
 
 use crate::peer;
 use crate::server::{ProxyChanData, TASK_BUFFER_SIZE};
-use crate::tiny_client::TinyClient;
 use crate::upstream_conn_pool::{Pool, RedisConnection};
 
 pub struct RedisProxy<P> {
@@ -85,11 +84,8 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             return Some(session);
         }
         let mut conn = try_or_invoke_done!(self, &mut session, &mut ctx, pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e)));
-
-        info!("get a connection : {:?}", conn.as_ref());
-
+        debug!("get a connection : {:?}", conn.as_ref());
         let response_sent = try_or_invoke_done!(self, &mut session, &mut ctx, conn.init_from_session(&mut session).await);
-        info!("init from session done: {}", response_sent);
         if response_sent {
             try_or_invoke_done!(self, &mut session, &mut ctx, session.drain_req_until_done().await);
             return Some(session);
