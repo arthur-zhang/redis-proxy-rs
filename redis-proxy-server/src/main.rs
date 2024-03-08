@@ -26,24 +26,26 @@ mod mirror_filter;
 mod log_filter;
 mod blacklist_filter;
 
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
     let conf_path = args().nth(1).ok_or(anyhow::anyhow!("config file path is required"))?;
     let conf = get_conf(conf_path.as_ref()).map_err(|e| { anyhow::anyhow!("load config error: {:?}", e) })?;
-    debug!("{:?}", conf);
+    debug!("config: {:?}", conf);
     let conf = Arc::new(conf);
-    info!("Starting server...");
+    if conf.debug.is_some_and(|it| it) {
+        console_subscriber::init();
+    }
+
+    info!("starting redis proxy server...");
 
     let filters = load_filters(&conf);
 
     let proxy = RedisProxyImpl { filters, conf: conf.clone() };
     let server = ProxyServer::new(conf, proxy)?;
     let _ = server.start().await;
-    info!("Server quit.");
+    info!("redis proxy server quit.");
     Ok(())
 }
 
@@ -66,7 +68,7 @@ fn load_filters(conf: &Arc<Config>) -> Vec<Box<dyn Proxy<CTX=FilterContext> + Se
     filters
 }
 
-fn get_conf(path: &Path) -> anyhow::Result<config::Config> {
-    let conf = config::Config::load(path)?;
+fn get_conf(path: &Path) -> anyhow::Result<Config> {
+    let conf = Config::load(path)?;
     Ok(conf)
 }

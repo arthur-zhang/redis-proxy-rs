@@ -10,6 +10,7 @@ name = "redis_proxy_server"
 path = "src/main.rs"
 
 [dependencies]
+console-subscriber = "0.1.10"
 redis-proxy = { path = "../redis-proxy" }
 tokio = { version = "1.35.1", features = ["full"] }
 tokio-stream = "0.1.14"
