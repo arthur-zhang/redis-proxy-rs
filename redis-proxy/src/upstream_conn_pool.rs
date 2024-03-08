@@ -5,7 +5,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::Relaxed;
 
 use anyhow::{anyhow, bail};
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use futures::future::BoxFuture;
 use futures::SinkExt;
 use log::{error, info};
@@ -29,7 +29,7 @@ pub type Pool = poolx::Pool<RedisConnection>;
 #[derive(Debug, Default)]
 pub struct SessionAttr {
     pub db: u64,
-    pub password: Option<String>,
+    pub password: Option<Vec<u8>>,
 }
 
 
@@ -85,9 +85,16 @@ impl RedisConnection {
         }
         Ok(false)
     }
-    async fn auth_connection(&mut self, pass: &str) -> anyhow::Result<bool> {
-        let cmd = format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", pass.len(), pass);
-        let (query_ok, resp_data) = self.query_with_resp(cmd.as_bytes()).await?;
+    async fn auth_connection(&mut self, pass: &[u8]) -> anyhow::Result<bool> {
+        let pass_len = pass.len().to_string();
+        let mut cmd = BytesMut::with_capacity(b"*2\r\n$4\r\nAUTH\r\n$".len() + pass_len.len() + 2 + pass.len() + 2);
+        cmd.extend_from_slice(b"*2\r\n$4\r\nAUTH\r\n$");
+        cmd.extend_from_slice(pass_len.as_bytes());
+        cmd.extend_from_slice(b"\r\n");
+        cmd.extend_from_slice(pass);
+        cmd.extend_from_slice(b"\r\n");
+        let (query_ok, resp_data) = self.query_with_resp(cmd.as_ref()).await?;
+
         if !query_ok || resp_data.len() == 0 {
             return Ok(false);
         }
