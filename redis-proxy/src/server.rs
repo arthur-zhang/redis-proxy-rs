@@ -24,10 +24,12 @@ use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
 use crate::config::{Blacklist, Config, Mirror, TConfig};
+use crate::prometheus::METRICS;
 use crate::proxy::{Proxy, RedisProxy, Session};
 use crate::upstream_conn_pool::{Pool, RedisConnection, RedisConnectionOption};
 
 pub struct ProxyServer<P> {
+    name: &'static str,
     config: TConfig,
     // filter_chain: TFilterChain,
     proxy: P,
@@ -35,7 +37,7 @@ pub struct ProxyServer<P> {
 
 impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX: Send + Sync {
     pub fn new(config: Arc<Config>, proxy: P) -> anyhow::Result<Self> {
-        Ok(ProxyServer { config, proxy })
+        Ok(ProxyServer { name: "redis-proxy-rs", config, proxy })
     }
 
     pub async fn start(self) -> anyhow::Result<()> {
@@ -62,6 +64,7 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
             let app_logic = app_logic.clone();
             let pool = pool.clone();
             tokio::spawn(async move {
+                METRICS.connections.with_label_values(&[self.name]).inc();
                 loop {
                     match app_logic.handle_new_request(session, pool.clone()).await {
                         Some(s) => {
@@ -72,6 +75,7 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
                         }
                     }
                 }
+                METRICS.connections.with_label_values(&[self.name]).dec();
                 info!("session done: {:?}", peer_addr);
                 Ok::<_, anyhow::Error>(())
             }

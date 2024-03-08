@@ -21,6 +21,7 @@ use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
 use crate::peer;
+use crate::prometheus::METRICS;
 use crate::server::{ProxyChanData, TASK_BUFFER_SIZE};
 use crate::upstream_conn_pool::{Pool, RedisConnection};
 

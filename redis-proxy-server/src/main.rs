@@ -8,6 +8,7 @@ use poolx::PoolOptions;
 
 use redis_proxy::config;
 use redis_proxy::config::{Blacklist, Config};
+use redis_proxy::prometheus::PrometheusServer;
 use redis_proxy::proxy::Proxy;
 use redis_proxy::server::ProxyServer;
 use redis_proxy::upstream_conn_pool::{RedisConnection, RedisConnectionOption};
@@ -32,6 +33,7 @@ async fn main() -> anyhow::Result<()> {
     std::env::set_var("RUST_LOG", "info");
     env_logger::init();
 
+    PrometheusServer::start("127.0.0.1:9095", "/metrics");
     let conf_path = args().nth(1).ok_or(anyhow::anyhow!("config file path is required"))?;
     let conf = get_conf(conf_path.as_ref()).map_err(|e| { anyhow::anyhow!("load config error: {:?}", e) })?;
     debug!("{:?}", conf);
