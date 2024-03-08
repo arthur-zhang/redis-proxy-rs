@@ -11,8 +11,10 @@ use futures::SinkExt;
 use log::{error, info};
 use poolx::{Connection, ConnectOptions, Error, PoolConnection};
 use poolx::url::Url;
+use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
+use tokio_stream::StreamExt;
 use tokio_util::codec::{Framed, FramedRead};
 
 use redis_codec_core::req_decoder::ReqPktDecoder;
@@ -21,7 +23,6 @@ use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
 use crate::proxy::Session;
-use crate::tiny_client::TinyClient;
 
 pub type Pool = poolx::Pool<RedisConnection>;
 
@@ -58,50 +59,52 @@ pub struct RedisConnection {
 }
 
 impl RedisConnection {
-    async fn rebuild_session(&mut self, db: u64) -> anyhow::Result<()> {
+    async fn select_db(&mut self, db: u64) -> anyhow::Result<()> {
         let db_index = format!("{}", db);
         let cmd = format!("*2\r\n$6\r\nselect\r\n${}\r\n{}\r\n", db_index.len(), db_index);
-        let ok = TinyClient::query(self, cmd.as_bytes()).await?;
-        self.session_attr.db = db;
+        let (ok, _) = self.query_with_resp(cmd.as_bytes()).await?;
         if !ok {
             return Err(anyhow!("rebuild session failed"));
         }
+        self.session_attr.db = db;
         Ok(())
     }
 
     // get password and db from session, auth connection if needed
     pub async fn init_from_session(&mut self, session: &mut Session) -> anyhow::Result<bool> {
-        self.session_attr.password = session.downstream_session.password.clone();
-        if self.session_attr.db != session.downstream_session.db {
-            info!("rebuild session from {} to {}", self.session_attr.db,  session.downstream_session.db);
-            self.rebuild_session(session.downstream_session.db).await?;
-        }
         if session.cmd_type() != CmdType::AUTH {
-            return self.auth_connection_if_needed(session).await;
+            let response_sent = self.auth_connection_if_needed(session).await?;
+            if response_sent {
+                return Ok(true);
+            }
+        }
+        self.session_attr.password = session.password.clone();
+        if self.session_attr.db != session.db {
+            info!("rebuild session from {} to {}", self.session_attr.db,  session.db);
+            self.select_db(session.db).await?;
         }
         Ok(false)
     }
     async fn auth_connection(&mut self, pass: &str) -> anyhow::Result<bool> {
         let cmd = format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", pass.len(), pass);
-        let (query_ok, resp_data) = TinyClient::query_with_resp(self, cmd.as_bytes()).await?;
+        let (query_ok, resp_data) = self.query_with_resp(cmd.as_bytes()).await?;
         if !query_ok || resp_data.len() == 0 {
             return Ok(false);
         }
-        let mut data = bytes::BytesMut::with_capacity(resp_data.first().unwrap().len());
-        for d in resp_data {
-            data.extend_from_slice(&d);
-        }
-        return Ok(data.as_ref() == b"+OK\r\n");
+
+        return Ok(resp_data.as_ref() == b"+OK\r\n");
     }
     async fn auth_connection_if_needed(
         &mut self,
         session: &mut Session,
     ) -> anyhow::Result<bool> {
-        match (self.is_authed, session.downstream_session.is_authed) {
+        info!("auth connection if needed: conn authed: {}, session authed: {}", self.is_authed, session.is_authed);
+
+        match (self.is_authed, session.is_authed) {
             (true, true) | (false, false) => {}
             (false, true) => {
                 // auth connection
-                let authed = self.auth_connection(session.downstream_session.password.as_ref().unwrap()).await?;
+                let authed = self.auth_connection(session.password.as_ref().unwrap()).await?;
                 if authed {
                     self.is_authed = true;
                 } else {
@@ -110,21 +113,36 @@ impl RedisConnection {
             }
             (true, false) => {
                 // connection is auth, but ctx is not auth, should return no auth
-                if let Some(ref header_frame) = session.downstream_session.header_frame {
-                    if header_frame.end_of_body {
-                        session.downstream_session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required nimei.\r\n")).await?;
-                    }
-                }
+                session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await?;
                 return Ok(true);
             }
         }
         return Ok(false);
     }
+
+    pub async fn query_with_resp(&mut self, data: &[u8]) -> anyhow::Result<(bool, Bytes)> {
+        let mut bytes = bytes::BytesMut::new();
+        self.w.write_all(data.as_ref()).await?;
+        while let Some(it) = self.r.next().await {
+            match it {
+                Ok(it) => {
+                    bytes.extend_from_slice(&it.data);
+                    if it.is_done {
+                        return Ok((it.res_is_ok, bytes.freeze()));
+                    }
+                }
+                Err(e) => {
+                    bail!("read error {:?}", e);
+                }
+            }
+        }
+        bail!("read eof");
+    }
 }
 
 impl Display for RedisConnection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RedisConnection({})", self.id)
+        write!(f, "RedisConnection[{}]: is_authed:{}, attrs: {:?}", self.id, self.is_authed, self.session_attr)
     }
 }
 
@@ -193,11 +211,9 @@ impl ConnectOptions for RedisConnectionOption {
 
                 if let Some(ref pass) = self.password {
                     let cmd = format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", pass.len(), pass);
-                    // todo
-                    let ok = TinyClient::query(&mut conn, cmd.as_bytes()).await;
 
-                    return match ok {
-                        Ok(true) => {
+                    return match conn.query_with_resp(cmd.as_bytes()).await {
+                        Ok((true, _)) => {
                             conn.is_authed = true;
                             Ok(conn)
                         }
@@ -212,4 +228,27 @@ impl ConnectOptions for RedisConnectionOption {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_query() -> anyhow::Result<()> {
+        let inner = TcpStream::connect("127.0.0.1:6379").await?;
+        let (r, w) = inner.into_split();
+
+        let mut conn = RedisConnection {
+            id: 0,
+            is_authed: false,
+            r: FramedRead::new(r, RespPktDecoder::new()),
+            w,
+            session_attr: SessionAttr::default(),
+        };
+
+        tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+        let resp = conn.query_with_resp("*1\r\n$4\r\nPING\r\n".as_bytes()).await;
+        println!("resp: {:?}", resp);
+        Ok(())
+    }
+}
 

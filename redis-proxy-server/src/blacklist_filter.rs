@@ -24,12 +24,12 @@ impl Proxy for BlackListFilter {
     type CTX = FilterContext;
 
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
-        let req_frame = session.downstream_session.header_frame.as_ref().unwrap();
+        let req_frame = session.header_frame.as_ref().unwrap();
         let args = req_frame.args();
         if let Some(args) = args {
             for key in args {
                 if self.trie.exists_path(key) {
-                    session.downstream_session.underlying_stream.send(Bytes::from_static(b"-ERR black list\r\n")).await?;
+                    session.underlying_stream.send(Bytes::from_static(b"-ERR black list\r\n")).await?;
                     return Ok(true);
                 }
             }

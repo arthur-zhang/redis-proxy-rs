@@ -58,8 +58,8 @@ fn load_filters(conf: &Arc<Config>) -> Vec<Box<dyn Proxy<CTX=FilterContext> + Se
     }
 
     if let Some(ref mirror) = conf.filter_chain.mirror {
-        let mirror_filter = Mirror::new(&mirror.address, &mirror.mirror_patterns, &mirror.split_regex, mirror.queue_size).unwrap();
-        filters.push(Box::new(mirror_filter));
+        // let mirror_filter = Mirror::new(&mirror.address, &mirror.mirror_patterns, &mirror.split_regex, mirror.queue_size).unwrap();
+        // filters.push(Box::new(mirror_filter));
     }
     if let Some(ref log) = conf.filter_chain.log {
         let log_filter = LogFilter {};

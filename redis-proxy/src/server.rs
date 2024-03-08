@@ -24,8 +24,7 @@ use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
 use crate::config::{Blacklist, Config, Mirror, TConfig};
-use crate::proxy::{Proxy, RedisProxy, RedisSession, Session};
-use crate::tiny_client::TinyClient;
+use crate::proxy::{Proxy, RedisProxy, Session};
 use crate::upstream_conn_pool::{Pool, RedisConnection, RedisConnectionOption};
 
 pub struct ProxyServer<P> {
@@ -60,7 +59,7 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
                 let pool = pool.clone();
 
                 let framed = Framed::new(c2p_conn, ReqPktDecoder::new());
-                let mut session = Session { downstream_session: RedisSession::new(framed) };
+                let mut session = Session::new(framed);
 
                 let app_logic = app_logic.clone();
                 async move {

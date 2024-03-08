@@ -15,13 +15,13 @@ pub struct LogFilter {}
 impl Proxy for LogFilter {
     type CTX = FilterContext;
 
-    async fn request_done(&self, session: &mut Session, _e: Option<&Error>, _ctx: &mut Self::CTX) where Self::CTX: Send + Sync {
-        let start = session.downstream_session.req_start;
+    async fn request_done(&self, session: &mut Session, e: Option<&Error>, _ctx: &mut Self::CTX) where Self::CTX: Send + Sync {
+        let start = session.req_start;
         let time_cost = start.elapsed();
         let cmd = session.cmd_type();
-        let resp_is_ok = session.downstream_session.resp_is_ok;
-        info!("cmd: {:?}, time_cost: {:?}, resp_is_ok: {}, req_size: {}, res_size:{}",
-            cmd, time_cost, resp_is_ok, session.downstream_session.req_size,
-        session.downstream_session.res_size);
+        let resp_is_ok = session.res_is_ok;
+        info!("cmd: {:?}, time_cost: {:?}, resp_is_ok: {}, req_size: {}, res_size:{}, err: {:?}",
+            cmd, time_cost, resp_is_ok, session.req_size,
+            session.res_size, e);
     }
 }
