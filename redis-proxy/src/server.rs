@@ -1,6 +1,5 @@
 use std::fmt::format;
 use std::net::SocketAddr;
-use std::os::macos::raw::stat;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
