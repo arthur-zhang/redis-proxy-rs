@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use anyhow::Error;
 use async_trait::async_trait;
-use log::info;
+use log::{error, info};
 
 use redis_proxy::proxy::{Proxy, Session};
 use redis_proxy_common::ReqFrameData;
@@ -20,6 +20,12 @@ impl Proxy for LogFilter {
         let time_cost = start.elapsed();
         let cmd = session.cmd_type();
         let resp_is_ok = session.res_is_ok;
+        if let Some(e) = e {
+            error!("cmd: {:?}, time_cost: {:?}, resp_is_ok: {}, req_size: {}, res_size:{}, err: {:?}",
+                cmd, time_cost, resp_is_ok, session.req_size,
+                session.res_size, e);
+            return;
+        }
         info!("cmd: {:?}, time_cost: {:?}, resp_is_ok: {}, req_size: {}, res_size:{}, err: {:?}",
             cmd, time_cost, resp_is_ok, session.req_size,
             session.res_size, e);

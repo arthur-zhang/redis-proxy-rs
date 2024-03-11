@@ -208,7 +208,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 task = rx_downstream.recv(), if !request_done => {
                     match task {
                         Some(ProxyChanData::ReqFrameData(frame_data)) => {
-                            conn.w.write_all( & frame_data.raw_bytes).await ?;
+                            conn.w.write_all(&frame_data.raw_bytes).await?;
                             request_done = frame_data.end_of_body;
                         }
 

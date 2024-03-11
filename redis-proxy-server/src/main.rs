@@ -30,11 +30,13 @@ mod blacklist_filter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    std::env::set_var("RUST_LOG", "info");
+    std::env::set_var("RUST_LOG", "error");
     env_logger::init();
 
     PrometheusServer::start("127.0.0.1:9095", "/metrics");
-    let conf_path = args().nth(1).ok_or(anyhow::anyhow!("config file path is required"))?;
+    // let conf_path = args().nth(1).ok_or(anyhow::anyhow!("config file path is required"))?;
+    let conf_path = "../config.toml".to_string();
+
     let conf = get_conf(conf_path.as_ref()).map_err(|e| { anyhow::anyhow!("load config error: {:?}", e) })?;
     debug!("{:?}", conf);
     let conf = Arc::new(conf);
