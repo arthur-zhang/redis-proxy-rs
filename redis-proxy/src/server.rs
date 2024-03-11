@@ -31,13 +31,12 @@ use crate::upstream_conn_pool::{Pool, RedisConnection, RedisConnectionOption};
 pub struct ProxyServer<P> {
     name: &'static str,
     config: TConfig,
-    // filter_chain: TFilterChain,
     proxy: P,
 }
 
 impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX: Send + Sync {
     pub fn new(config: Arc<Config>, proxy: P) -> anyhow::Result<Self> {
-        Ok(ProxyServer { name: "redis-proxy-rs", config, proxy })
+        Ok(ProxyServer { name: "redis_proxy_rs", config, proxy })
     }
 
     pub async fn start(self) -> anyhow::Result<()> {
@@ -48,8 +47,8 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
 
         let conn_option = self.config.upstream.address.parse::<RedisConnectionOption>().unwrap();
         let pool: poolx::Pool<RedisConnection> = PoolOptions::new()
-            .idle_timeout(std::time::Duration::from_secs(3))
-            .min_connections(3)
+            .idle_timeout(std::time::Duration::from_secs(30))
+            .min_connections(100)
             .max_connections(50000)
             .connect_lazy_with(conn_option);
 
