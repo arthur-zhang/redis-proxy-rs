@@ -1,6 +1,5 @@
 use anyhow::bail;
 use async_trait::async_trait;
-use log::error;
 use poolx::PoolOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc::{Receiver, Sender};

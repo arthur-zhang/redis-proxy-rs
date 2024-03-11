@@ -1,15 +1,6 @@
-use redis_proxy::proxy::Proxy;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
-use async_trait::async_trait;
-use poolx::PoolConnection;
 use tokio::sync::mpsc::Sender;
-
-use redis_codec_core::resp_decoder::ResFramedData;
-use redis_proxy::upstream_conn_pool::RedisConnection;
-use redis_proxy_common::cmd::CmdType;
-use redis_proxy_common::ReqFrameData;
 
 pub enum Value {
     String(String),
