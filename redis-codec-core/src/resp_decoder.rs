@@ -11,8 +11,8 @@ pub struct RespPktDecoder {
     state: State,
     pending_integer: PendingInteger,
     stack: Vec<RespType>,
-    is_done: bool,
-    res_is_ok: bool,
+    // is_done: bool,
+    // res_is_ok: bool,
 }
 
 impl RespPktDecoder {
@@ -21,8 +21,8 @@ impl RespPktDecoder {
             state: State::ValueRootStart,
             pending_integer: PendingInteger::new(),
             stack: Vec::new(),
-            is_done: false,
-            res_is_ok: true,
+            // is_done: false,
+            // res_is_ok: false,
         }
     }
     fn update_top_resp_type(&mut self, resp_type: RespType) {
@@ -42,12 +42,13 @@ impl Decoder for RespPktDecoder {
         if src.is_empty() { return Ok(None); }
         let mut p = src.as_ref();
         let mut is_done = false;
+        let mut res_is_ok = false;
         while p.has_remaining() || self.state == State::ValueComplete {
             match self.state {
                 State::ValueRootStart => {
                     self.stack.push(RespType::Null);
                     self.state = State::ValueStart;
-                    self.res_is_ok = true;
+                    res_is_ok = false;
                     is_done = false;
                 }
                 State::ValueStart => {
@@ -56,23 +57,27 @@ impl Decoder for RespPktDecoder {
                         b'*' => {
                             self.state = State::IntegerStart;
                             self.update_top_resp_type(RespType::Array(Arr::default()));
+                            res_is_ok = true;
                         }
                         b'$' => {
                             self.update_top_resp_type(RespType::BulkString);
                             self.state = State::IntegerStart;
+                            res_is_ok = true;
                         }
                         b'-' => {
                             self.update_top_resp_type(RespType::Error);
                             self.state = State::SimpleString;
-                            self.res_is_ok = false;
+                            res_is_ok = false;
                         }
                         b'+' => {
                             self.update_top_resp_type(RespType::SimpleString);
                             self.state = State::SimpleString;
+                            res_is_ok = true;
                         }
                         b':' => {
                             self.update_top_resp_type(RespType::Integer);
                             self.state = State::IntegerStart;
+                            res_is_ok = true;
                         }
                         _ => { return Err(DecodeError::InvalidProtocol); }
                     }
@@ -180,7 +185,7 @@ impl Decoder for RespPktDecoder {
 
         let consumed = offset_from(p.as_ptr(), src.as_ptr());
         let data = src.split_to(consumed).freeze();
-        Ok(Some(ResFramedData { data, is_done, res_is_ok: self.res_is_ok }))
+        Ok(Some(ResFramedData { data, is_done, res_is_ok }))
     }
 }
 
@@ -297,8 +302,6 @@ mod tests {
             state: State::ValueRootStart,
             pending_integer: PendingInteger::new(),
             stack: Vec::new(),
-            is_done: false,
-            res_is_ok: false,
         };
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
@@ -312,8 +315,6 @@ mod tests {
             state: State::ValueRootStart,
             pending_integer: PendingInteger::new(),
             stack: Vec::new(),
-            is_done: false,
-            res_is_ok: false,
         };
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
@@ -327,8 +328,6 @@ mod tests {
             state: State::ValueRootStart,
             pending_integer: PendingInteger::new(),
             stack: Vec::new(),
-            is_done: false,
-            res_is_ok: false,
         };
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
@@ -372,15 +371,19 @@ mod tests {
 
     #[test]
     fn test_continuous_resp() {
-        let bytes = "$-1\r\n$-1\r\n".as_bytes();
+        let bytes = "$-1\r\n$-1\r\n$1\r\na\r\n".as_bytes();
         let mut decoder = RespPktDecoder::new();
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
-        debug!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
-        debug!("decoder: {:?}", decoder);
+        println!("result: {:?}", result);
+        println!("decoder: {:?}", decoder);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
-        debug!("result: {:?}", std::str::from_utf8(result.data.as_ref()));
-        debug!("decoder: {:?}", decoder);
+        println!("result: {:?}", result);
+        println!("decoder: {:?}", decoder);
+
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        println!("result: {:?}", result);
+        println!("decoder: {:?}", decoder);
     }
 
     #[test]
@@ -391,5 +394,14 @@ mod tests {
         let mut decoder = RespPktDecoder::new();
         let result = decoder.decode(&mut bytes_mut).unwrap().unwrap();
         debug!("result: {:?}", std::str::from_utf8(&result.data[0..100]));
+    }
+
+    #[test]
+    fn test_not_exist() {
+        let bytes = "$-1\r\n".as_bytes();
+        let mut decoder = RespPktDecoder::new();
+        let mut buf = BytesMut::from(bytes);
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        println!("result:{:?}", result);
     }
 }

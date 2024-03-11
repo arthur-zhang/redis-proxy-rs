@@ -44,9 +44,8 @@ impl Decoder for ReqPktDecoder {
         let mut p = src.as_ref();
 
         let mut frame_start = false;
-        debug!("------------------------------------");
+        let saved_state = self.state;
         while (p.has_remaining() || self.state == State::ValueComplete) {
-            debug!("state: {:?}, p: {:?}", self.state, std::str::from_utf8(p));
             match self.state {
                 State::ValueRootStart => {
                     self.reset();
@@ -93,6 +92,7 @@ impl Decoder for ReqPktDecoder {
                 }
                 State::Cmd => {
                     if p.len() < self.pending_integer as usize {
+                        self.state = saved_state;
                         return Ok(None);
                     }
                     self.cmd_type = CmdType::from(&p[..self.pending_integer as usize]);
@@ -146,6 +146,7 @@ impl Decoder for ReqPktDecoder {
                     // read more
                     if self.bulk_read_index < self.bulk_read_size {
                         if p.len() < self.pending_integer as usize {
+                            self.state = saved_state;
                             return Ok(None);
                         }
                         let start_index = offset_from(p.as_ptr(), src.as_ptr());
@@ -240,7 +241,7 @@ impl ReqPktDecoder {
     pub fn cmd_type(&self) -> &CmdType {
         &self.cmd_type
     }
-    pub fn req_start(&self)-> Instant {
+    pub fn req_start(&self) -> Instant {
         self.req_start
     }
     pub fn eager_read_list(&self) -> &Option<Vec<Range<usize>>> {
@@ -248,7 +249,7 @@ impl ReqPktDecoder {
     }
 }
 
-#[derive(Debug, PartialOrd, PartialEq)]
+#[derive(Debug, PartialOrd, PartialEq, Copy, Clone)]
 enum State {
     ValueRootStart,
 
