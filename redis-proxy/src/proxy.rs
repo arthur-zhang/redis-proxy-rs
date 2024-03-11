@@ -79,9 +79,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let mut ctx = self.inner.new_ctx();
         let response_sent = try_or_invoke_done!(self, &mut session, &mut ctx, self.inner.request_filter(&mut session, &mut ctx).await);
         if response_sent {
-            if !req_frame.end_of_body {
-                try_or_invoke_done!(self, &mut session, &mut ctx, session.drain_req_until_done().await);
-            }
+            try_or_invoke_done!(self, &mut session, &mut ctx, session.drain_req_until_done().await);
             return Some(session);
         }
         let mut conn = try_or_invoke_done!(self, &mut session, &mut ctx, pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e)));
