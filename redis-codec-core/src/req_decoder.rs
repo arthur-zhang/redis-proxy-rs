@@ -1,10 +1,9 @@
 use std::cmp::min;
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 use std::ops::Range;
 use std::time::Instant;
 
 use bytes::{Buf, Bytes, BytesMut};
-use log::debug;
 use tokio_util::codec::{Decoder, Encoder};
 
 use redis_proxy_common::cmd::{CmdType, KeyInfo};
@@ -45,7 +44,7 @@ impl Decoder for ReqPktDecoder {
 
         let mut frame_start = false;
         let saved_state = self.state;
-        while (p.has_remaining() || self.state == State::ValueComplete) {
+        while p.has_remaining() || self.state == State::ValueComplete {
             match self.state {
                 State::ValueRootStart => {
                     self.reset();

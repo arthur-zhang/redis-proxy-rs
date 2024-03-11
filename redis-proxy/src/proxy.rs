@@ -1,12 +1,9 @@
-use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::{anyhow, bail, Error};
+use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
-use futures::future::ok;
-use futures::stream::TryNext;
 use log::{debug, error, info};
 use poolx::PoolConnection;
 use tokio::io::AsyncWriteExt;
@@ -21,7 +18,6 @@ use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
 use crate::peer;
-use crate::prometheus::METRICS;
 use crate::server::{ProxyChanData, TASK_BUFFER_SIZE};
 use crate::upstream_conn_pool::{Pool, RedisConnection};
 
@@ -128,13 +124,11 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                             end_of_body = is_done;
                         }
                         Some(Err(e)) => {
-                            end_of_body = true;
                             bail!("proxy_handle_downstream, framed next error: {:?}", e)
                         }
                         None => {
                             info!("proxy_handle_downstream, downstream eof");
                             send_permit.unwrap().send(ProxyChanData::None);
-                            end_of_body = true;
                             return Ok(())
                         }
                     }
@@ -314,8 +308,8 @@ pub trait Proxy {
     /// be forwarded to.
     async fn upstream_peer(
         &self,
-        session: &mut Session,
-        ctx: &mut Self::CTX,
+        _session: &mut Session,
+        _ctx: &mut Self::CTX,
     ) -> anyhow::Result<peer::RedisPeer> { todo!() }
 
     /// Handle the incoming request.
@@ -327,12 +321,12 @@ pub trait Proxy {
     /// the proxy would exit. The proxy continues to the next phases when `Ok(false)` is returned.
     ///
     /// By default, this filter does nothing and returns `Ok(false)`.
-    async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
+    async fn request_filter(&self, _session: &mut Session, _ctx: &mut Self::CTX) -> anyhow::Result<bool> {
         Ok(false)
     }
 
 
-    async fn request_data_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<()> {
+    async fn request_data_filter(&self, _session: &mut Session, _ctx: &mut Self::CTX) -> anyhow::Result<()> {
         Ok(())
     }
     /// Decide if a request should continue to upstream
@@ -379,7 +373,7 @@ pub trait Proxy {
         _ctx: &mut Self::CTX,
     ) {}
 
-    async fn request_done(&self, session: &mut Session, e: Option<&anyhow::Error>, ctx: &mut Self::CTX)
+    async fn request_done(&self, _session: &mut Session, _e: Option<&anyhow::Error>, _ctx: &mut Self::CTX)
         where
             Self::CTX: Send + Sync {}
 }

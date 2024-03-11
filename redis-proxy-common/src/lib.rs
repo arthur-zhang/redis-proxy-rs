@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Formatter};
 use std::ops::Range;
-use std::sync::Arc;
 
 use crate::cmd::CmdType;
 

@@ -218,55 +218,12 @@ enum RespType {
     Integer,
     Error,
     Array(Arr),
-    CompositeArray,
 }
 
 #[derive(Debug, Clone, Default)]
 struct Arr {
     size: usize,
     cur_idx: usize,
-}
-
-impl Arr {
-    fn new(size: usize, cur_idx: usize) -> Self {
-        Self {
-            size,
-            cur_idx,
-        }
-    }
-}
-
-
-impl RespType {
-    fn is_array(&self) -> bool {
-        match self {
-            RespType::Array(_) => true,
-            _ => false,
-        }
-    }
-
-    fn as_array_mut(&mut self) -> Option<&mut Arr> {
-        match self {
-            RespType::Array(v) => Some(v),
-            _ => None,
-        }
-    }
-    fn do_as_array(&mut self, f: &mut dyn FnMut(&mut Arr)) {
-        match self {
-            RespType::Array(ref mut v) => {
-                f(v);
-            }
-            _ => {}
-        }
-    }
-    fn do_as_integer(&self, f: &mut dyn FnMut(u64)) {
-        match self {
-            RespType::Integer => {
-                f(0);
-            }
-            _ => {}
-        }
-    }
 }
 
 #[derive(Debug)]

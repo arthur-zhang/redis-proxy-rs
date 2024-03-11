@@ -1,11 +1,8 @@
-use std::time::Instant;
-
 use anyhow::Error;
 use async_trait::async_trait;
 use log::{error, info};
 
 use redis_proxy::proxy::{Proxy, Session};
-use redis_proxy_common::ReqFrameData;
 
 use crate::filter_trait::FilterContext;
 

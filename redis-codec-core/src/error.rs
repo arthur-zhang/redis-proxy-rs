@@ -7,13 +7,13 @@ pub enum DecodeError {
 }
 
 impl From<std::io::Error> for DecodeError {
-    fn from(e: std::io::Error) -> Self {
+    fn from(_e: std::io::Error) -> Self {
         DecodeError::IOError
     }
 }
 
 impl From<anyhow::Error> for DecodeError {
-    fn from(e: anyhow::Error) -> Self {
+    fn from(_e: anyhow::Error) -> Self {
         DecodeError::UnexpectedErr
     }
 }

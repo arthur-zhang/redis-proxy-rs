@@ -8,19 +8,16 @@ use anyhow::{anyhow, bail};
 use bytes::{Bytes, BytesMut};
 use futures::future::BoxFuture;
 use futures::SinkExt;
-use log::{error, info};
-use poolx::{Connection, ConnectOptions, Error, PoolConnection};
+use log::info;
+use poolx::{Connection, ConnectOptions, Error};
 use poolx::url::Url;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
-use tokio_util::codec::{Framed, FramedRead};
+use tokio_util::codec::FramedRead;
 
-use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::RespPktDecoder;
 use redis_proxy_common::cmd::CmdType;
-use redis_proxy_common::ReqFrameData;
 
 use crate::proxy::Session;
 
@@ -237,6 +234,8 @@ impl ConnectOptions for RedisConnectionOption {
 
 #[cfg(test)]
 mod tests {
+    use tokio::net::TcpStream;
+
     use super::*;
 
     #[tokio::test]

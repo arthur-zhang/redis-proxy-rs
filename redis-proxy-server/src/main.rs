@@ -2,16 +2,12 @@ use std::env::args;
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::anyhow;
-use log::{debug, error, info};
-use poolx::PoolOptions;
+use log::{debug, info};
 
-use redis_proxy::config;
-use redis_proxy::config::{Blacklist, Config};
+use redis_proxy::config::Config;
 use redis_proxy::prometheus::PrometheusServer;
 use redis_proxy::proxy::Proxy;
 use redis_proxy::server::ProxyServer;
-use redis_proxy::upstream_conn_pool::{RedisConnection, RedisConnectionOption};
 
 use crate::blacklist_filter::BlackListFilter;
 use crate::filter_trait::FilterContext;
@@ -60,10 +56,10 @@ fn load_filters(conf: &Arc<Config>) -> Vec<Box<dyn Proxy<CTX=FilterContext> + Se
     }
 
     if let Some(ref mirror) = conf.filter_chain.mirror {
-        // let mirror_filter = Mirror::new(&mirror.address, &mirror.mirror_patterns, &mirror.split_regex, mirror.queue_size).unwrap();
-        // filters.push(Box::new(mirror_filter));
+        let mirror_filter = Mirror::new(&mirror.address, &mirror.mirror_patterns, &mirror.split_regex, mirror.queue_size).unwrap();
+        filters.push(Box::new(mirror_filter));
     }
-    if let Some(ref log) = conf.filter_chain.log {
+    if let Some(_) = conf.filter_chain.log {
         let log_filter = LogFilter {};
         filters.push(Box::new(log_filter));
     }

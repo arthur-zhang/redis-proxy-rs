@@ -40,9 +40,6 @@ impl PathTrie {
     fn get_seg_parts<'a>(&self, path: &'a str) -> Vec<&'a str> {
         self.cached_sep_regex.split(path).filter(|it| !it.is_empty()).collect::<Vec<_>>()
     }
-    pub fn dump(&self) {
-        self.root.dump(0);
-    }
 }
 
 
@@ -74,7 +71,7 @@ impl Node {
             self.children.insert(part.to_string(), new_node);
         }
 
-        let mut matched_child = self.children.get_mut(part).expect("should not happen");
+        let matched_child = self.children.get_mut(part).expect("should not happen");
         if !parts.is_empty() {
             matched_child.insert(&parts[1..]);
         }
@@ -96,22 +93,6 @@ impl Node {
                 n.exists(parts, level + 1)
             }
         };
-    }
-    pub fn dump(&self, level: usize) {
-        if level == 0 {
-            println!(".")
-        } else {
-            let mut indent = String::new();
-            for _ in 0..level {
-                indent.push_str("\t");
-            }
-            indent.push_str("└──");
-            indent.push_str(&self.name);
-            println!("{}", indent)
-        }
-        for (_, child) in self.children.iter() {
-            child.dump(level + 1);
-        }
     }
 }
 

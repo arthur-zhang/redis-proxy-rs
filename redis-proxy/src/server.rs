@@ -1,31 +1,18 @@
-use std::fmt::format;
-use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::sync::Arc;
 
-use anyhow::{anyhow, bail};
-use bytes::Bytes;
-use futures::SinkExt;
-use log::{debug, error, info};
-use poolx::{PoolConnection, PoolOptions};
-use tokio::io::AsyncWriteExt;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::sync::{mpsc, oneshot};
-use tokio::sync::mpsc::{Receiver, Sender, unbounded_channel};
-use tokio::task::JoinHandle;
-use tokio_stream::StreamExt;
-use tokio_util::codec::{Framed, FramedRead};
+use log::{error, info};
+use poolx::PoolOptions;
+use tokio::net::TcpListener;
+use tokio_util::codec::Framed;
 
 use redis_codec_core::req_decoder::ReqPktDecoder;
-use redis_codec_core::resp_decoder::{ResFramedData, RespPktDecoder};
-use redis_proxy_common::cmd::CmdType;
+use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqFrameData;
 
-use crate::config::{Blacklist, Config, Mirror, TConfig};
+use crate::config::{Config, TConfig};
 use crate::prometheus::METRICS;
 use crate::proxy::{Proxy, RedisProxy, Session};
-use crate::upstream_conn_pool::{Pool, RedisConnection, RedisConnectionOption};
+use crate::upstream_conn_pool::{RedisConnection, RedisConnectionOption};
 
 pub struct ProxyServer<P> {
     name: &'static str,
