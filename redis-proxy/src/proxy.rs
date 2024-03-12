@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
-use log::{debug, error, info};
+use log::{error, info};
 use poolx::PoolConnection;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;

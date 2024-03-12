@@ -21,7 +21,12 @@ mod filter_trait;
 mod mirror_filter;
 mod log_filter;
 mod blacklist_filter;
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
 
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
