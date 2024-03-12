@@ -1,10 +1,9 @@
 use std::cmp::min;
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug};
 use std::ops::Range;
 use std::time::Instant;
 
 use bytes::{Buf, Bytes, BytesMut};
-use log::debug;
 use tokio_util::codec::{Decoder, Encoder};
 
 use redis_proxy_common::cmd::{CmdType, KeyInfo};
@@ -13,6 +12,7 @@ use redis_proxy_common::tools::{CR, is_digit, LF, offset_from};
 
 use crate::error::DecodeError;
 
+#[derive(Clone, Debug)]
 pub struct ReqPktDecoder {
     state: State,
     cmd_type: CmdType,
