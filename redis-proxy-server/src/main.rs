@@ -17,7 +17,6 @@ use crate::proxy_impl::RedisProxyImpl;
 
 mod path_trie;
 mod proxy_impl;
-mod tools;
 mod filter_trait;
 mod mirror_filter;
 mod log_filter;

@@ -11,7 +11,6 @@ pub struct Config {
     pub server: Server,
     pub upstream: Upstream,
     pub filter_chain: FilterChain,
-
 }
 
 
@@ -27,7 +26,6 @@ pub struct Upstream {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FilterChain {
-    pub filters: Vec<String>,
     pub blacklist: Option<Blacklist>,
     pub mirror: Option<Mirror>,
     pub log: Option<Log>,
