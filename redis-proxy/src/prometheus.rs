@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use lazy_static::lazy_static;
 use prometheus_exporter::Builder;
-use prometheus_exporter::prometheus::{Counter, opts, register_counter, register_counter_with_registry, register_gauge_vec_with_registry, register_histogram_vec_with_registry, register_histogram_with_registry, register_int_counter_with_registry, register_int_gauge_vec_with_registry, Registry};
+use prometheus_exporter::prometheus::{register_histogram_vec_with_registry, register_int_gauge_vec_with_registry, Registry};
 use prometheus_exporter::prometheus::core::{AtomicI64, GenericGaugeVec};
 
 lazy_static! {

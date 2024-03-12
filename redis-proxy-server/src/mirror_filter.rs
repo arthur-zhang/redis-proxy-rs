@@ -13,9 +13,7 @@ use crate::filter_trait::{FilterContext, Value};
 use crate::path_trie::PathTrie;
 
 pub struct Mirror {
-    mirror_address: String,
     trie: PathTrie,
-    queue_size: usize,
     pool: Pool,
 }
 
@@ -23,7 +21,7 @@ const DATA_TX: &'static str = "mirror_filter_data_tx";
 const SHOULD_MIRROR: &'static str = "mirror_filter_should_mirror";
 
 impl Mirror {
-    pub fn new(mirror: &str, mirror_patterns: &Vec<String>, split_regex: &str, queue_size: usize) -> anyhow::Result<Self> {
+    pub fn new(mirror: &str, mirror_patterns: &Vec<String>, split_regex: &str, _queue_size: usize) -> anyhow::Result<Self> {
         let trie = PathTrie::new(mirror_patterns, split_regex)?;
 
         let conn_option = mirror.parse::<RedisConnectionOption>().unwrap();
@@ -33,12 +31,7 @@ impl Mirror {
             .max_connections(50000)
             .connect_lazy_with(conn_option);
 
-        Ok(Self {
-            mirror_address: mirror.to_string(),
-            trie,
-            queue_size,
-            pool,
-        })
+        Ok(Self { trie, pool })
     }
     fn should_mirror(&self, req_frame_data: &ReqFrameData) -> bool {
         let args = req_frame_data.args();

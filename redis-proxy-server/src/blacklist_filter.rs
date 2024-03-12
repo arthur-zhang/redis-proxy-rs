@@ -23,7 +23,7 @@ impl BlackListFilter {
 impl Proxy for BlackListFilter {
     type CTX = FilterContext;
 
-    async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
+    async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> anyhow::Result<bool> {
         let req_frame = session.header_frame.as_ref().unwrap();
         let args = req_frame.args();
         if let Some(args) = args {
