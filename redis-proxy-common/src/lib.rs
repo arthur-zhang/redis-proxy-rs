@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Formatter};
 use std::ops::Range;
-use std::sync::Arc;
 
 use crate::cmd::CmdType;
 
@@ -41,7 +40,21 @@ impl Debug for ReqFrameData {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DecodedFrame")
             .field("data", &std::str::from_utf8(&self.raw_bytes))
-            // .field("is_eager", &self.is_eager)
+            .field("is_head_frame", &self.is_head_frame)
+            .field("cmd_type", &self.cmd_type)
+            .field("bulk_read_args", &self.bulk_read_args)
+            .field("end_of_body", &self.end_of_body)
+            .field("args", &self.args())
             .finish()
+    }
+}
+
+impl PartialEq for ReqFrameData {
+    fn eq(&self, other: &Self) -> bool {
+        self.is_head_frame == other.is_head_frame
+            && self.cmd_type == other.cmd_type
+            && self.bulk_read_args == other.bulk_read_args
+            && self.raw_bytes == other.raw_bytes
+            && self.end_of_body == other.end_of_body
     }
 }
