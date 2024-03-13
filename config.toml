@@ -1,24 +1,30 @@
-debug = true
+debug = false
 [server]
 address = "0.0.0.0:16379"
 
 [upstream]
 address = "redis://127.0.0.1:6379"
 
-[filter_chain.blacklist]
-block_patterns = ["foo:bar:*", "x:*:y:z", "hello"]
-split_regex = "[:]"
+[filter_chain]
 
-[filter_chain.mirror]
-address = "redis://0.0.0.0:9001"
-mirror_patterns = [
-    "x",
-    "y",
-    "z",
-    "foo:*",
-    "foo:uc:*:token"
-]
-split_regex = "[:]"
-queue_size = 1000
+#[filter_chain.blacklist]
+#block_patterns = ["foo:bar:*", "x:*:y:z", "hello"]
+#split_regex = "[:]"
+#
+#[filter_chain.mirror]
+#address = "redis://0.0.0.0:9001"
+#mirror_patterns = [
+#    "x",
+#    "y",
+#    "z",
+#    "foo:*",
+#    "foo:uc:*:token"
+#]
+#split_regex = "[:]"
+#queue_size = 1000
+#
+#[filter_chain.log]
 
-[filter_chain.log]
+[prometheus]
+address = "0.0.0.0:9095"
+export_uri = "/metrics"

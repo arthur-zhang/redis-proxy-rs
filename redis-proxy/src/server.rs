@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::{error, info};
+use log::{debug, error, info};
 use poolx::PoolOptions;
 use tokio::net::TcpListener;
 use tokio_util::codec::Framed;
@@ -42,7 +42,8 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
         loop {
             // one connection per task
             let (c2p_conn, peer_addr) = listener.accept().await?;
-            info!("session start: {:?}", peer_addr);
+            c2p_conn.set_nodelay(true).unwrap();
+            debug!("session start: {:?}", peer_addr);
 
             let framed = Framed::new(c2p_conn, ReqPktDecoder::new());
             let mut session = Session::new(framed);
@@ -61,7 +62,7 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
                     }
                 }
                 METRICS.connections.with_label_values(&[self.name]).dec();
-                info!("session done: {:?}", peer_addr);
+                debug!("session done: {:?}", peer_addr);
                 Ok::<_, anyhow::Error>(())
             }
             );

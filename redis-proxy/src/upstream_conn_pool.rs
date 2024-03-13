@@ -203,7 +203,9 @@ impl ConnectOptions for RedisConnectionOption {
         Box::pin({
             let addr = self.addr;
             async move {
-                let (r, w) = tokio::net::TcpStream::connect(addr).await.map_err(|e| poolx::Error::Io(std::io::Error::from(e)))?.into_split();
+                let conn = tokio::net::TcpStream::connect(addr).await.map_err(|e| poolx::Error::Io(std::io::Error::from(e)))?;
+                conn.set_nodelay(true).unwrap();
+                let (r, w) = conn.into_split();
 
                 let mut conn = RedisConnection {
                     id: self.counter.fetch_add(1, Relaxed),

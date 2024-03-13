@@ -52,7 +52,8 @@ macro_rules! try_or_invoke_done {
 
 impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sync {
     pub async fn handle_new_request(&self, mut session: Session, pool: Pool) -> Option<Session> {
-        info!("handle new request");
+        debug!("handle new request");
+
         try_or_return!(self, self.inner.on_session_create().await);
         let mut req_frame = match session.underlying_stream.next().await {
             None => { return None; }
@@ -79,7 +80,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             return Some(session);
         }
         let mut conn = try_or_invoke_done!(self, &mut session, &mut ctx, pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e)));
-        debug!("get a connection : {:?}", conn.as_ref());
         let response_sent = try_or_invoke_done!(self, &mut session, &mut ctx, conn.init_from_session(&mut session).await);
         if response_sent {
             try_or_invoke_done!(self, &mut session, &mut ctx, session.drain_req_until_done().await);
@@ -101,7 +101,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 self.proxy_handle_upstream(conn, tx_upstream, rx_downstream, cmd_type)
         ));
         self.inner.request_done(&mut session, None, &mut ctx).await;
-        debug!("request done");
         return Some(session);
     }
     async fn proxy_handle_downstream(&self,
