@@ -21,6 +21,7 @@ mod filter_trait;
 mod mirror_filter;
 mod log_filter;
 mod blacklist_filter;
+mod router;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

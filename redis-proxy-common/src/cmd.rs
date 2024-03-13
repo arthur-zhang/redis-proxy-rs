@@ -12,7 +12,7 @@ pub enum KeyInfo {
     Special,
 }
 
-#[derive(Debug, Clone, Copy, Sequence, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Sequence, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum CmdType {
     APPEND,
     AUTH,
