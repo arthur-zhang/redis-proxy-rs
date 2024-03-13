@@ -121,7 +121,7 @@ mod tests {
             .into_iter().map(|it| it.to_string()).collect::<Vec<_>>();
         let trie = PathTrie::new(&list, "[/:]").unwrap();
 
-        trie.dump();
+        // trie.dump();
 
         assert!(trie.exists_path(b"/account/login"));
         assert!(trie.exists_path(b"/api/v1/lms/123"));

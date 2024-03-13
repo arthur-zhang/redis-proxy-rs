@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::{debug, error, info};
+use log::{debug, error};
 use poolx::PoolOptions;
 use tokio::net::TcpListener;
 use tokio_util::codec::Framed;
@@ -69,9 +69,6 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
         };
     }
 }
-
-
-pub const TASK_BUFFER_SIZE: usize = 4;
 
 
 #[derive(Debug)]

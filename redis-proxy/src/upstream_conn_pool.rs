@@ -1,5 +1,4 @@
 use std::fmt::{Debug, Display, Formatter};
-use std::net::SocketAddr;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::Relaxed;
@@ -8,7 +7,7 @@ use anyhow::{anyhow, bail};
 use bytes::{Bytes, BytesMut};
 use futures::future::BoxFuture;
 use futures::SinkExt;
-use log::info;
+use log::{debug, info};
 use poolx::{Connection, ConnectOptions, Error};
 use poolx::url::Url;
 use tokio::io::AsyncWriteExt;
@@ -33,7 +32,7 @@ pub struct SessionAttr {
 #[derive(Debug)]
 pub struct RedisConnectionOption {
     counter: AtomicU64,
-    addr: SocketAddr,
+    addr: String,
     password: Option<String>,
 }
 
@@ -41,7 +40,7 @@ impl Clone for RedisConnectionOption {
     fn clone(&self) -> Self {
         Self {
             counter: Default::default(),
-            addr: self.addr,
+            addr: self.addr.clone(),
             password: self.password.clone(),
         }
     }
@@ -102,7 +101,7 @@ impl RedisConnection {
         &mut self,
         session: &mut Session,
     ) -> anyhow::Result<bool> {
-        info!("auth connection if needed: conn authed: {}, session authed: {}", self.is_authed, session.is_authed);
+        debug!("auth connection if needed: conn authed: {}, session authed: {}", self.is_authed, session.is_authed);
 
         match (self.is_authed, session.is_authed) {
             (true, true) | (false, false) => {}
@@ -191,17 +190,17 @@ impl ConnectOptions for RedisConnectionOption {
     type Connection = RedisConnection;
 
     fn from_url(url: &Url) -> Result<Self, Error> {
-        // todo
+        // todo fix unwrap
         let host = url.host_str().unwrap();
         let port = url.port().unwrap_or(6379);
         let password = url.password().map(|s| s.to_string());
-        let addr = format!("{}:{}", host, port).parse::<SocketAddr>().map_err(|e| poolx::Error::Configuration(Box::new(e)))?;
+        let addr = format!("{}:{}", host, port);
         Ok(Self { counter: AtomicU64::new(0), addr, password })
     }
 
     fn connect(&self) -> BoxFuture<'_, Result<Self::Connection, Error>> where Self::Connection: Sized {
         Box::pin({
-            let addr = self.addr;
+            let addr = self.addr.clone();
             async move {
                 let conn = tokio::net::TcpStream::connect(addr).await.map_err(|e| poolx::Error::Io(std::io::Error::from(e)))?;
                 conn.set_nodelay(true).unwrap();
@@ -257,6 +256,13 @@ mod tests {
         let resp = conn.query_with_resp("*1\r\n$4\r\nPING\r\n".as_bytes()).await;
         println!("resp: {:?}", resp);
         Ok(())
+    }
+
+    #[test]
+    fn test_parse_url() {
+        let url = "redis://redis-mdc-sync1-6638-master.paas.abc.com:9999" ;
+        let url = url.parse::<Url>().unwrap();
+        println!("url: {:?}", url);
     }
 }
 

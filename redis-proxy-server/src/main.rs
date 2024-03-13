@@ -2,7 +2,7 @@ use std::env::args;
 use std::path::Path;
 use std::sync::Arc;
 
-use log::{info};
+use log::info;
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
 
