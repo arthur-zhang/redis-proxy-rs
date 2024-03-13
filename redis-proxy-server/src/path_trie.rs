@@ -40,6 +40,10 @@ impl PathTrie {
     fn get_seg_parts<'a>(&self, path: &'a str) -> Vec<&'a str> {
         self.cached_sep_regex.split(path).filter(|it| !it.is_empty()).collect::<Vec<_>>()
     }
+
+    pub fn _dump(&self) {
+        self.root._dump(0);
+    }
 }
 
 
@@ -94,6 +98,22 @@ impl Node {
             }
         };
     }
+    pub fn _dump(&self, level: usize) {
+        if level == 0 {
+            println!(".")
+        } else {
+            let mut indent = String::new();
+            for _ in 0..level {
+                indent.push_str("\t");
+            }
+            indent.push_str("└──");
+            indent.push_str(&self.name);
+            println!("{}", indent)
+        }
+        for (_, child) in self.children.iter() {
+            child._dump(level + 1);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -121,7 +141,7 @@ mod tests {
             .into_iter().map(|it| it.to_string()).collect::<Vec<_>>();
         let trie = PathTrie::new(&list, "[/:]").unwrap();
 
-        // trie.dump();
+        trie.dump();
 
         assert!(trie.exists_path(b"/account/login"));
         assert!(trie.exists_path(b"/api/v1/lms/123"));

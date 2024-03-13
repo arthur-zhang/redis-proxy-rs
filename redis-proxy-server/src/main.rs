@@ -23,6 +23,7 @@ mod filter_trait;
 mod mirror_filter;
 mod log_filter;
 mod blacklist_filter;
+mod router;
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
