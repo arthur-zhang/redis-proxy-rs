@@ -1,5 +1,5 @@
 use std::cmp::min;
-use std::fmt::{Debug};
+use std::fmt::Debug;
 use std::ops::Range;
 use std::time::Instant;
 
@@ -20,7 +20,6 @@ pub struct ReqPktDecoder {
     pending_integer: u64,
     bulk_read_size: u64,
     bulk_read_index: u64,
-    bulk_read_args: Option<Vec<Range<usize>>>,
     req_start: Instant,
 }
 
@@ -32,8 +31,7 @@ impl PartialEq for ReqPktDecoder {
             self.bulk_size == other.bulk_size &&
             self.pending_integer == other.pending_integer &&
             self.bulk_read_size == other.bulk_read_size &&
-            self.bulk_read_index == other.bulk_read_index &&
-            self.bulk_read_args == other.bulk_read_args
+            self.bulk_read_index == other.bulk_read_index
     }
 }
 
@@ -61,6 +59,9 @@ impl Decoder for ReqPktDecoder {
 
         let self_snapshot = self.clone();
         let mut need_more_data = false;
+
+        let mut bulk_read_args: Option<Vec<Range<usize>>> = None;
+
 
         while p.has_remaining() || self.state == State::ValueComplete {
             match self.state {
@@ -169,9 +170,10 @@ impl Decoder for ReqPktDecoder {
                         }
                         let start_index = offset_from(p.as_ptr(), src.as_ptr());
                         let end_index = start_index + self.pending_integer as usize;
-                        if let Some(ref mut it) = self.bulk_read_args {
-                            it.push(start_index..end_index);
+                        if bulk_read_args.is_none() {
+                            bulk_read_args = Some(Vec::new());
                         }
+                        bulk_read_args.as_mut().unwrap().push(start_index..end_index);
                     }
                     let n = min(p.len(), self.pending_integer as usize);
                     self.pending_integer -= n as u64;
@@ -227,10 +229,7 @@ impl Decoder for ReqPktDecoder {
 
         let is_done = self.bulk_read_index == self.bulk_size;
 
-        let list = self.bulk_read_args.take();
-        self.bulk_read_args = Some(Vec::new());
-
-        Ok(Some(ReqFrameData::new(frame_start, self.cmd_type.clone(), list, bytes, is_done)))
+        Ok(Some(ReqFrameData::new(frame_start, self.cmd_type.clone(), bulk_read_args, bytes, is_done)))
     }
 }
 
@@ -243,7 +242,6 @@ impl ReqPktDecoder {
             pending_integer: 0,
             bulk_read_size: u64::MAX,
             bulk_read_index: 0,
-            bulk_read_args: Some(Vec::new()),
             req_start: Instant::now(),
         }
     }
@@ -254,7 +252,6 @@ impl ReqPktDecoder {
         self.pending_integer = 0;
         self.bulk_read_size = u64::MAX;
         self.bulk_read_index = 0;
-        self.bulk_read_args.as_mut().map(Vec::clear);
         self.req_start = Instant::now();
     }
 
@@ -269,14 +266,11 @@ impl ReqPktDecoder {
     // pub fn is_eager(&self) -> bool {
     //     self.eager_read_size != 0 && self.bulk_read_index < self.eager_read_size
     // }
-    pub fn cmd_type(&self) -> &CmdType {
-        &self.cmd_type
+    pub fn cmd_type(&self) -> CmdType {
+        self.cmd_type
     }
     pub fn req_start(&self) -> Instant {
         self.req_start
-    }
-    pub fn eager_read_list(&self) -> &Option<Vec<Range<usize>>> {
-        &self.bulk_read_args
     }
 }
 
@@ -351,7 +345,6 @@ mod tests {
             pending_integer: 0,
             bulk_read_size: u64::MAX,
             bulk_read_index: 0,
-            bulk_read_args: Some(vec![]),
             req_start: Instant::now(),
         };
         for i in 0..36 {
@@ -377,7 +370,6 @@ mod tests {
             pending_integer: 0,
             bulk_read_size: 2,
             bulk_read_index: 2,
-            bulk_read_args: Some(vec![]),
             req_start: Instant::now(),
         };
         assert_eq!(decoder, decoder2);
@@ -394,7 +386,6 @@ mod tests {
             pending_integer: 0,
             bulk_read_size: 2,
             bulk_read_index: 2,
-            bulk_read_args: Some(vec![]),
             req_start: Instant::now(),
         };
         // println!("{}", cmd.len());
@@ -416,7 +407,6 @@ mod tests {
             pending_integer: 0,
             bulk_read_size: 2,
             bulk_read_index: 3,
-            bulk_read_args: Some(vec![]),
             req_start: Instant::now(),
         };
         bytes_mut.extend_from_slice(&cmd[44..45]);

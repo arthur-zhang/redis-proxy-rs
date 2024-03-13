@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
-use log::{error, info};
+use log::{debug, error, info};
 use poolx::PoolConnection;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
@@ -52,7 +52,7 @@ macro_rules! try_or_invoke_done {
 
 impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sync {
     pub async fn handle_new_request(&self, mut session: Session, pool: Pool) -> Option<Session> {
-        info!("handle new request");
+        debug!("handle new request");
 
         try_or_return!(self, self.inner.on_session_create().await);
         let mut req_frame = match session.underlying_stream.next().await {
