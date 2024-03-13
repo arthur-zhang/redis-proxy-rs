@@ -42,6 +42,7 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
         loop {
             // one connection per task
             let (c2p_conn, peer_addr) = listener.accept().await?;
+            c2p_conn.set_nodelay(true).unwrap();
             info!("session start: {:?}", peer_addr);
 
             let framed = Framed::new(c2p_conn, ReqPktDecoder::new());

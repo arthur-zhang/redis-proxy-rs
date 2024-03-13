@@ -56,16 +56,16 @@ fn load_filters(conf: &Arc<Config>) -> Vec<Box<dyn Proxy<CTX=FilterContext> + Se
 
     if let Some(ref blacklist_filter) = conf.filter_chain.blacklist {
         let blacklist_filter = BlackListFilter::new(blacklist_filter.block_patterns.clone(), &blacklist_filter.split_regex).unwrap();
-        filters.push(Box::new(blacklist_filter));
+        // filters.push(Box::new(blacklist_filter));
     }
 
     if let Some(ref mirror) = conf.filter_chain.mirror {
         let mirror_filter = Mirror::new(&mirror.address, &mirror.mirror_patterns, &mirror.split_regex, mirror.queue_size).unwrap();
-        filters.push(Box::new(mirror_filter));
+        // filters.push(Box::new(mirror_filter));
     }
     if let Some(_) = conf.filter_chain.log {
         let log_filter = LogFilter {};
-        filters.push(Box::new(log_filter));
+        // filters.push(Box::new(log_filter));
     }
     filters
 }
