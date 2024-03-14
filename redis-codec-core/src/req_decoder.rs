@@ -62,7 +62,6 @@ impl Decoder for ReqPktDecoder {
 
         let mut bulk_read_args: Option<Vec<Range<usize>>> = None;
 
-
         while p.has_remaining() || self.state == State::ValueComplete {
             match self.state {
                 State::ValueRootStart => {

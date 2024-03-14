@@ -18,8 +18,10 @@ use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
 use crate::peer;
-use crate::server::{ProxyChanData, TASK_BUFFER_SIZE};
+use crate::server::ProxyChanData;
 use crate::upstream_conn_pool::{Pool, RedisConnection};
+
+const TASK_BUFFER_SIZE: usize = 16;
 
 pub struct RedisProxy<P> {
     pub inner: P,
@@ -111,15 +113,15 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let mut end_of_body = session.request_done();
         let mut response_done = false;
         while !end_of_body || !response_done {
-            let send_permit = tx_downstream.try_reserve();
+            let tx_downstream_send_permit = tx_downstream.try_reserve();
             tokio::select! {
-                data = session.underlying_stream.next(), if !end_of_body && send_permit.is_ok() => {
+                data = session.underlying_stream.next(), if !end_of_body && tx_downstream_send_permit.is_ok() => {
                     match data {
                         Some(Ok(mut data)) => {
                             let is_done = data.end_of_body;
                             self.inner.upstream_request_filter(session, &mut data, ctx).await?;
                             session.req_size += data.raw_bytes.len();
-                            send_permit.unwrap().send(ProxyChanData::ReqFrameData(data));
+                            tx_downstream_send_permit?.send(ProxyChanData::ReqFrameData(data));
                             end_of_body = is_done;
                         }
                         Some(Err(e)) => {
@@ -127,10 +129,13 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                         }
                         None => {
                             info!("proxy_handle_downstream, downstream eof");
-                            send_permit.unwrap().send(ProxyChanData::None);
+                            // send_permit.unwrap().send(ProxyChanData::None);
                             return Ok(())
                         }
                     }
+                }
+                _ = tx_downstream.reserve(), if tx_downstream_send_permit.is_err() => {
+                    debug!("waiting for permit: {:?}", tx_downstream_send_permit);
                 }
                 task = rx_upstream.recv(), if !response_done => {
                     match task {
@@ -157,6 +162,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                         }
                     }
                 }
+
                 else => {
                     break;
                 }

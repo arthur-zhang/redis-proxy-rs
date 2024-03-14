@@ -71,9 +71,6 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
 }
 
 
-pub const TASK_BUFFER_SIZE: usize = 4;
-
-
 #[derive(Debug)]
 pub enum ProxyChanData {
     None,

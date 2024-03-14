@@ -11,8 +11,6 @@ pub struct RespPktDecoder {
     state: State,
     pending_integer: PendingInteger,
     stack: Vec<RespType>,
-    // is_done: bool,
-    // res_is_ok: bool,
 }
 
 impl RespPktDecoder {
@@ -21,8 +19,6 @@ impl RespPktDecoder {
             state: State::ValueRootStart,
             pending_integer: PendingInteger::new(),
             stack: Vec::new(),
-            // is_done: false,
-            // res_is_ok: false,
         }
     }
     fn update_top_resp_type(&mut self, resp_type: RespType) {
