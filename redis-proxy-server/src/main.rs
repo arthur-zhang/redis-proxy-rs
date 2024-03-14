@@ -2,7 +2,7 @@ use std::env::args;
 use std::path::Path;
 use std::sync::Arc;
 
-use log::{info};
+use log::info;
 #[cfg(not(target_env = "msvc"))]
 use tikv_jemallocator::Jemalloc;
 
@@ -17,13 +17,11 @@ use crate::log_filter::LogFilter;
 use crate::mirror_filter::Mirror;
 use crate::proxy_impl::RedisProxyImpl;
 
-mod path_trie;
 mod proxy_impl;
 mod filter_trait;
 mod mirror_filter;
 mod log_filter;
 mod blacklist_filter;
-mod router;
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -45,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
     info!("starting redis proxy server...");
 
     let conf = Arc::new(conf);
-    let filters = load_filters(&conf);
+    let filters = load_filters(&conf).await?;
 
     let proxy = RedisProxyImpl { filters, conf: conf.clone() };
     let server = ProxyServer::new(conf, proxy)?;
@@ -61,23 +59,23 @@ fn start_prometheus_server(conf: &Config) {
     }
 }
 
-fn load_filters(conf: &Arc<Config>) -> Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>> {
+async fn load_filters(conf: &Arc<Config>) -> anyhow::Result<Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>>> {
     let mut filters: Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>> = vec![];
 
-    if let Some(ref blacklist_filter) = conf.filter_chain.blacklist {
-        let blacklist_filter = BlackListFilter::new(blacklist_filter.block_patterns.clone(), &blacklist_filter.split_regex).unwrap();
+    if let Some(_) = conf.filter_chain.blacklist {
+        let blacklist_filter = BlackListFilter::new(conf.etcd_config.clone()).await?;
         filters.push(Box::new(blacklist_filter));
     }
 
     if let Some(ref mirror) = conf.filter_chain.mirror {
-        let mirror_filter = Mirror::new(&mirror.address, &mirror.mirror_patterns, &mirror.split_regex, mirror.queue_size).unwrap();
+        let mirror_filter = Mirror::new(&mirror.address, conf.etcd_config.clone()).await?;
         filters.push(Box::new(mirror_filter));
     }
     if let Some(_) = conf.filter_chain.log {
         let log_filter = LogFilter {};
         filters.push(Box::new(log_filter));
     }
-    filters
+    Ok(filters)
 }
 
 fn get_conf(path: &Path) -> anyhow::Result<Config> {

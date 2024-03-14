@@ -6,15 +6,26 @@ use serde::{Deserialize, Serialize};
 
 pub type TConfig = Arc<Config>;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     pub debug: Option<bool>,
     pub server: Server,
     pub upstream: Upstream,
+    pub etcd_config: EtcdConfig,
     pub filter_chain: FilterChain,
     pub prometheus: Option<Prometheus>,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct EtcdConfig {
+    pub(crate) endpoints: Vec<String>,
+    pub(crate) username: String,
+    pub(crate) password: String,
+    pub(crate) prefix: String,
+    pub(crate) interval: u64,
+    pub(crate) timeout: u64,
+    pub(crate) key_splitter: char
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Server {
@@ -34,18 +45,10 @@ pub struct FilterChain {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Blacklist {
-    pub block_patterns: Vec<String>,
-    pub split_regex: String,
-}
+pub struct Blacklist {}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Mirror {
-    pub address: String,
-    pub mirror_patterns: Vec<String>,
-    pub split_regex: String,
-    pub queue_size: usize,
-}
+pub struct Mirror { pub address: String}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Log {}

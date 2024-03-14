@@ -1,20 +1,22 @@
+use std::sync::Arc;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::SinkExt;
+use redis_proxy::config::EtcdConfig;
 
 use redis_proxy::proxy::{Proxy, Session};
+use redis_proxy::router::RouterManager;
 
 use crate::filter_trait::FilterContext;
-use crate::path_trie::PathTrie;
 
 pub struct BlackListFilter {
-    trie: PathTrie,
+    router_manager: Arc<RouterManager>,
 }
 
 impl BlackListFilter {
-    pub fn new(blacklist: Vec<String>, split_regex: &str) -> anyhow::Result<Self> {
-        let trie = PathTrie::new(&blacklist, split_regex)?;
-        Ok(BlackListFilter { trie })
+    pub async fn new(etcd_config: EtcdConfig) -> anyhow::Result<Self> {
+        let router_manager = RouterManager::new(etcd_config, String::from("blacklist")).await?;
+        Ok(BlackListFilter { router_manager })
     }
 }
 
@@ -28,7 +30,7 @@ impl Proxy for BlackListFilter {
         let args = req_frame.args();
         if let Some(args) = args {
             for key in args {
-                if self.trie.exists_path(key) {
+                if self.router_manager.get_router().get(key, req_frame.cmd_type).is_some() {
                     session.underlying_stream.send(Bytes::from_static(b"-ERR black list\r\n")).await?;
                     return Ok(true);
                 }

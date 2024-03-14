@@ -5,25 +5,23 @@ address = "0.0.0.0:16379"
 [upstream]
 address = "redis://127.0.0.1:6379"
 
+[etcd_config]
+key_splitter = ':'
+endpoints = ["http://10.21.17.52:2379", "http://10.21.17.92:2379", "http://10.21.17.93:2379"]
+username = "root"
+password = "mikztL4TN0"
+prefix = "/redis-proxy"
+timeout = 3000
+interval = 10000
+
 [filter_chain]
 
-#[filter_chain.blacklist]
-#block_patterns = ["foo:bar:*", "x:*:y:z", "hello"]
-#split_regex = "[:]"
-#
-#[filter_chain.mirror]
-#address = "redis://0.0.0.0:9001"
-#mirror_patterns = [
-#    "x",
-#    "y",
-#    "z",
-#    "foo:*",
-#    "foo:uc:*:token"
-#]
-#split_regex = "[:]"
-#queue_size = 1000
-#
-#[filter_chain.log]
+[filter_chain.blacklist]
+
+[filter_chain.mirror]
+address = "redis://0.0.0.0:9001"
+
+[filter_chain.log]
 
 [prometheus]
 address = "0.0.0.0:9095"
