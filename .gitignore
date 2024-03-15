@@ -3,3 +3,4 @@
 /Cargo.lock
 /test-dir/
 .DS_Store
+config.toml
