@@ -3,16 +3,24 @@ use std::path::Path;
 use std::sync::Arc;
 
 use serde::Deserialize;
+
 use crate::upstream_conn_pool::RedisConnection;
 
 pub type TConfig = Arc<Config>;
 
+#[derive(Debug, Deserialize, Clone, Copy)]
+pub enum ConfigCenter {
+    Etcd,
+    Local,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     pub debug: Option<bool>,
+    pub splitter: Option<char>,
     pub server: Server,
     pub upstream: Upstream,
-    pub etcd_config: EtcdConfig,
+    pub etcd_config: Option<EtcdConfig>,
     pub filter_chain: FilterChain,
     pub prometheus: Option<Prometheus>,
 }
@@ -25,7 +33,6 @@ pub struct EtcdConfig {
     pub(crate) prefix: String,
     pub(crate) interval: u64,
     pub(crate) timeout: u64,
-    pub(crate) key_splitter: char
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -69,11 +76,22 @@ pub struct FilterChain {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Blacklist {}
+pub struct LocalRoute {
+    pub commands: Vec<String>,
+    pub keys: Vec<String>,
+}
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Mirror { 
+pub struct Blacklist {
+    pub config_center: ConfigCenter,
+    pub local_routes: Option<Vec<LocalRoute>>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Mirror {
     pub address: String,
+    pub config_center: ConfigCenter,
+    pub local_routes: Option<Vec<LocalRoute>>,
     pub conn_pool_conf: ConnPoolConf,
 }
 

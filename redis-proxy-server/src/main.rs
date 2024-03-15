@@ -14,7 +14,7 @@ use redis_proxy::server::ProxyServer;
 use crate::blacklist_filter::BlackListFilter;
 use crate::filter_trait::FilterContext;
 use crate::log_filter::LogFilter;
-use crate::mirror_filter::Mirror;
+use crate::mirror_filter::MirrorFilter;
 use crate::proxy_impl::RedisProxyImpl;
 
 mod proxy_impl;
@@ -61,14 +61,15 @@ fn start_prometheus_server(conf: &Config) {
 
 async fn load_filters(conf: &Arc<Config>) -> anyhow::Result<Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>>> {
     let mut filters: Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>> = vec![];
+    let splitter = conf.splitter.unwrap_or(':');
 
-    if let Some(_) = conf.filter_chain.blacklist {
-        let blacklist_filter = BlackListFilter::new(conf.etcd_config.clone()).await?;
+    if let Some(blacklist) = &conf.filter_chain.blacklist {
+        let blacklist_filter = BlackListFilter::new(splitter, blacklist, conf.etcd_config.clone()).await?;
         filters.push(Box::new(blacklist_filter));
     }
 
-    if let Some(ref mirror) = conf.filter_chain.mirror {
-        let mirror_filter = Mirror::new(&mirror.address, &mirror.conn_pool_conf, conf.etcd_config.clone()).await?;
+    if let Some(ref mirror) = &conf.filter_chain.mirror {
+        let mirror_filter = MirrorFilter::new(splitter, mirror, conf.etcd_config.clone()).await?;
         filters.push(Box::new(mirror_filter));
     }
     if let Some(_) = conf.filter_chain.log {

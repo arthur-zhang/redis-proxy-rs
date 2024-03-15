@@ -6,35 +6,40 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::StreamExt;
 
-use redis_proxy::config::{ConnPoolConf, EtcdConfig};
+use redis_proxy::config::{EtcdConfig, Mirror};
 use redis_proxy::proxy::{Proxy, Session};
-use redis_proxy::router::RouterManager;
+use redis_proxy::router::{create_router, Router};
 use redis_proxy::upstream_conn_pool::{Pool, RedisConnection, RedisConnectionOption};
 use redis_proxy_common::ReqFrameData;
 
 use crate::filter_trait::{FilterContext, Value};
 
-pub struct Mirror {
-    router_manager: Arc<RouterManager>,
+pub struct MirrorFilter {
+    router: Arc<dyn Router>,
     pool: Pool,
 }
 
 const DATA_TX: &'static str = "mirror_filter_data_tx";
 const SHOULD_MIRROR: &'static str = "mirror_filter_should_mirror";
 
-impl Mirror {
-    pub async fn new(mirror: &str, conn_pool_conf: &ConnPoolConf, etcd_config: EtcdConfig) -> anyhow::Result<Self> {
-        let router_manager = RouterManager::new(etcd_config, String::from("mirror")).await?;
-        let conn_option = mirror.parse::<RedisConnectionOption>().unwrap();
-        let pool: poolx::Pool<RedisConnection> = conn_pool_conf.new_pool_opt().connect_lazy_with(conn_option);
+impl MirrorFilter {
+    pub async fn new(splitter: char, mirror_conf: &Mirror, etcd_config: Option<EtcdConfig>) -> anyhow::Result<Self> {
+       let router = create_router(
+            splitter,
+            String::from("mirror"),
+            mirror_conf.config_center,
+            mirror_conf.local_routes.clone(),
+            etcd_config).await?;
+        let conn_option = mirror_conf.address.parse::<RedisConnectionOption>().unwrap();
+        let pool: poolx::Pool<RedisConnection> = mirror_conf.conn_pool_conf.new_pool_opt().connect_lazy_with(conn_option);
         
-        Ok(Self { router_manager, pool })
+        Ok(Self { router, pool })
     }
     fn should_mirror(&self, req_frame_data: &ReqFrameData) -> bool {
         let args = req_frame_data.args();
         if let Some(key) = args {
             for key in key {
-                return self.router_manager.get_router().get(key, req_frame_data.cmd_type).is_some();
+                return self.router.match_route(key, req_frame_data.cmd_type);
             }
         }
         return false;
@@ -42,7 +47,7 @@ impl Mirror {
 }
 
 #[async_trait]
-impl Proxy for Mirror {
+impl Proxy for MirrorFilter {
     type CTX = FilterContext;
 
     async fn proxy_upstream_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
