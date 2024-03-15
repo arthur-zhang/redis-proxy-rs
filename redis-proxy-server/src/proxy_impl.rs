@@ -64,7 +64,7 @@ impl Proxy for RedisProxyImpl {
         Ok(())
     }
     async fn request_done(&self, session: &mut Session, e: Option<&Error>, ctx: &mut Self::CTX) where Self::CTX: Send + Sync {
-        METRICS.request_latency.with_label_values(&["redis_proxy_rs"]).observe(session.req_start.elapsed().as_secs_f64());
+        METRICS.request_latency.with_label_values(&[&session.cmd_type().to_string()]).observe(session.req_start.elapsed().as_secs_f64());
         for filter in &self.filters {
             filter.request_done(session, e, ctx).await;
         }
