@@ -46,20 +46,10 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     pub async fn handle_new_request(&self, mut session: Session, pool: Pool) -> Option<Session> {
         debug!("handle new request");
 
-        let _ = self.inner.on_session_create().await.ok()?;
-        let mut req_frame = session.underlying_stream.next().await?.ok()?;
-
-        session.req_size = req_frame.raw_bytes.len();
-        session.res_size = 0;
-        session.req_start = session.underlying_stream.codec().req_start();
-        session.header_frame = Some(req_frame.clone());
-
-        let cmd_type = req_frame.cmd_type;
-        if cmd_type == CmdType::SELECT {
-            session.on_select_db();
-        } else if cmd_type == CmdType::AUTH {
-            session.on_auth();
-        }
+        self.inner.on_session_create().await.ok()?;
+        let mut header_frame = session.underlying_stream.next().await?.ok()?;
+        let cmd_type = header_frame.cmd_type;
+        session.init_from_header_frame(&header_frame);
 
         let mut ctx = self.inner.new_ctx();
 
@@ -70,20 +60,28 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             try_or_invoke_done! {|self, &mut session, &mut ctx,| session.drain_req_until_done().await}
             return Some(session);
         }
-        let mut conn = try_or_invoke_done!(|self, &mut session, &mut ctx,| pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e)));
-        let response_sent = try_or_invoke_done!(|self, &mut session, &mut ctx,| conn.init_from_session(&mut session).await);
+
+        let mut conn = try_or_invoke_done!(|self, &mut session, &mut ctx,|
+            pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e)));
+
+        let response_sent = try_or_invoke_done!(|self, &mut session, &mut ctx,|
+            conn.init_from_session(&mut session).await);
+
         if response_sent {
             try_or_invoke_done!(|self, &mut session, &mut ctx,| session.drain_req_until_done().await);
             return Some(session);
         }
 
-        try_or_invoke_done!(|self, &mut session, &mut ctx,| self.inner.proxy_upstream_filter(&mut session, &mut ctx).await);
-        try_or_invoke_done!(|self, &mut session, &mut ctx,| self.inner.upstream_request_filter(&mut session, &mut req_frame, &mut ctx).await);
+        try_or_invoke_done!(|self, &mut session, &mut ctx,|
+            self.inner.proxy_upstream_filter(&mut session, &mut ctx).await);
+        try_or_invoke_done!(|self, &mut session, &mut ctx,|
+            self.inner.upstream_request_filter(&mut session, &mut header_frame, &mut ctx).await);
 
         let (tx_upstream, rx_upstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
         let (tx_downstream, rx_downstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
 
-        try_or_invoke_done!(|self, &mut session, &mut ctx,| conn.w.write_all(&req_frame.raw_bytes).await.map_err(|e| anyhow!("send error :{:?}", e)));
+        try_or_invoke_done!(|self, &mut session, &mut ctx,|
+            conn.w.write_all(&header_frame.raw_bytes).await.map_err(|e| anyhow!("send error :{:?}", e)));
 
         // bi-directional proxy
         try_or_invoke_done!(|self, &mut session, &mut ctx,|
@@ -243,6 +241,21 @@ impl Session {
             res_size: 0,
         }
     }
+
+    pub fn init_from_header_frame(&mut self, header_frame: &ReqFrameData) {
+        self.req_size = header_frame.raw_bytes.len();
+        self.res_size = 0;
+        self.req_start = self.underlying_stream.codec().req_start();
+        self.header_frame = Some(header_frame.clone());
+
+        let cmd_type = header_frame.cmd_type;
+        if cmd_type == CmdType::SELECT {
+            self.on_select_db();
+        } else if cmd_type == CmdType::AUTH {
+            self.on_auth();
+        }
+    }
+
     pub fn request_done(&self) -> bool {
         self.header_frame.as_ref().map(|it| it.end_of_body).unwrap_or(false)
     }
