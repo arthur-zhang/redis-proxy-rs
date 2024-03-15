@@ -1,4 +1,5 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
+use std::io::IoSlice;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::Relaxed;
@@ -29,12 +30,36 @@ pub struct SessionAttr {
     pub password: Option<Vec<u8>>,
 }
 
+
+#[derive(Debug)]
+pub struct RedisConnectionOption {
+    counter: AtomicU64,
+    addr: String,
+    password: Option<String>,
+}
+
+impl Clone for RedisConnectionOption {
+    fn clone(&self) -> Self {
+        Self {
+            counter: Default::default(),
+            addr: self.addr.clone(),
+            password: self.password.clone(),
+        }
+    }
+}
+
 pub struct RedisConnection {
     pub id: u64,
     pub is_authed: bool,
     pub r: FramedRead<OwnedReadHalf, RespPktDecoder>,
     pub w: OwnedWriteHalf,
     pub session_attr: SessionAttr,
+}
+
+#[derive(PartialOrd, PartialEq)]
+pub enum AuthStatus {
+    Authed,
+    AuthFailed,
 }
 
 impl RedisConnection {
@@ -50,19 +75,21 @@ impl RedisConnection {
     }
 
     // get password and db from session, auth connection if needed
-    pub async fn init_from_session(&mut self, session: &mut Session) -> anyhow::Result<bool> {
-        if session.cmd_type() != CmdType::AUTH {
-            let response_sent = self.auth_connection_if_needed(session).await?;
-            if response_sent {
-                return Ok(true);
+    pub async fn init_from_session(&mut self, cmd_type: CmdType, session_authed: bool,
+                                   password: &Option<Vec<u8>>, session_db: u64) -> anyhow::Result<AuthStatus> {
+        if cmd_type != CmdType::AUTH {
+            let auth_status = self.auth_connection_if_needed_v2(session_authed, password).await?;
+            if matches!(auth_status, AuthStatus::AuthFailed) {
+                return Ok(AuthStatus::AuthFailed);
             }
+            self.is_authed = true;
         }
-        self.session_attr.password = session.password.clone();
-        if self.session_attr.db != session.db {
-            info!("rebuild session from {} to {}", self.session_attr.db,  session.db);
-            self.select_db(session.db).await?;
+        self.session_attr.password = password.clone();
+        if self.session_attr.db != session_db {
+            info!("rebuild session from {} to {}", self.session_attr.db,  session_db);
+            self.select_db(session_db).await?;
         }
-        Ok(false)
+        Ok(AuthStatus::Authed)
     }
     async fn auth_connection(&mut self, pass: &[u8]) -> anyhow::Result<bool> {
         let pass_len = pass.len().to_string();
@@ -80,6 +107,38 @@ impl RedisConnection {
 
         return Ok(resp_data.as_ref() == b"+OK\r\n");
     }
+
+
+    async fn auth_connection_if_needed_v2(
+        &mut self,
+        // session: &mut Session,
+        session_authed: bool,
+        password: &Option<Vec<u8>>,
+    ) -> anyhow::Result<AuthStatus> {
+        debug!("auth connection if needed: conn authed: {}, session authed: {}", self.is_authed, session_authed);
+
+        return match (self.is_authed, session_authed) {
+            (true, true) | (false, false) => {
+                Ok(AuthStatus::Authed)
+            }
+            (false, true) => {
+                // auth connection
+                let password = password.as_ref().cloned().unwrap();
+                let authed = self.auth_connection(&password).await?;
+                if authed {
+                    self.is_authed = true;
+                    Ok(AuthStatus::Authed)
+                } else {
+                    Ok(AuthStatus::AuthFailed)
+                }
+            }
+            (true, false) => {
+                // connection is auth, but ctx is not auth, should return no auth
+                Ok(AuthStatus::AuthFailed)
+            }
+        };
+    }
+
     async fn auth_connection_if_needed(
         &mut self,
         session: &mut Session,
@@ -106,8 +165,30 @@ impl RedisConnection {
         return Ok(false);
     }
 
+    pub async fn query_with_resp_vec<'a>(&mut self, vec: Vec<Bytes>) -> anyhow::Result<(bool, Vec<Bytes>)> {
+        let ios = vec.iter().map(|bytes| IoSlice::new(&bytes)).collect::<Vec<_>>();
+        self.w.write_vectored(&ios).await?;
+
+        let mut result = vec![];
+        while let Some(it) = self.r.next().await {
+            match it {
+                Ok(it) => {
+                    let is_done = it.is_done;
+                    result.push(it.data);
+                    // bytes.extend_from_slice(&it.data);
+                    if is_done {
+                        return Ok((it.res_is_ok, result));
+                    }
+                }
+                Err(e) => {
+                    bail!("read error {:?}", e);
+                }
+            }
+        }
+        bail!("read eof");
+    }
     pub async fn query_with_resp(&mut self, data: &[u8]) -> anyhow::Result<(bool, Bytes)> {
-        let mut bytes = BytesMut::new();
+        let mut bytes = bytes::BytesMut::new();
         self.w.write_all(data.as_ref()).await?;
         while let Some(it) = self.r.next().await {
             match it {
@@ -123,6 +204,18 @@ impl RedisConnection {
             }
         }
         bail!("read eof");
+    }
+}
+
+impl Display for RedisConnection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RedisConnection[{}]: is_authed:{}, attrs: {:?}", self.id, self.is_authed, self.session_attr)
+    }
+}
+
+impl Debug for RedisConnection {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(self, f)
     }
 }
 
@@ -147,23 +240,6 @@ impl Connection for RedisConnection {
         Box::pin(async move {
             Ok(())
         })
-    }
-}
-
-#[derive(Debug)]
-pub struct RedisConnectionOption {
-    counter: AtomicU64,
-    addr: String,
-    password: Option<String>,
-}
-
-impl Clone for RedisConnectionOption {
-    fn clone(&self) -> Self {
-        Self {
-            counter: Default::default(),
-            addr: self.addr.clone(),
-            password: self.password.clone(),
-        }
     }
 }
 
@@ -251,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_parse_url() {
-        let url = "redis://redis-mdc-sync1-6638-master.paas.abc.com:9999" ;
+        let url = "redis://redis-mdc-sync1-6638-master.paas.abc.com:9999";
         let url = url.parse::<Url>().unwrap();
         println!("url: {:?}", url);
     }

@@ -34,7 +34,14 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
             .new_pool_opt()
             .connect_lazy_with(conn_option);
 
-        let app_logic = Arc::new(RedisProxy { inner: self.proxy, upstream_pool: pool.clone() });
+        let mirror_conn_option = "redis://localhost:9001".parse::<RedisConnectionOption>().unwrap();
+
+        let mirror_pool: poolx::Pool<RedisConnection> = PoolOptions::new()
+            .idle_timeout(std::time::Duration::from_secs(30))
+            .min_connections(100)
+            .max_connections(50000)
+            .connect_lazy_with(mirror_conn_option);
+        let app_logic = Arc::new(RedisProxy { inner: self.proxy, upstream_pool: pool.clone(), mirror_pool: mirror_pool.clone() });
         loop {
             // one connection per task
             let (c2p_conn, peer_addr) = listener.accept().await?;
@@ -45,10 +52,9 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
             let framed = Framed::new(c2p_conn, ReqPktDecoder::new());
             let mut session = Session::new(framed);
             let app_logic = app_logic.clone();
-            let pool = pool.clone();
             tokio::spawn(async move {
                 loop {
-                    match app_logic.handle_new_request(session, pool.clone()).await {
+                    match app_logic.handle_new_request(session).await {
                         Some(s) => {
                             session = s
                         }
