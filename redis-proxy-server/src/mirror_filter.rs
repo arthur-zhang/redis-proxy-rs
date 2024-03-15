@@ -1,12 +1,12 @@
 use std::sync::Arc;
+
 use anyhow::bail;
 use async_trait::async_trait;
-use poolx::PoolOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::StreamExt;
-use redis_proxy::config::EtcdConfig;
 
+use redis_proxy::config::{ConnPoolConf, EtcdConfig};
 use redis_proxy::proxy::{Proxy, Session};
 use redis_proxy::router::RouterManager;
 use redis_proxy::upstream_conn_pool::{Pool, RedisConnection, RedisConnectionOption};
@@ -23,15 +23,11 @@ const DATA_TX: &'static str = "mirror_filter_data_tx";
 const SHOULD_MIRROR: &'static str = "mirror_filter_should_mirror";
 
 impl Mirror {
-    pub async fn new(mirror: &str, etcd_config: EtcdConfig) -> anyhow::Result<Self> {
+    pub async fn new(mirror: &str, conn_pool_conf: &ConnPoolConf, etcd_config: EtcdConfig) -> anyhow::Result<Self> {
         let router_manager = RouterManager::new(etcd_config, String::from("mirror")).await?;
         let conn_option = mirror.parse::<RedisConnectionOption>().unwrap();
-        let pool: poolx::Pool<RedisConnection> = PoolOptions::new()
-            .idle_timeout(std::time::Duration::from_secs(3))
-            .min_connections(3)
-            .max_connections(50000)
-            .connect_lazy_with(conn_option);
-
+        let pool: poolx::Pool<RedisConnection> = conn_pool_conf.new_pool_opt().connect_lazy_with(conn_option);
+        
         Ok(Self { router_manager, pool })
     }
     fn should_mirror(&self, req_frame_data: &ReqFrameData) -> bool {

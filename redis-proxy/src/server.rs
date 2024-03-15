@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use log::{debug, error};
-use poolx::PoolOptions;
 use tokio::net::TcpListener;
 use tokio_util::codec::Framed;
 
@@ -31,10 +30,8 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
         })?;
 
         let conn_option = self.config.upstream.address.parse::<RedisConnectionOption>().unwrap();
-        let pool: poolx::Pool<RedisConnection> = PoolOptions::new()
-            .idle_timeout(std::time::Duration::from_secs(30))
-            .min_connections(100)
-            .max_connections(50000)
+        let pool: poolx::Pool<RedisConnection> = self.config.upstream.conn_pool_conf
+            .new_pool_opt()
             .connect_lazy_with(conn_option);
 
         let app_logic = Arc::new(RedisProxy { inner: self.proxy, upstream_pool: pool.clone() });

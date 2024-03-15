@@ -2,7 +2,8 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use crate::upstream_conn_pool::RedisConnection;
 
 pub type TConfig = Arc<Config>;
 
@@ -27,33 +28,59 @@ pub struct EtcdConfig {
     pub(crate) key_splitter: char
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
+pub struct ConnPoolConf {
+    pub(crate) idle_timeout: u64,
+    pub(crate) min_connections: u32,
+    pub(crate) max_connections: u32,
+    pub(crate) test_before_acquire: bool,
+    pub(crate) max_lifetime: u64,
+    pub(crate) acquire_timeout: u64,
+}
+
+impl ConnPoolConf {
+    pub fn new_pool_opt(&self) -> poolx::PoolOptions<RedisConnection> { 
+        poolx::PoolOptions::new()
+            .idle_timeout(std::time::Duration::from_secs(self.idle_timeout))
+            .min_connections(self.min_connections)
+            .max_connections(self.max_connections)
+            .test_before_acquire(self.test_before_acquire)
+            .max_lifetime(std::time::Duration::from_secs(self.max_lifetime))
+            .acquire_timeout(std::time::Duration::from_secs(self.acquire_timeout))
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub struct Server {
     pub address: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Upstream {
     pub address: String,
+    pub conn_pool_conf: ConnPoolConf,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct FilterChain {
     pub blacklist: Option<Blacklist>,
     pub mirror: Option<Mirror>,
     pub log: Option<Log>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Blacklist {}
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Mirror { pub address: String}
+#[derive(Debug, Deserialize, Clone)]
+pub struct Mirror { 
+    pub address: String,
+    pub conn_pool_conf: ConnPoolConf,
+}
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Log {}
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Prometheus {
     pub address: String,
     pub export_uri: String,

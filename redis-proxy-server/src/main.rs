@@ -68,7 +68,7 @@ async fn load_filters(conf: &Arc<Config>) -> anyhow::Result<Vec<Box<dyn Proxy<CT
     }
 
     if let Some(ref mirror) = conf.filter_chain.mirror {
-        let mirror_filter = Mirror::new(&mirror.address, conf.etcd_config.clone()).await?;
+        let mirror_filter = Mirror::new(&mirror.address, &mirror.conn_pool_conf, conf.etcd_config.clone()).await?;
         filters.push(Box::new(mirror_filter));
     }
     if let Some(_) = conf.filter_chain.log {
