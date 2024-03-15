@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::Relaxed;
@@ -18,6 +18,7 @@ use tokio_util::codec::FramedRead;
 use redis_codec_core::resp_decoder::RespPktDecoder;
 use redis_proxy_common::cmd::CmdType;
 
+use crate::prometheus::{CONN_UPSTREAM, METRICS};
 use crate::proxy::Session;
 
 pub type Pool = poolx::Pool<RedisConnection>;
@@ -26,24 +27,6 @@ pub type Pool = poolx::Pool<RedisConnection>;
 pub struct SessionAttr {
     pub db: u64,
     pub password: Option<Vec<u8>>,
-}
-
-
-#[derive(Debug)]
-pub struct RedisConnectionOption {
-    counter: AtomicU64,
-    addr: String,
-    password: Option<String>,
-}
-
-impl Clone for RedisConnectionOption {
-    fn clone(&self) -> Self {
-        Self {
-            counter: Default::default(),
-            addr: self.addr.clone(),
-            password: self.password.clone(),
-        }
-    }
 }
 
 pub struct RedisConnection {
@@ -124,7 +107,7 @@ impl RedisConnection {
     }
 
     pub async fn query_with_resp(&mut self, data: &[u8]) -> anyhow::Result<(bool, Bytes)> {
-        let mut bytes = bytes::BytesMut::new();
+        let mut bytes = BytesMut::new();
         self.w.write_all(data.as_ref()).await?;
         while let Some(it) = self.r.next().await {
             match it {
@@ -143,28 +126,18 @@ impl RedisConnection {
     }
 }
 
-impl Display for RedisConnection {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RedisConnection[{}]: is_authed:{}, attrs: {:?}", self.id, self.is_authed, self.session_attr)
-    }
-}
-
-impl Debug for RedisConnection {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(self, f)
-    }
-}
-
 impl Connection for RedisConnection {
     type Options = RedisConnectionOption;
 
     fn close(self) -> BoxFuture<'static, Result<(), Error>> {
+        METRICS.connections.with_label_values(&[CONN_UPSTREAM]).dec();
         Box::pin(async move {
             Ok(())
         })
     }
 
     fn close_hard(self) -> BoxFuture<'static, Result<(), Error>> {
+        METRICS.connections.with_label_values(&[CONN_UPSTREAM]).dec();
         Box::pin(async move {
             Ok(())
         })
@@ -177,11 +150,28 @@ impl Connection for RedisConnection {
     }
 }
 
+#[derive(Debug)]
+pub struct RedisConnectionOption {
+    counter: AtomicU64,
+    addr: String,
+    password: Option<String>,
+}
+
+impl Clone for RedisConnectionOption {
+    fn clone(&self) -> Self {
+        Self {
+            counter: Default::default(),
+            addr: self.addr.clone(),
+            password: self.password.clone(),
+        }
+    }
+}
+
 impl FromStr for RedisConnectionOption {
-    type Err = poolx::Error;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = s.parse::<Url>().map_err(|e| poolx::Error::Configuration(Box::new(e)))?;
+        let url = s.parse::<Url>().map_err(|e| Error::Configuration(Box::new(e)))?;
         Self::from_url(&url)
     }
 }
@@ -202,8 +192,9 @@ impl ConnectOptions for RedisConnectionOption {
         Box::pin({
             let addr = self.addr.clone();
             async move {
-                let conn = tokio::net::TcpStream::connect(addr).await.map_err(|e| poolx::Error::Io(std::io::Error::from(e)))?;
+                let conn = tokio::net::TcpStream::connect(addr).await.map_err(|e| Error::Io(std::io::Error::from(e)))?;
                 conn.set_nodelay(true).unwrap();
+                METRICS.connections.with_label_values(&[CONN_UPSTREAM]).inc();
                 let (r, w) = conn.into_split();
 
                 let mut conn = RedisConnection {
@@ -223,7 +214,7 @@ impl ConnectOptions for RedisConnectionOption {
                             Ok(conn)
                         }
                         _ => {
-                            Err(poolx::Error::ResponseError)
+                            Err(Error::ResponseError)
                         }
                     };
                 }

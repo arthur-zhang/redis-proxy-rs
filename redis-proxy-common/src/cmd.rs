@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use enum_iterator::Sequence;
 
 use crate::cmd::KeyInfo::NoKey;
@@ -506,6 +507,12 @@ impl CmdType {
                 return KeyInfo::NoKey;
             }
         }
+    }
+}
+
+impl Display for CmdType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
