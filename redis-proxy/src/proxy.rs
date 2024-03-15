@@ -28,20 +28,9 @@ pub struct RedisProxy<P> {
     pub upstream_pool: Pool,
 }
 
-macro_rules! try_or_return {
-    ($self:expr, $expr:expr) => {
-        match $expr {
-            Ok(val) => val,
-            Err(_) => {
-                return None;
-            }
-        }
-    };
-}
-
 
 macro_rules! try_or_invoke_done {
-    ($self:expr, $session:expr, $ctx:expr, $expr:expr) => {
+    (|$self:expr, $session:expr, $ctx:expr, | $expr:expr) => {
         match $expr {
             Ok(val) => val,
             Err(err) => {
@@ -52,17 +41,14 @@ macro_rules! try_or_invoke_done {
     };
 }
 
+
 impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sync {
     pub async fn handle_new_request(&self, mut session: Session, pool: Pool) -> Option<Session> {
         debug!("handle new request");
 
-        try_or_return!(self, self.inner.on_session_create().await);
-        let mut req_frame = match session.underlying_stream.next().await {
-            None => { return None; }
-            Some(req_frame) => {
-                try_or_return!(self, req_frame)
-            }
-        };
+        let _ = self.inner.on_session_create().await.ok()?;
+        let mut req_frame = session.underlying_stream.next().await?.ok()?;
+
         session.req_size = req_frame.raw_bytes.len();
         session.res_size = 0;
         session.req_start = session.underlying_stream.codec().req_start();
@@ -76,28 +62,31 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         }
 
         let mut ctx = self.inner.new_ctx();
-        let response_sent = try_or_invoke_done!(self, &mut session, &mut ctx, self.inner.request_filter(&mut session, &mut ctx).await);
+
+        let response_sent = try_or_invoke_done! { |self, &mut session, &mut ctx,|
+            self.inner.request_filter(&mut session, &mut ctx).await
+        };
         if response_sent {
-            try_or_invoke_done!(self, &mut session, &mut ctx, session.drain_req_until_done().await);
+            try_or_invoke_done! {|self, &mut session, &mut ctx,| session.drain_req_until_done().await}
             return Some(session);
         }
-        let mut conn = try_or_invoke_done!(self, &mut session, &mut ctx, pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e)));
-        let response_sent = try_or_invoke_done!(self, &mut session, &mut ctx, conn.init_from_session(&mut session).await);
+        let mut conn = try_or_invoke_done!(|self, &mut session, &mut ctx,| pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e)));
+        let response_sent = try_or_invoke_done!(|self, &mut session, &mut ctx,| conn.init_from_session(&mut session).await);
         if response_sent {
-            try_or_invoke_done!(self, &mut session, &mut ctx, session.drain_req_until_done().await);
+            try_or_invoke_done!(|self, &mut session, &mut ctx,| session.drain_req_until_done().await);
             return Some(session);
         }
 
-        try_or_invoke_done!(self, &mut session, &mut ctx, self.inner.proxy_upstream_filter(&mut session, &mut ctx).await);
-        try_or_invoke_done!(self, &mut session, &mut ctx, self.inner.upstream_request_filter(&mut session, &mut req_frame, &mut ctx).await);
+        try_or_invoke_done!(|self, &mut session, &mut ctx,| self.inner.proxy_upstream_filter(&mut session, &mut ctx).await);
+        try_or_invoke_done!(|self, &mut session, &mut ctx,| self.inner.upstream_request_filter(&mut session, &mut req_frame, &mut ctx).await);
 
         let (tx_upstream, rx_upstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
         let (tx_downstream, rx_downstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
 
-        try_or_invoke_done!(self, &mut session, &mut ctx, conn.w.write_all(&req_frame.raw_bytes).await.map_err(|e| anyhow!("send error :{:?}", e)));
+        try_or_invoke_done!(|self, &mut session, &mut ctx,| conn.w.write_all(&req_frame.raw_bytes).await.map_err(|e| anyhow!("send error :{:?}", e)));
 
         // bi-directional proxy
-        try_or_invoke_done!(self, &mut session, &mut ctx,
+        try_or_invoke_done!(|self, &mut session, &mut ctx,|
             tokio::try_join!(
                 self.proxy_handle_downstream(&mut session, tx_downstream, rx_upstream, &mut ctx),
                 self.proxy_handle_upstream(conn, tx_upstream, rx_downstream, cmd_type)
