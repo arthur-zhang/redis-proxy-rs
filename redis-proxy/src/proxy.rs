@@ -164,17 +164,13 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
         let res = tokio::try_join!(t1, t2).map_err(|e| anyhow!("join error: {:?}", e))?;
 
-        // println!("res: {:?}", res);
         return match res {
             (Ok(res1), Ok(res2)) => {
                 if cmd_type == CmdType::AUTH {
                     session.is_authed = res1.0;
                 }
-                if res1.0 == false {
-                    for it in res1.1 {
-                        let _ = session.downstream_writer.write_all(&it).await;
-                    }
-                } else if res2.0 == false {
+                // if mirror is not ok, send upstream response to downstream
+                if res2.0 == false {
                     for it in res2.1 {
                         let _ = session.downstream_writer.write_all(&it).await;
                     }
