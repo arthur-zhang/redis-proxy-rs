@@ -1,4 +1,5 @@
 use std::io::IoSlice;
+use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::{anyhow, bail};
@@ -52,8 +53,9 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
         self.inner.on_session_create().await.ok()?;
         let mut header_frame = session.downstream_reader.next().await?.ok()?;
+        let header_frame = Arc::new(header_frame);
         let cmd_type = header_frame.cmd_type;
-        session.init_from_header_frame(&header_frame);
+        session.init_from_header_frame(header_frame.clone());
 
         let mut ctx = self.inner.new_ctx();
 
@@ -74,35 +76,29 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         }
         Some(session)
     }
-    pub async fn handle_request_half(&self, session: &mut Session, mut header_frame: ReqFrameData,
+    pub async fn handle_request_half(&self, session: &mut Session, header_frame: Arc<ReqFrameData>,
                                      cmd_type: CmdType,
                                      ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let mut conn =
             self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
 
-        let should_mirror = self.should_mirror(&header_frame);
 
         let mut mirror_conn = None;
-        if should_mirror {
+        if self.should_mirror(&header_frame) {
             let conn = self.mirror_pool.acquire().await.map_err(|e| anyhow!("get mirror connection from pool error: {:?}", e))?;
             mirror_conn = Some(conn);
         }
 
-        // handle mirror request
-        if let Some(mut mirror_conn) = mirror_conn {
-            let (auth_status_upstream, auth_status_mirror) = tokio::try_join!(
-                conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db),
-                mirror_conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db),
-            )?;
-            match (auth_status_upstream, auth_status_mirror) {
-                (AuthStatus::Authed, AuthStatus::Authed) => {}
-                (_, _) => {
-                    session.downstream_writer.write_all(b"-NOAUTH Authentication required.\r\n").await;
-                }
-            }
-            return self.handle_mirror(session, mirror_conn, conn, cmd_type, ctx).await;
-        }
+        return if let Some(mirror_conn) = mirror_conn {
+            self.handle_mirror(session, mirror_conn, conn, cmd_type, ctx).await
+        } else {
+            self.handle_non_mirror_request(session, &header_frame, cmd_type, ctx, conn).await
+        };
+    }
 
+    async fn handle_non_mirror_request(&self, session: &mut Session, header_frame: &Arc<ReqFrameData>,
+                                       cmd_type: CmdType, ctx: &mut <P as Proxy>::CTX,
+                                       mut conn: PoolConnection<RedisConnection>) -> anyhow::Result<()> {
         let auth_status =
             conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db).await?;
 
@@ -112,7 +108,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         }
 
         self.inner.proxy_upstream_filter(session, ctx).await?;
-        self.inner.upstream_request_filter(session, &mut header_frame, ctx).await?;
+        self.inner.upstream_request_filter(session, &header_frame, ctx).await?;
 
         let (tx_upstream, rx_upstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
         let (tx_downstream, rx_downstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
@@ -125,12 +121,23 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             self.proxy_handle_upstream(conn, tx_upstream, rx_downstream, cmd_type)
         )?;
         self.inner.request_done(session, None, ctx).await;
-        return Ok(());
+        Ok(())
     }
     async fn handle_mirror(&self, session: &mut Session,
                            mut mirror_conn: PoolConnection<RedisConnection>,
                            mut conn: PoolConnection<RedisConnection>,
                            cmd_type: CmdType, ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
+        let (auth_status_upstream, auth_status_mirror) = tokio::try_join!(
+                conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db),
+                mirror_conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db))?;
+        match (auth_status_upstream, auth_status_mirror) {
+            (AuthStatus::Authed, AuthStatus::Authed) => {}
+            (_, _) => {
+                session.downstream_writer.write_all(b"-NOAUTH Authentication required.\r\n").await;
+                return Ok(());
+            }
+        }
+
         let mut req_data_vec = vec![];
 
         let header_data = session.header_frame.as_ref().unwrap().raw_bytes.clone();
@@ -317,7 +324,7 @@ pub struct Session {
     downstream_reader: FramedRead<OwnedReadHalf, ReqPktDecoder>,
     downstream_writer: OwnedWriteHalf,
     // underlying_stream: Framed<TcpStream, ReqPktDecoder>,
-    pub header_frame: Option<ReqFrameData>,
+    pub header_frame: Option<Arc<ReqFrameData>>,
     pub password: Option<Vec<u8>>,
     pub db: u64,
     pub is_authed: bool,
@@ -346,13 +353,13 @@ impl Session {
         }
     }
 
-    pub fn init_from_header_frame(&mut self, header_frame: &ReqFrameData) {
+    pub fn init_from_header_frame(&mut self, header_frame: Arc<ReqFrameData>) {
         self.req_size = header_frame.raw_bytes.len();
         self.res_size = 0;
         self.req_start = self.downstream_reader.decoder().req_start();
-        self.header_frame = Some(header_frame.clone());
-
         let cmd_type = header_frame.cmd_type;
+        self.header_frame = Some(header_frame);
+
         if cmd_type == CmdType::SELECT {
             self.on_select_db();
         } else if cmd_type == CmdType::AUTH {
@@ -462,7 +469,7 @@ pub trait Proxy {
     /// Unlike [Self::request_filter()], this filter allows to change the request data to send
     /// to the upstream.
     async fn upstream_request_filter(&self, _session: &mut Session,
-                                     _upstream_request: &mut ReqFrameData,
+                                     _upstream_request: &ReqFrameData,
                                      _ctx: &mut Self::CTX) -> anyhow::Result<()> { Ok(()) }
 
     /// Modify the response header from the upstream

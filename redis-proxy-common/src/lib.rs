@@ -6,7 +6,7 @@ use crate::cmd::CmdType;
 pub mod cmd;
 pub mod tools;
 
-#[derive(Clone)]
+// #[derive(Clone)]
 pub struct ReqFrameData {
     pub is_head_frame: bool,
     pub cmd_type: CmdType,
