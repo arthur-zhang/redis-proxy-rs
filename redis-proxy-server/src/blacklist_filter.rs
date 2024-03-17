@@ -38,7 +38,7 @@ impl Proxy for BlackListFilter {
         if let Some(args) = args {
             for key in args {
                 if self.router.match_route(key, req_frame.cmd_type) {
-                    session.underlying_stream.send(Bytes::from_static(b"-ERR black list\r\n")).await?;
+                    session.send_resp_to_downstream(Bytes::from_static(b"-ERR black list\r\n")).await?;
                     return Ok(true);
                 }
             }

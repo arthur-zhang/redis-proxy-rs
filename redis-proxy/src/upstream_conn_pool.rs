@@ -158,12 +158,13 @@ impl RedisConnection {
             }
             (true, false) => {
                 // connection is auth, but ctx is not auth, should return no auth
-                session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await?;
+                session.send_resp_to_downstream(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await?;
                 return Ok(true);
             }
         }
         return Ok(false);
     }
+
 
     pub async fn query_with_resp_vec<'a>(&mut self, vec: Vec<Bytes>) -> anyhow::Result<(bool, Vec<Bytes>)> {
         let ios = vec.iter().map(|bytes| IoSlice::new(&bytes)).collect::<Vec<_>>();

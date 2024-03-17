@@ -8,11 +8,12 @@ use futures::{SinkExt, StreamExt};
 use log::{debug, error, info};
 use poolx::PoolConnection;
 use tokio::io::AsyncWriteExt;
+use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::task::JoinHandle;
-use tokio_util::codec::Framed;
+use tokio_util::codec::{Framed, FramedRead};
 
 use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
@@ -50,7 +51,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         debug!("handle new request");
 
         self.inner.on_session_create().await.ok()?;
-        let mut header_frame = session.underlying_stream.next().await?.ok()?;
+        let mut header_frame = session.downstream_reader.next().await?.ok()?;
         let cmd_type = header_frame.cmd_type;
         session.init_from_header_frame(&header_frame);
 
@@ -96,7 +97,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             match (auth_status_upstream, auth_status_mirror) {
                 (AuthStatus::Authed, AuthStatus::Authed) => {}
                 (_, _) => {
-                    session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await;
+                    session.downstream_writer.write_all(b"-NOAUTH Authentication required.\r\n").await;
                 }
             }
             return self.handle_mirror(session, mirror_conn, conn, cmd_type, ctx).await;
@@ -106,7 +107,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db).await?;
 
         if auth_status != AuthStatus::Authed {
-            session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await;
+            session.downstream_writer.write_all(b"-NOAUTH Authentication required.\r\n").await;
             return Ok(());
         }
 
@@ -136,7 +137,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         req_data_vec.push(header_data);
 
         if !session.request_done() {
-            while let Some(Ok(data)) = session.underlying_stream.next().await {
+            while let Some(Ok(data)) = session.downstream_reader.next().await {
                 let is_done = data.end_of_body;
                 session.req_size += data.raw_bytes.len();
                 req_data_vec.push(data.raw_bytes);
@@ -170,21 +171,21 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 }
                 if res1.0 == false {
                     for it in res1.1 {
-                        let _ = session.underlying_stream.send(it).await;
+                        let _ = session.downstream_writer.write_all(&it).await;
                     }
                 } else if res2.0 == false {
                     for it in res2.1 {
-                        let _ = session.underlying_stream.send(it).await;
+                        let _ = session.downstream_writer.write_all(&it).await;
                     }
                 } else {
                     for it in res1.1 {
-                        let _ = session.underlying_stream.send(it).await;
+                        let _ = session.downstream_writer.write_all(&it).await;
                     }
                 }
                 Ok(())
             }
             _ => {
-                let _ = session.underlying_stream.send(Bytes::from("-error")).await;
+                let _ = session.downstream_writer.write_all(b"-error").await;
                 bail!("mirror error")
             }
         };
@@ -199,7 +200,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         while !end_of_body || !response_done {
             let tx_downstream_send_permit = tx_downstream.try_reserve();
             tokio::select! {
-                data = session.underlying_stream.next(), if !end_of_body && tx_downstream_send_permit.is_ok() => {
+                data = session.downstream_reader.next(), if !end_of_body && tx_downstream_send_permit.is_ok() => {
                     match data {
                         Some(Ok(mut data)) => {
                             let is_done = data.end_of_body;
@@ -228,7 +229,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                                 session.res_is_ok = res_framed_data.res_is_ok;
                             }
                             session.res_size += res_framed_data.data.len();
-                            session.underlying_stream.send(res_framed_data.data).await?;
+                            session.downstream_writer.write_all(&res_framed_data.data).await?;
 
                             response_done = res_framed_data.is_done;
 
@@ -313,7 +314,9 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
 
 pub struct Session {
-    pub underlying_stream: Framed<TcpStream, ReqPktDecoder>,
+    downstream_reader: FramedRead<OwnedReadHalf, ReqPktDecoder>,
+    downstream_writer: OwnedWriteHalf,
+    // underlying_stream: Framed<TcpStream, ReqPktDecoder>,
     pub header_frame: Option<ReqFrameData>,
     pub password: Option<Vec<u8>>,
     pub db: u64,
@@ -325,9 +328,13 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new(underlying_stream: Framed<TcpStream, ReqPktDecoder>) -> Self {
+    pub fn new(stream: TcpStream) -> Self {
+        let (r, w) = stream.into_split();
+        let r = FramedRead::new(r, ReqPktDecoder::new());
+
         Session {
-            underlying_stream,
+            downstream_reader: r,
+            downstream_writer: w,
             header_frame: None,
             password: None,
             db: 0,
@@ -342,7 +349,7 @@ impl Session {
     pub fn init_from_header_frame(&mut self, header_frame: &ReqFrameData) {
         self.req_size = header_frame.raw_bytes.len();
         self.res_size = 0;
-        self.req_start = self.underlying_stream.codec().req_start();
+        self.req_start = self.downstream_reader.decoder().req_start();
         self.header_frame = Some(header_frame.clone());
 
         let cmd_type = header_frame.cmd_type;
@@ -359,6 +366,11 @@ impl Session {
     pub fn cmd_type(&self) -> CmdType {
         self.header_frame.as_ref().map(|it| it.cmd_type).unwrap_or(CmdType::UNKNOWN)
     }
+
+    pub async fn send_resp_to_downstream(&mut self, data: Bytes) -> anyhow::Result<()> {
+        self.downstream_writer.write_all(&data).await?;
+        Ok(())
+    }
 }
 
 impl Session {
@@ -368,7 +380,7 @@ impl Session {
                 return Ok(());
             }
         }
-        while let Some(Ok(req_frame_data)) = self.underlying_stream.next().await {
+        while let Some(Ok(req_frame_data)) = self.downstream_reader.next().await {
             if req_frame_data.end_of_body {
                 return Ok(());
             }

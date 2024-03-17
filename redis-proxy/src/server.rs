@@ -50,8 +50,7 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
             METRICS.connections.with_label_values(&[CONN_DOWNSTREAM]).inc();
             debug!("session start: {:?}", peer_addr);
 
-            let framed = Framed::new(c2p_conn, ReqPktDecoder::new());
-            let mut session = Session::new(framed);
+            let mut session = Session::new(c2p_conn);
             let app_logic = app_logic.clone();
             tokio::spawn(async move {
                 loop {
