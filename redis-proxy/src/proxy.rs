@@ -45,19 +45,6 @@ impl<P> RedisProxy<P> {
     }
 }
 
-macro_rules! try_or_invoke_done {
-    (|$self:expr, $session:expr, $ctx:expr, | $expr:expr) => {
-        match $expr {
-            Ok(val) => val,
-            Err(err) => {
-                $self.inner.request_done($session, Some(&err), $ctx).await;
-                return None;
-            }
-        }
-    };
-}
-
-
 impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sync {
     pub async fn handle_new_request(&self, mut session: Session) -> Option<Session> {
         debug!("handle new request");
@@ -69,86 +56,84 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
         let mut ctx = self.inner.new_ctx();
 
-        let mut response_sent = try_or_invoke_done! { |self, &mut session, &mut ctx,|
-            self.inner.request_filter(&mut session, &mut ctx).await
-        };
+        let mut response_sent =
+            self.inner.request_filter(&mut session, &mut ctx).await.ok()?;
         if response_sent {
-            try_or_invoke_done! {|self, &mut session, &mut ctx,|
-                session.drain_req_until_done().await
-            }
+            session.drain_req_until_done().await.ok()?;
             return Some(session);
         }
 
-
-        let mut conn = try_or_invoke_done!(|self, &mut session, &mut ctx,|
-            self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))
-        );
+        match self.handle_request_half(&mut session, header_frame, cmd_type, &mut ctx).await {
+            Ok(_) => {
+                self.inner.request_done(&mut session, None, &mut ctx).await;
+            }
+            Err(err) => {
+                self.inner.request_done(&mut session, Some(&err), &mut ctx).await;
+            }
+        }
+        Some(session)
+    }
+    pub async fn handle_request_half(&self, session: &mut Session, mut header_frame: ReqFrameData,
+                                     cmd_type: CmdType,
+                                     ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
+        let mut conn =
+            self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
 
         let should_mirror = self.should_mirror(&header_frame);
 
         let mut mirror_conn = None;
         if should_mirror {
-            let conn = try_or_invoke_done!(|self, &mut session, &mut ctx,|
-                self.mirror_pool.acquire().await.map_err(|e| anyhow!("get mirror connection from pool error: {:?}", e)));
+            let conn = self.mirror_pool.acquire().await.map_err(|e| anyhow!("get mirror connection from pool error: {:?}", e))?;
             mirror_conn = Some(conn);
         }
 
         // handle mirror request
         if let Some(mut mirror_conn) = mirror_conn {
-            let resp = tokio::try_join!(
+            let (auth_status_upstream, auth_status_mirror) = tokio::try_join!(
                 conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db),
                 mirror_conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db),
-            );
-            let (auth_status1, auth_status2) = try_or_invoke_done! {|self, &mut session, &mut ctx,| resp};
-            match (auth_status1, auth_status2) {
+            )?;
+            match (auth_status_upstream, auth_status_mirror) {
                 (AuthStatus::Authed, AuthStatus::Authed) => {}
                 (_, _) => {
                     session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await;
-                    response_sent = true;
                 }
             }
-            let res = self.handle_mirror(session, mirror_conn, conn, cmd_type, &mut ctx).await;
-            return res;
+            return self.handle_mirror(session, mirror_conn, conn, cmd_type, ctx).await;
         }
 
-        let auth_status = try_or_invoke_done!(|self, &mut session, &mut ctx,|
-            conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db).await);
+        let auth_status =
+            conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db).await?;
 
         if auth_status != AuthStatus::Authed {
             session.underlying_stream.send(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await;
-            response_sent = true;
-            return Some(session);
+            return Ok(());
         }
 
-        try_or_invoke_done!(|self, &mut session, &mut ctx,|
-            self.inner.proxy_upstream_filter(&mut session, &mut ctx).await);
-        try_or_invoke_done!(|self, &mut session, &mut ctx,|
-            self.inner.upstream_request_filter(&mut session, &mut header_frame, &mut ctx).await);
+        self.inner.proxy_upstream_filter(session, ctx).await?;
+        self.inner.upstream_request_filter(session, &mut header_frame, ctx).await?;
 
         let (tx_upstream, rx_upstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
         let (tx_downstream, rx_downstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
 
-        try_or_invoke_done!(|self, &mut session, &mut ctx,|
-            conn.w.write_all(&header_frame.raw_bytes).await.map_err(|e| anyhow!("send error :{:?}", e)));
+        conn.w.write_all(&header_frame.raw_bytes).await.map_err(|e| anyhow!("send error :{:?}", e))?;
 
         // bi-directional proxy
-        try_or_invoke_done!(|self, &mut session, &mut ctx,|
-            tokio::try_join!(
-                self.proxy_handle_downstream(&mut session, tx_downstream, rx_upstream, &mut ctx),
-                self.proxy_handle_upstream(conn, tx_upstream, rx_downstream, cmd_type)
-        ));
-        self.inner.request_done(&mut session, None, &mut ctx).await;
-        return Some(session);
+        tokio::try_join!(
+            self.proxy_handle_downstream(session, tx_downstream, rx_upstream, ctx),
+            self.proxy_handle_upstream(conn, tx_upstream, rx_downstream, cmd_type)
+        )?;
+        self.inner.request_done(session, None, ctx).await;
+        return Ok(());
     }
-    async fn handle_mirror(&self, mut session: Session,
+    async fn handle_mirror(&self, session: &mut Session,
                            mut mirror_conn: PoolConnection<RedisConnection>,
                            mut conn: PoolConnection<RedisConnection>,
-                           cmd_type: CmdType, ctx: &mut <P as Proxy>::CTX) -> Option<Session> {
+                           cmd_type: CmdType, ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let mut req_data_vec = vec![];
 
         let header_data = session.header_frame.as_ref().unwrap().raw_bytes.clone();
         req_data_vec.push(header_data);
-        // let mut req_data = BytesMut::from(session.header_frame.as_ref().unwrap().raw_bytes.as_ref());
 
         if !session.request_done() {
             while let Some(Ok(data)) = session.underlying_stream.next().await {
@@ -175,8 +160,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         });
 
 
-        let res = tokio::try_join!(t1, t2).map_err(|e| anyhow!("join error: {:?}", e));
-        let res = try_or_invoke_done!(|self, &mut session, ctx,| res);
+        let res = tokio::try_join!(t1, t2).map_err(|e| anyhow!("join error: {:?}", e))?;
 
         // println!("res: {:?}", res);
         return match res {
@@ -197,13 +181,13 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                         let _ = session.underlying_stream.send(it).await;
                     }
                 }
-                Some(session)
+                Ok(())
             }
             _ => {
                 let _ = session.underlying_stream.send(Bytes::from("-error")).await;
-                None
+                bail!("mirror error")
             }
-        }
+        };
     }
     async fn proxy_handle_downstream(&self,
                                      session: &mut Session,
