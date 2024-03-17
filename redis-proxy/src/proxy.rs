@@ -79,21 +79,15 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     pub async fn handle_request_half(&self, session: &mut Session, header_frame: Arc<ReqFrameData>,
                                      cmd_type: CmdType,
                                      ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
-        let mut conn =
+        let conn =
             self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
 
-
-        let mut mirror_conn = None;
         if self.should_mirror(&header_frame) {
-            let conn = self.mirror_pool.acquire().await.map_err(|e| anyhow!("get mirror connection from pool error: {:?}", e))?;
-            mirror_conn = Some(conn);
-        }
-
-        return if let Some(mirror_conn) = mirror_conn {
+            let mirror_conn = self.mirror_pool.acquire().await.map_err(|e| anyhow!("get mirror connection from pool error: {:?}", e))?;
             self.handle_mirror(session, mirror_conn, conn, cmd_type, ctx).await
         } else {
             self.handle_non_mirror_request(session, &header_frame, cmd_type, ctx, conn).await
-        };
+        }
     }
 
     async fn handle_non_mirror_request(&self, session: &mut Session, header_frame: &Arc<ReqFrameData>,
