@@ -17,7 +17,6 @@ use redis_proxy_common::ReqFrameData;
 pub struct Session {
     downstream_reader: FramedRead<OwnedReadHalf, ReqPktDecoder>,
     downstream_writer: OwnedWriteHalf,
-    // underlying_stream: Framed<TcpStream, ReqPktDecoder>,
     pub header_frame: Option<Arc<ReqFrameData>>,
     pub password: Option<Vec<u8>>,
     pub db: u64,
@@ -80,6 +79,15 @@ impl Session {
     }
 
     #[inline]
+    pub async fn write_downstream_batch(&mut self, bytes: Vec<Bytes>) -> anyhow::Result<()> {
+        for data in bytes {
+            self.downstream_writer.write(&data).await?;
+        }
+        self.downstream_writer.flush().await?;
+        Ok(())
+    }
+
+    #[inline]
     pub async fn write_downstream(&mut self, data: &[u8]) -> anyhow::Result<()> {
         self.downstream_writer.write_all(data).await?;
         Ok(())
@@ -91,8 +99,6 @@ impl Session {
         self.drain_req_until_done().await?;
         Ok(())
     }
-
-
 }
 
 impl Session {
