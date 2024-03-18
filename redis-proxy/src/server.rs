@@ -9,7 +9,8 @@ use redis_proxy_common::ReqFrameData;
 
 use crate::config::{Config, TConfig};
 use crate::prometheus::{CONN_DOWNSTREAM, METRICS};
-use crate::proxy::{Proxy, RedisProxy, Session};
+use crate::proxy::{Proxy, RedisProxy};
+use crate::session::Session;
 use crate::upstream_conn_pool::{RedisConnection, RedisConnectionOption};
 
 pub struct ProxyServer<P> {

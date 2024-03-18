@@ -21,6 +21,7 @@ use redis_proxy_common::ReqFrameData;
 
 use crate::peer;
 use crate::server::ProxyChanData;
+use crate::session::Session;
 use crate::upstream_conn_pool::{AuthStatus, Pool, RedisConnection};
 
 const TASK_BUFFER_SIZE: usize = 16;
@@ -49,7 +50,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         debug!("handle new request");
 
         self.inner.on_session_create().await.ok()?;
-        let header_frame = session.downstream_reader.next().await?.ok()?;
+        let header_frame = session.read_downstream().await?.ok()?;
         let header_frame = Arc::new(header_frame);
         let cmd_type = header_frame.cmd_type;
         session.init_from_header_frame(header_frame.clone());
@@ -94,7 +95,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db).await?;
 
         if auth_status != AuthStatus::Authed {
-            session.downstream_writer.write_all(b"-NOAUTH Authentication required.\r\n").await?;
+            session.write_downstream(b"-NOAUTH Authentication required.\r\n").await?;
             return Ok(());
         }
 
@@ -124,7 +125,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         match (auth_status_upstream, auth_status_mirror) {
             (AuthStatus::Authed, AuthStatus::Authed) => {}
             (_, _) => {
-                session.downstream_writer.write_all(b"-NOAUTH Authentication required.\r\n").await?;
+                session.write_downstream(b"-NOAUTH Authentication required.\r\n").await;
                 return Ok(());
             }
         }
@@ -135,7 +136,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         req_data_vec.push(header_data);
 
         if !session.request_done() {
-            while let Some(Ok(data)) = session.downstream_reader.next().await {
+            while let Some(Ok(data)) = session.read_downstream().await {
                 let is_done = data.end_of_body;
                 session.req_size += data.raw_bytes.len();
                 req_data_vec.push(data.raw_bytes);
@@ -169,17 +170,17 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 // if mirror is not ok, send upstream response to downstream
                 if res2.0 == false {
                     for it in res2.1 {
-                        let _ = session.downstream_writer.write_all(&it).await;
+                        let _ = session.write_downstream(&it).await;
                     }
                 } else {
                     for it in res1.1 {
-                        let _ = session.downstream_writer.write_all(&it).await;
+                        let _ = session.write_downstream(&it).await;
                     }
                 }
                 Ok(())
             }
             _ => {
-                let _ = session.downstream_writer.write_all(b"-error").await;
+                let _ = session.write_downstream(b"-error").await;
                 bail!("mirror error")
             }
         };
@@ -194,7 +195,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         while !end_of_body || !response_done {
             let tx_downstream_send_permit = tx_downstream.try_reserve();
             tokio::select! {
-                data = session.downstream_reader.next(), if !end_of_body && tx_downstream_send_permit.is_ok() => {
+                data = session.read_downstream(), if !end_of_body && tx_downstream_send_permit.is_ok() => {
                     match data {
                         Some(Ok(mut data)) => {
                             let is_done = data.end_of_body;
@@ -223,7 +224,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                                 session.res_is_ok = res_framed_data.res_is_ok;
                             }
                             session.res_size += res_framed_data.data.len();
-                            session.downstream_writer.write_all(&res_framed_data.data).await?;
+                            session.write_downstream(&res_framed_data.data).await?;
 
                             response_done = res_framed_data.is_done;
 
@@ -307,100 +308,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 }
 
 
-pub struct Session {
-    downstream_reader: FramedRead<OwnedReadHalf, ReqPktDecoder>,
-    downstream_writer: OwnedWriteHalf,
-    // underlying_stream: Framed<TcpStream, ReqPktDecoder>,
-    pub header_frame: Option<Arc<ReqFrameData>>,
-    pub password: Option<Vec<u8>>,
-    pub db: u64,
-    pub is_authed: bool,
-    pub req_start: Instant,
-    pub res_is_ok: bool,
-    pub req_size: usize,
-    pub res_size: usize,
-}
 
-impl Session {
-    pub fn new(stream: TcpStream) -> Self {
-        let (r, w) = stream.into_split();
-        let r = FramedRead::new(r, ReqPktDecoder::new());
-
-        Session {
-            downstream_reader: r,
-            downstream_writer: w,
-            header_frame: None,
-            password: None,
-            db: 0,
-            is_authed: false,
-            req_start: Instant::now(),
-            res_is_ok: true,
-            req_size: 0,
-            res_size: 0,
-        }
-    }
-
-    pub fn init_from_header_frame(&mut self, header_frame: Arc<ReqFrameData>) {
-        self.req_size = header_frame.raw_bytes.len();
-        self.res_size = 0;
-        self.req_start = self.downstream_reader.decoder().req_start();
-        let cmd_type = header_frame.cmd_type;
-        self.header_frame = Some(header_frame);
-
-        if cmd_type == CmdType::SELECT {
-            self.on_select_db();
-        } else if cmd_type == CmdType::AUTH {
-            self.on_auth();
-        }
-    }
-
-    pub fn request_done(&self) -> bool {
-        self.header_frame.as_ref().map(|it| it.end_of_body).unwrap_or(false)
-    }
-    pub fn cmd_type(&self) -> CmdType {
-        self.header_frame.as_ref().map(|it| it.cmd_type).unwrap_or(CmdType::UNKNOWN)
-    }
-
-    pub async fn send_resp_to_downstream(&mut self, data: Bytes) -> anyhow::Result<()> {
-        self.downstream_writer.write_all(&data).await?;
-        Ok(())
-    }
-}
-
-impl Session {
-    pub async fn drain_req_until_done(&mut self) -> anyhow::Result<()> {
-        if let Some(ref header_frame) = self.header_frame {
-            if header_frame.end_of_body {
-                return Ok(());
-            }
-        }
-        while let Some(Ok(req_frame_data)) = self.downstream_reader.next().await {
-            if req_frame_data.end_of_body {
-                return Ok(());
-            }
-        }
-        bail!("drain req failed")
-    }
-
-    fn on_select_db(&mut self) {
-        if let Some(ref header_frame) = self.header_frame {
-            if let Some(args) = header_frame.args() {
-                let db = std::str::from_utf8(args[0]).map(|it| it.parse::<u64>().unwrap_or(0)).unwrap_or(0);
-                self.db = db;
-            }
-        }
-    }
-    pub fn on_auth(&mut self) {
-        if let Some(ref header_frame) = self.header_frame {
-            if let Some(args) = header_frame.args() {
-                if args.len() > 0 {
-                    let auth_password = args[0].to_vec();
-                    self.password = Some(auth_password);
-                }
-            }
-        }
-    }
-}
 
 #[async_trait]
 pub trait Proxy {

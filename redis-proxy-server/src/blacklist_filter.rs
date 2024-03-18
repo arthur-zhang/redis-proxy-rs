@@ -4,8 +4,9 @@ use async_trait::async_trait;
 use bytes::Bytes;
 
 use redis_proxy::config::{Blacklist, EtcdConfig};
-use redis_proxy::proxy::{Proxy, Session};
+use redis_proxy::proxy::Proxy;
 use redis_proxy::router::{create_router, Router};
+use redis_proxy::session::Session;
 
 use crate::filter_trait::FilterContext;
 
@@ -21,7 +22,7 @@ impl BlackListFilter {
             blacklist_conf.config_center,
             blacklist_conf.local_routes.clone(),
             etcd_config).await?;
-        
+
         Ok(BlackListFilter { router })
     }
 }
