@@ -3,12 +3,12 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use dashmap::DashMap;
-use etcd_client::{Client, ConnectOptions, EventType, GetOptions, KeyValue, WatchOptions};
+use etcd_client::{Client, EventType, GetOptions, KeyValue, WatchOptions};
 use log::{debug, error, info, warn};
 
 use redis_proxy_common::cmd::CmdType;
 
-use crate::config::EtcdConfig;
+use crate::etcd_client::EtcdClient;
 use crate::router::{InnerRouter, Route, Router};
 
 pub type RouteArray = Arc<DashMap<String, Route>>;
@@ -27,46 +27,38 @@ impl Router for EtcdRouter {
 }
 
 impl EtcdRouter {
-    pub async fn new(etcd_config: EtcdConfig, name: String, splitter: char) -> anyhow::Result<Arc<Self>> {
+    pub async fn new(etcd_client: EtcdClient, name: String, splitter: char) -> anyhow::Result<Arc<Self>> {
         let routes = Arc::new(DashMap::new());
         let router = ArcSwap::new(Arc::new(InnerRouter::default()));
         let (update_tx, mut update_rx) = tokio::sync::mpsc::channel::<()>(1);
 
-        let router_manager = Arc::new(EtcdRouter {
+        let router = Arc::new(EtcdRouter {
             name,
             routes: routes.clone(),
             inner: router,
             route_splitter: splitter,
         });
-
-        let etcd_client = Client::connect(
-            etcd_config.endpoints,
-            Some(ConnectOptions::new()
-                .with_timeout(std::time::Duration::from_millis(etcd_config.timeout))
-                .with_user(etcd_config.username, etcd_config.password)
-            )
-        ).await?;
-
-        let prefix = format!("{}/{}/", etcd_config.prefix, router_manager.name);
+        
+        let prefix = format!("{}/{}/", etcd_client.prefix, router.name);
         Self::list_watch(
-            etcd_client,
+            etcd_client.client.clone(),
             prefix,
-            etcd_config.interval,
+            etcd_client.interval,
             routes,
             update_tx
         );
 
         tokio::spawn({
-            let router_manager = router_manager.clone();
+            let router = router.clone();
             async move {
                 loop {
                     let _ = update_rx.recv().await;
-                    router_manager.update_router();
+                    router.update_router();
                 }
             }
         });
 
-        Ok(router_manager)
+        Ok(router)
     }
 
     fn update_router(&self) {

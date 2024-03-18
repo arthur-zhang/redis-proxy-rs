@@ -4,7 +4,8 @@ use poolx::{Error, PoolConnection};
 
 use redis_proxy_common::ReqFrameData;
 
-use crate::config::{EtcdConfig, GenericUpstream};
+use crate::config::GenericUpstream;
+use crate::etcd_client::EtcdClient;
 use crate::router::{create_router, Router};
 use crate::upstream_conn_pool::{Pool, RedisConnection, RedisConnectionOption};
 
@@ -17,15 +18,15 @@ impl DoubleWriter {
     pub async fn new(
         splitter: char, 
         router_name: String,
-        upstream_conf: &GenericUpstream, 
-        etcd_config: Option<EtcdConfig>
+        upstream_conf: &GenericUpstream,
+        etcd_client: Option<EtcdClient>,
     ) -> anyhow::Result<Self> {
         let router = create_router(
             splitter,
             router_name,
             upstream_conf.config_center,
             upstream_conf.local_routes.clone(),
-            etcd_config).await?;
+            etcd_client).await?;
         let conn_option = upstream_conf.address.parse::<RedisConnectionOption>().unwrap();
         let pool: poolx::Pool<RedisConnection> = upstream_conf.conn_pool_conf.new_pool_opt().connect_lazy_with(conn_option);
 

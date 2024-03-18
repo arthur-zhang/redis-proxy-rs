@@ -79,11 +79,11 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             let dw_conn = self.double_writer.acquire_conn().await.map_err(|e| anyhow!("get double write connection from pool error: {:?}", e))?;
             self.handle_double_write(session, dw_conn, conn, cmd_type, ctx).await
         } else {
-            self.handle_non_dw_request(session, &header_frame, cmd_type, ctx, conn).await
+            self.handle_normal_request(session, &header_frame, cmd_type, ctx, conn).await
         }
     }
 
-    async fn handle_non_dw_request(&self, session: &mut Session, header_frame: &Arc<ReqFrameData>,
+    async fn handle_normal_request(&self, session: &mut Session, header_frame: &Arc<ReqFrameData>,
                                    cmd_type: CmdType, ctx: &mut <P as Proxy>::CTX,
                                    mut conn: PoolConnection<RedisConnection>) -> anyhow::Result<()> {
         let auth_status =

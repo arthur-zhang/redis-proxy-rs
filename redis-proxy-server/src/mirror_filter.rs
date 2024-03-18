@@ -4,8 +4,9 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::StreamExt;
 
-use redis_proxy::config::{EtcdConfig, GenericUpstream};
+use redis_proxy::config::GenericUpstream;
 use redis_proxy::double_writer::DoubleWriter;
+use redis_proxy::etcd_client::EtcdClient;
 use redis_proxy::proxy::Proxy;
 use redis_proxy::session::Session;
 use redis_proxy_common::ReqFrameData;
@@ -20,9 +21,9 @@ const DATA_TX: &'static str = "mirror_filter_data_tx";
 const SHOULD_MIRROR: &'static str = "mirror_filter_should_mirror";
 
 impl MirrorFilter {
-    pub async fn new(splitter: char, mirror_conf: &GenericUpstream, etcd_config: Option<EtcdConfig>) -> anyhow::Result<Self> {
+    pub async fn new(splitter: char, mirror_conf: &GenericUpstream, etcd_client: Option<EtcdClient>) -> anyhow::Result<Self> {
         let double_writer = DoubleWriter::new(
-            splitter, String::from("mirror"), mirror_conf, etcd_config).await?;
+            splitter, String::from("mirror"), mirror_conf, etcd_client).await?;
         Ok(Self { double_writer })
     }
 }

@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use redis_proxy_common::cmd::CmdType;
 
-use crate::config::{ConfigCenter, EtcdConfig, LocalRoute};
+use crate::config::{ConfigCenter, LocalRoute};
+use crate::etcd_client::EtcdClient;
 
 pub mod etcd;
 pub mod local;
@@ -209,15 +210,15 @@ pub async fn create_router(
     router_name: String,
     config_center: ConfigCenter, 
     local_routes: Option<Vec<LocalRoute>>,
-    etcd_config: Option<EtcdConfig>
+    etcd_client: Option<EtcdClient>,
 ) -> anyhow::Result<Arc<dyn Router>>{
     match config_center {
         ConfigCenter::Etcd => {
-            if etcd_config.is_none() {
-                anyhow::bail!("etcd config is none");
+            if etcd_client.is_none() {
+                anyhow::bail!("etcd client is none");
             }
             info!("create router {} as etcd router", router_name);
-            Ok(etcd::EtcdRouter::new(etcd_config.unwrap(), router_name, splitter).await?)
+            Ok(etcd::EtcdRouter::new(etcd_client.unwrap(), router_name, splitter).await?)
         }
         ConfigCenter::Local => {
             if local_routes.is_none() {

@@ -3,7 +3,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use bytes::Bytes;
 
-use redis_proxy::config::{Blacklist, EtcdConfig};
+use redis_proxy::config::Blacklist;
+use redis_proxy::etcd_client::EtcdClient;
 use redis_proxy::proxy::Proxy;
 use redis_proxy::router::{create_router, Router};
 use redis_proxy::session::Session;
@@ -15,13 +16,13 @@ pub struct BlackListFilter {
 }
 
 impl BlackListFilter {
-    pub async fn new(splitter: char, blacklist_conf: &Blacklist, etcd_config: Option<EtcdConfig>) -> anyhow::Result<Self> {
+    pub async fn new(splitter: char, blacklist_conf: &Blacklist, etcd_client: Option<EtcdClient>) -> anyhow::Result<Self> {
         let router = create_router(
             splitter,
             String::from("blacklist"),
             blacklist_conf.config_center,
             blacklist_conf.local_routes.clone(),
-            etcd_config).await?;
+            etcd_client).await?;
 
         Ok(BlackListFilter { router })
     }

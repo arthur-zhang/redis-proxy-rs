@@ -8,6 +8,7 @@ use redis_proxy_common::ReqFrameData;
 
 use crate::config::{Config, TConfig};
 use crate::double_writer::DoubleWriter;
+use crate::etcd_client::EtcdClient;
 use crate::prometheus::{CONN_DOWNSTREAM, METRICS};
 use crate::proxy::{Proxy, RedisProxy};
 use crate::session::Session;
@@ -15,12 +16,13 @@ use crate::upstream_conn_pool::{RedisConnection, RedisConnectionOption};
 
 pub struct ProxyServer<P> {
     config: TConfig,
+    etcd_client: Option<EtcdClient>,
     proxy: P,
 }
 
 impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX: Send + Sync {
-    pub fn new(config: Arc<Config>, proxy: P) -> anyhow::Result<Self> {
-        Ok(ProxyServer { config, proxy })
+    pub fn new(config: Arc<Config>, proxy: P, etcd_client: Option<EtcdClient>) -> anyhow::Result<Self> {
+        Ok(ProxyServer { config, etcd_client, proxy })
     }
 
     pub async fn start(self) -> anyhow::Result<()> {
@@ -38,7 +40,7 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
             self.config.splitter.unwrap_or(':'), 
             String::from("double_write"), 
             &self.config.double_write, 
-            self.config.etcd_config.clone()).await?;
+            self.etcd_client.clone()).await?;
         
         let app_logic = Arc::new(RedisProxy { 
             inner: self.proxy, 
