@@ -82,7 +82,6 @@ impl RedisConnection {
             if matches!(auth_status, AuthStatus::AuthFailed) {
                 return Ok(AuthStatus::AuthFailed);
             }
-            self.is_authed = true;
         }
         self.session_attr.password = password.clone();
         if self.session_attr.db != session_db {
