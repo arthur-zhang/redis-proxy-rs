@@ -14,12 +14,12 @@ use redis_proxy::server::ProxyServer;
 use crate::blacklist_filter::BlackListFilter;
 use crate::filter_trait::FilterContext;
 use crate::log_filter::LogFilter;
-// use crate::mirror_filter::MirrorFilter;
+use crate::mirror_filter::MirrorFilter;
 use crate::proxy_impl::RedisProxyImpl;
 
 mod proxy_impl;
 mod filter_trait;
-// mod mirror_filter;
+mod mirror_filter;
 mod log_filter;
 mod blacklist_filter;
 
@@ -69,8 +69,8 @@ async fn load_filters(conf: &Arc<Config>) -> anyhow::Result<Vec<Box<dyn Proxy<CT
     }
 
     if let Some(ref mirror) = &conf.filter_chain.mirror {
-        // let mirror_filter = MirrorFilter::new(splitter, mirror, conf.etcd_config.clone()).await?;
-        // filters.push(Box::new(mirror_filter));
+        let mirror_filter = MirrorFilter::new(splitter, mirror, conf.etcd_config.clone()).await?;
+        filters.push(Box::new(mirror_filter));
     }
     if let Some(_) = conf.filter_chain.log {
         let log_filter = LogFilter {};

@@ -7,7 +7,6 @@ use std::sync::atomic::Ordering::Relaxed;
 use anyhow::{anyhow, bail};
 use bytes::{Bytes, BytesMut};
 use futures::future::BoxFuture;
-use futures::SinkExt;
 use log::{debug, info};
 use poolx::{Connection, ConnectOptions, Error};
 use poolx::url::Url;
@@ -139,7 +138,7 @@ impl RedisConnection {
         };
     }
 
-    async fn auth_connection_if_needed(
+    async fn _auth_connection_if_needed(
         &mut self,
         session: &mut Session,
     ) -> anyhow::Result<bool> {

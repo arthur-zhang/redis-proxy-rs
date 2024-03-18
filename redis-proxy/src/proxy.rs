@@ -1,11 +1,10 @@
-use std::io::IoSlice;
 use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
-use bytes::{Bytes, BytesMut};
-use futures::{SinkExt, StreamExt};
+use bytes::Bytes;
+use futures::StreamExt;
 use log::{debug, error, info};
 use poolx::PoolConnection;
 use tokio::io::AsyncWriteExt;
@@ -13,8 +12,7 @@ use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::task::JoinHandle;
-use tokio_util::codec::{Framed, FramedRead};
+use tokio_util::codec::FramedRead;
 
 use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
@@ -22,7 +20,6 @@ use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
 use crate::peer;
-use crate::router::Router;
 use crate::server::ProxyChanData;
 use crate::upstream_conn_pool::{AuthStatus, Pool, RedisConnection};
 
@@ -52,14 +49,14 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         debug!("handle new request");
 
         self.inner.on_session_create().await.ok()?;
-        let mut header_frame = session.downstream_reader.next().await?.ok()?;
+        let header_frame = session.downstream_reader.next().await?.ok()?;
         let header_frame = Arc::new(header_frame);
         let cmd_type = header_frame.cmd_type;
         session.init_from_header_frame(header_frame.clone());
 
         let mut ctx = self.inner.new_ctx();
 
-        let mut response_sent =
+        let response_sent =
             self.inner.request_filter(&mut session, &mut ctx).await.ok()?;
         if response_sent {
             session.drain_req_until_done().await.ok()?;
@@ -97,7 +94,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db).await?;
 
         if auth_status != AuthStatus::Authed {
-            session.downstream_writer.write_all(b"-NOAUTH Authentication required.\r\n").await;
+            session.downstream_writer.write_all(b"-NOAUTH Authentication required.\r\n").await?;
             return Ok(());
         }
 
@@ -120,14 +117,14 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     async fn handle_mirror(&self, session: &mut Session,
                            mut mirror_conn: PoolConnection<RedisConnection>,
                            mut conn: PoolConnection<RedisConnection>,
-                           cmd_type: CmdType, ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
+                           cmd_type: CmdType, _: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let (auth_status_upstream, auth_status_mirror) = tokio::try_join!(
                 conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db),
                 mirror_conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db))?;
         match (auth_status_upstream, auth_status_mirror) {
             (AuthStatus::Authed, AuthStatus::Authed) => {}
             (_, _) => {
-                session.downstream_writer.write_all(b"-NOAUTH Authentication required.\r\n").await;
+                session.downstream_writer.write_all(b"-NOAUTH Authentication required.\r\n").await?;
                 return Ok(());
             }
         }

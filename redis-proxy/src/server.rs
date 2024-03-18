@@ -3,9 +3,7 @@ use std::sync::Arc;
 use log::{debug, error};
 use poolx::PoolOptions;
 use tokio::net::TcpListener;
-use tokio_util::codec::Framed;
 
-use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqFrameData;
 

@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use futures::SinkExt;
 
 use redis_proxy::config::{Blacklist, EtcdConfig};
 use redis_proxy::proxy::{Proxy, Session};
