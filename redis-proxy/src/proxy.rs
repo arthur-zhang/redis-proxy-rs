@@ -125,33 +125,28 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             }
         }
 
-        let mut req_data_vec = vec![];
 
         let header_data = session.header_frame.as_ref().unwrap().raw_bytes.clone();
+        let mut req_data_vec = vec![];
         req_data_vec.push(header_data);
 
-        let resp = session.drain_req_until_done().await?;
-        if let Some((resp, size)) = resp {
+        if let Some((resp, size)) = session.drain_req_until_done().await? {
             req_data_vec.extend_from_slice(&resp);
             session.req_size += size;
         }
 
-        let res = tokio::join!(conn.query_with_resp_vec(&req_data_vec),  dw_conn.query_with_resp_vec(&req_data_vec));
+        let join_result = tokio::join!(conn.query_with_resp_vec(&req_data_vec),  dw_conn.query_with_resp_vec(&req_data_vec));
 
-        return match res {
-            (Ok(res1), Ok(res2)) => {
+        return match join_result {
+            (Ok((upstream_resp_ok, upstream_bytes)), Ok((dw_resp_ok, dw_bytes))) => {
                 if cmd_type == CmdType::AUTH {
-                    session.is_authed = res1.0;
+                    session.is_authed = upstream_resp_ok;
                 }
-                // if double write is not ok, send upstream response to downstream
-                if res2.0 == false {
-                    for it in res2.1 {
-                        let _ = session.write_downstream(&it).await;
-                    }
+                if dw_resp_ok {
+                    session.write_downstream_batch(upstream_bytes).await?;
                 } else {
-                    for it in res1.1 {
-                        let _ = session.write_downstream(&it).await;
-                    }
+                    // if double write is not ok, send upstream response to downstream
+                    session.write_downstream_batch(dw_bytes).await?;
                 }
                 Ok(())
             }

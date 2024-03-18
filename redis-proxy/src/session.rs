@@ -3,6 +3,7 @@ use std::time::Instant;
 
 use anyhow::bail;
 use bytes::Bytes;
+use futures::StreamExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
@@ -80,6 +81,15 @@ impl Session {
     }
 
     #[inline]
+    pub async fn write_downstream_batch(&mut self, bytes: Vec<Bytes>) -> anyhow::Result<()> {
+        for data in bytes {
+            self.downstream_writer.write(&data).await?;
+        }
+        self.downstream_writer.flush().await?;
+        Ok(())
+    }
+
+    #[inline]
     pub async fn write_downstream(&mut self, data: &[u8]) -> anyhow::Result<()> {
         self.downstream_writer.write_all(data).await?;
         Ok(())
@@ -91,8 +101,6 @@ impl Session {
         self.drain_req_until_done().await?;
         Ok(())
     }
-
-
 }
 
 impl Session {
