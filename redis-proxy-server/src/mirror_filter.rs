@@ -1,49 +1,29 @@
-use std::sync::Arc;
-
 use anyhow::bail;
 use async_trait::async_trait;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::StreamExt;
 
-use redis_proxy::config::{EtcdConfig, Mirror};
+use redis_proxy::config::{EtcdConfig, GenericUpstream};
+use redis_proxy::double_writer::DoubleWriter;
 use redis_proxy::proxy::Proxy;
-use redis_proxy::router::{create_router, Router};
 use redis_proxy::session::Session;
-use redis_proxy::upstream_conn_pool::{Pool, RedisConnection, RedisConnectionOption};
 use redis_proxy_common::ReqFrameData;
 
 use crate::filter_trait::{FilterContext, Value};
 
 pub struct MirrorFilter {
-    router: Arc<dyn Router>,
-    pool: Pool,
+    double_writer: DoubleWriter,
 }
 
 const DATA_TX: &'static str = "mirror_filter_data_tx";
 const SHOULD_MIRROR: &'static str = "mirror_filter_should_mirror";
 
 impl MirrorFilter {
-    pub async fn new(splitter: char, mirror_conf: &Mirror, etcd_config: Option<EtcdConfig>) -> anyhow::Result<Self> {
-       let router = create_router(
-            splitter,
-            String::from("mirror"),
-            mirror_conf.config_center,
-            mirror_conf.local_routes.clone(),
-            etcd_config).await?;
-        let conn_option = mirror_conf.address.parse::<RedisConnectionOption>().unwrap();
-        let pool: poolx::Pool<RedisConnection> = mirror_conf.conn_pool_conf.new_pool_opt().connect_lazy_with(conn_option);
-
-        Ok(Self { router, pool })
-    }
-    fn should_mirror(&self, req_frame_data: &ReqFrameData) -> bool {
-        let args = req_frame_data.args();
-        if let Some(key) = args {
-            for key in key {
-                return self.router.match_route(key, req_frame_data.cmd_type);
-            }
-        }
-        return false;
+    pub async fn new(splitter: char, mirror_conf: &GenericUpstream, etcd_config: Option<EtcdConfig>) -> anyhow::Result<Self> {
+        let double_writer = DoubleWriter::new(
+            splitter, String::from("mirror"), mirror_conf, etcd_config).await?;
+        Ok(Self { double_writer })
     }
 }
 
@@ -58,12 +38,12 @@ impl Proxy for MirrorFilter {
         } else if data.cmd_type.is_read_cmd() {
             false
         } else {
-            self.should_mirror(&data)
+            self.double_writer.should_double_write(data)
         };
         if !should_mirror {
             return Ok(false);
         }
-        let mut conn = self.pool.acquire().await?;
+        let mut conn = self.double_writer.acquire_conn().await?;
         conn.init_from_session(session.cmd_type(), session.is_authed, &session.password, session.db).await?;
 
         let (tx, mut rx): (Sender<bytes::Bytes>, Receiver<bytes::Bytes>) = tokio::sync::mpsc::channel(100);
