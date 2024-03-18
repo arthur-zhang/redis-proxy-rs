@@ -5,3 +5,4 @@ pub mod config;
 pub mod peer;
 pub mod prometheus;
 pub mod router;
+pub mod session;

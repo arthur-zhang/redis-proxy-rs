@@ -6,7 +6,8 @@ use async_trait::async_trait;
 
 use redis_proxy::config::Config;
 use redis_proxy::prometheus::{METRICS, RESP_FAILED, RESP_SUCCESS, TRAFFIC_TYPE_EGRESS, TRAFFIC_TYPE_INGRESS};
-use redis_proxy::proxy::{Proxy, Session};
+use redis_proxy::proxy::Proxy;
+use redis_proxy::session::Session;
 use redis_proxy_common::ReqFrameData;
 
 use crate::filter_trait::{FilterContext, REQ_SIZE, RES_IS_OK, RES_SIZE, START_INSTANT, Value};
@@ -34,7 +35,6 @@ impl Proxy for RedisProxyImpl {
     }
 
     async fn request_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
-
         ctx.set_attr(START_INSTANT, Value::Instant(Instant::now()));
         ctx.remote_attr(RES_IS_OK);
         ctx.set_attr(REQ_SIZE, Value::U64(0));

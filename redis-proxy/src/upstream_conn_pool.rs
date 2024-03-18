@@ -20,7 +20,7 @@ use redis_codec_core::resp_decoder::RespPktDecoder;
 use redis_proxy_common::cmd::CmdType;
 
 use crate::prometheus::{CONN_UPSTREAM, METRICS};
-use crate::proxy::Session;
+use crate::session::Session;
 
 pub type Pool = poolx::Pool<RedisConnection>;
 
