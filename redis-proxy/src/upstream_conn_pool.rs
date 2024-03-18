@@ -1,11 +1,12 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::io::IoSlice;
+use std::mem::MaybeUninit;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::Relaxed;
 
 use anyhow::{anyhow, bail};
-use bytes::{Bytes, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
 use futures::future::BoxFuture;
 use log::{debug, info};
 use poolx::{Connection, ConnectOptions, Error};
@@ -77,7 +78,7 @@ impl RedisConnection {
     pub async fn init_from_session(&mut self, cmd_type: CmdType, session_authed: bool,
                                    password: &Option<Vec<u8>>, session_db: u64) -> anyhow::Result<AuthStatus> {
         if cmd_type != CmdType::AUTH {
-            let auth_status = self.auth_connection_if_needed_v2(session_authed, password).await?;
+            let auth_status = self.auth_connection_if_needed(session_authed, password).await?;
             if matches!(auth_status, AuthStatus::AuthFailed) {
                 return Ok(AuthStatus::AuthFailed);
             }
@@ -108,21 +109,19 @@ impl RedisConnection {
     }
 
 
-    async fn auth_connection_if_needed_v2(
+    async fn auth_connection_if_needed(
         &mut self,
-        // session: &mut Session,
         session_authed: bool,
         password: &Option<Vec<u8>>,
     ) -> anyhow::Result<AuthStatus> {
         debug!("auth connection if needed: conn authed: {}, session authed: {}", self.is_authed, session_authed);
-
         return match (self.is_authed, session_authed) {
             (true, true) | (false, false) => {
                 Ok(AuthStatus::Authed)
             }
             (false, true) => {
                 // auth connection
-                let password = password.as_ref().cloned().unwrap();
+                let password = password.as_ref().unwrap();
                 let authed = self.auth_connection(&password).await?;
                 if authed {
                     self.is_authed = true;
@@ -138,34 +137,7 @@ impl RedisConnection {
         };
     }
 
-    async fn _auth_connection_if_needed(
-        &mut self,
-        session: &mut Session,
-    ) -> anyhow::Result<bool> {
-        debug!("auth connection if needed: conn authed: {}, session authed: {}", self.is_authed, session.is_authed);
-
-        match (self.is_authed, session.is_authed) {
-            (true, true) | (false, false) => {}
-            (false, true) => {
-                // auth connection
-                let authed = self.auth_connection(session.password.as_ref().unwrap()).await?;
-                if authed {
-                    self.is_authed = true;
-                } else {
-                    bail!("auth failed");
-                }
-            }
-            (true, false) => {
-                // connection is auth, but ctx is not auth, should return no auth
-                session.send_resp_to_downstream(Bytes::from_static(b"-NOAUTH Authentication required.\r\n")).await?;
-                return Ok(true);
-            }
-        }
-        return Ok(false);
-    }
-
-
-    pub async fn query_with_resp_vec<'a>(&mut self, vec: Vec<Bytes>) -> anyhow::Result<(bool, Vec<Bytes>)> {
+    pub async fn query_with_resp_vec<'a>(&mut self, vec: &Vec<Bytes>) -> anyhow::Result<(bool, Vec<Bytes>)> {
         let ios = vec.iter().map(|bytes| IoSlice::new(&bytes)).collect::<Vec<_>>();
         self.w.write_vectored(&ios).await?;
 
@@ -175,7 +147,6 @@ impl RedisConnection {
                 Ok(it) => {
                     let is_done = it.is_done;
                     result.push(it.data);
-                    // bytes.extend_from_slice(&it.data);
                     if is_done {
                         return Ok((it.res_is_ok, result));
                     }
@@ -188,14 +159,20 @@ impl RedisConnection {
         bail!("read eof");
     }
     pub async fn query_with_resp(&mut self, data: &[u8]) -> anyhow::Result<(bool, Bytes)> {
-        let mut bytes = bytes::BytesMut::new();
-        self.w.write_all(data.as_ref()).await?;
+        self.w.write_all(data).await?;
+        let mut bytes: Vec<Bytes> = Vec::with_capacity(1);
         while let Some(it) = self.r.next().await {
             match it {
                 Ok(it) => {
-                    bytes.extend_from_slice(&it.data);
-                    if it.is_done {
-                        return Ok((it.res_is_ok, bytes.freeze()));
+                    let is_done = it.is_done;
+                    bytes.push(it.data);
+                    if is_done {
+                        return if bytes.len() == 1 {
+                            let data = bytes.pop().unwrap();
+                            Ok((it.res_is_ok, data))
+                        } else {
+                            Ok((it.res_is_ok, Bytes::from(bytes.concat())))
+                        };
                     }
                 }
                 Err(e) => {

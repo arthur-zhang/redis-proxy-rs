@@ -90,7 +90,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db).await?;
 
         if auth_status != AuthStatus::Authed {
-            session.write_downstream(b"-NOAUTH Authentication required.\r\n").await?;
+            session.send_response_and_drain_req(b"-NOAUTH Authentication required.\r\n").await?;
             return Ok(());
         }
 
@@ -110,17 +110,20 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         self.inner.request_done(session, None, ctx).await;
         Ok(())
     }
+
     async fn handle_mirror(&self, session: &mut Session,
                            mut mirror_conn: PoolConnection<RedisConnection>,
                            mut conn: PoolConnection<RedisConnection>,
                            cmd_type: CmdType, _: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let (auth_status_upstream, auth_status_mirror) = tokio::try_join!(
                 conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db),
-                mirror_conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db))?;
+                mirror_conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db)
+        )?;
+
         match (auth_status_upstream, auth_status_mirror) {
             (AuthStatus::Authed, AuthStatus::Authed) => {}
             (_, _) => {
-                session.write_downstream(b"-NOAUTH Authentication required.\r\n").await?;
+                session.send_response_and_drain_req(b"-NOAUTH Authentication required.\r\n").await?;
                 return Ok(());
             }
         }
@@ -130,32 +133,13 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let header_data = session.header_frame.as_ref().unwrap().raw_bytes.clone();
         req_data_vec.push(header_data);
 
-        if !session.request_done() {
-            while let Some(Ok(data)) = session.read_downstream().await {
-                let is_done = data.end_of_body;
-                session.req_size += data.raw_bytes.len();
-                req_data_vec.push(data.raw_bytes);
-                if is_done {
-                    break;
-                }
-            }
+        let resp = session.drain_req_until_done().await?;
+        if let Some((resp, size)) = resp {
+            req_data_vec.extend_from_slice(&resp);
+            session.req_size += size;
         }
 
-        let t1 = tokio::spawn({
-            let req_data = req_data_vec.clone();
-            async move {
-                conn.query_with_resp_vec(req_data).await
-            }
-        });
-        let t2 = tokio::spawn({
-            let req_data_io_slice = req_data_vec.clone();
-            async move {
-                mirror_conn.query_with_resp_vec(req_data_io_slice).await
-            }
-        });
-
-
-        let res = tokio::try_join!(t1, t2).map_err(|e| anyhow!("join error: {:?}", e))?;
+        let res = tokio::join!(conn.query_with_resp_vec(&req_data_vec),  mirror_conn.query_with_resp_vec(&req_data_vec));
 
         return match res {
             (Ok(res1), Ok(res2)) => {
@@ -301,8 +285,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         Ok(())
     }
 }
-
-
 
 
 #[async_trait]

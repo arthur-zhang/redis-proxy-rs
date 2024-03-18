@@ -61,9 +61,12 @@ impl Session {
         }
     }
 
+    #[inline]
     pub fn request_done(&self) -> bool {
         self.header_frame.as_ref().map(|it| it.end_of_body).unwrap_or(false)
     }
+
+    #[inline]
     pub fn cmd_type(&self) -> CmdType {
         self.header_frame.as_ref().map(|it| it.cmd_type).unwrap_or(CmdType::UNKNOWN)
     }
@@ -75,22 +78,38 @@ impl Session {
     pub async fn read_downstream(&mut self) -> Option<Result<ReqFrameData, DecodeError>> {
         self.downstream_reader.next().await
     }
+
+    #[inline]
     pub async fn write_downstream(&mut self, data: &[u8]) -> anyhow::Result<()> {
         self.downstream_writer.write_all(data).await?;
         Ok(())
     }
+
+    #[inline]
+    pub async fn send_response_and_drain_req(&mut self, data: &[u8]) -> anyhow::Result<()> {
+        self.downstream_writer.write_all(data).await?;
+        self.drain_req_until_done().await?;
+        Ok(())
+    }
+
+
 }
 
 impl Session {
-    pub async fn drain_req_until_done(&mut self) -> anyhow::Result<()> {
+    pub async fn drain_req_until_done(&mut self) -> anyhow::Result<Option<(Vec<Bytes>, usize)>> {
         if let Some(ref header_frame) = self.header_frame {
             if header_frame.end_of_body {
-                return Ok(());
+                return Ok(None);
             }
         }
+        let mut resp = vec![];
+        let mut total_size = 0;
         while let Some(Ok(req_frame_data)) = self.downstream_reader.next().await {
-            if req_frame_data.end_of_body {
-                return Ok(());
+            let end_of_body = req_frame_data.end_of_body;
+            total_size += req_frame_data.raw_bytes.len();
+            resp.push(req_frame_data.raw_bytes);
+            if end_of_body {
+                return Ok(Some((resp, total_size)));
             }
         }
         bail!("drain req failed")
