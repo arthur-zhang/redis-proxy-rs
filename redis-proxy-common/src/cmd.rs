@@ -283,32 +283,6 @@ impl CmdType {
         };
     }
 
-    pub fn should_lazy_read(&self) -> bool {
-        return match self {
-            CmdType::APPEND
-            | CmdType::GETSET
-            | CmdType::HMSET
-            | CmdType::HSET
-            | CmdType::HSETNX
-            | CmdType::LPUSH
-            | CmdType::LPUSHX
-            | CmdType::LREM
-            | CmdType::LSET
-            | CmdType::MSET
-            | CmdType::MSETNX
-            | CmdType::PSETEX
-            | CmdType::RESTORE
-            | CmdType::RPUSH
-            | CmdType::RPUSHX
-            | CmdType::SET
-            | CmdType::SETBIT
-            | CmdType::SETEX
-            | CmdType::SETNX
-            | CmdType::SETRANGE => true,
-            _ => false,
-        };
-    }
-
     pub fn redis_key_info(&self) -> KeyInfo {
         match self {
             // connection
