@@ -7,8 +7,9 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_stream::StreamExt;
 
 use redis_proxy::config::{EtcdConfig, Mirror};
-use redis_proxy::proxy::{Proxy, Session};
+use redis_proxy::proxy::Proxy;
 use redis_proxy::router::{create_router, Router};
+use redis_proxy::session::Session;
 use redis_proxy::upstream_conn_pool::{Pool, RedisConnection, RedisConnectionOption};
 use redis_proxy_common::ReqFrameData;
 

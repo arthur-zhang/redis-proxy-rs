@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Instant;
 
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
@@ -8,13 +7,9 @@ use futures::StreamExt;
 use log::{debug, error, info};
 use poolx::PoolConnection;
 use tokio::io::AsyncWriteExt;
-use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
-use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio_util::codec::FramedRead;
 
-use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
@@ -125,7 +120,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         match (auth_status_upstream, auth_status_mirror) {
             (AuthStatus::Authed, AuthStatus::Authed) => {}
             (_, _) => {
-                session.write_downstream(b"-NOAUTH Authentication required.\r\n").await;
+                session.write_downstream(b"-NOAUTH Authentication required.\r\n").await?;
                 return Ok(());
             }
         }

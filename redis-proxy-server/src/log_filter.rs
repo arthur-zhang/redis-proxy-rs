@@ -2,7 +2,7 @@ use anyhow::Error;
 use async_trait::async_trait;
 use log::{error, info};
 
-use redis_proxy::proxy::{Proxy};
+use redis_proxy::proxy::Proxy;
 use redis_proxy::session::Session;
 
 use crate::filter_trait::FilterContext;

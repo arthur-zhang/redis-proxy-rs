@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+
 use enum_iterator::Sequence;
 
 use crate::cmd::KeyInfo::NoKey;
