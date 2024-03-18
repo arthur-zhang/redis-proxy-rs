@@ -17,7 +17,6 @@ use redis_proxy_common::ReqFrameData;
 pub struct Session {
     downstream_reader: FramedRead<OwnedReadHalf, ReqPktDecoder>,
     downstream_writer: OwnedWriteHalf,
-    // underlying_stream: Framed<TcpStream, ReqPktDecoder>,
     pub header_frame: Option<Arc<ReqFrameData>>,
     pub password: Option<Vec<u8>>,
     pub db: u64,
