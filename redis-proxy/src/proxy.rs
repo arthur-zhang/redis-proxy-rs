@@ -14,6 +14,7 @@ use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
+use crate::double_writer::DoubleWriter;
 use crate::peer;
 use crate::server::ProxyChanData;
 use crate::session::Session;
@@ -24,18 +25,17 @@ const TASK_BUFFER_SIZE: usize = 16;
 pub struct RedisProxy<P> {
     pub inner: P,
     pub upstream_pool: Pool,
-    pub mirror_pool: Pool,
+    pub double_writer: DoubleWriter,
 }
 
 impl<P> RedisProxy<P> {
-    fn should_mirror(&self, header_frame: &ReqFrameData) -> bool {
+    fn should_double_write(&self, header_frame: &ReqFrameData) -> bool {
         return if header_frame.cmd_type.is_connection_command() {
             true
         } else if header_frame.cmd_type.is_read_cmd() {
             false
         } else {
-            // todo
-            return true;
+            self.double_writer.should_double_write(header_frame)
         };
     }
 }
@@ -75,17 +75,17 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let conn =
             self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
 
-        if self.should_mirror(&header_frame) {
-            let mirror_conn = self.mirror_pool.acquire().await.map_err(|e| anyhow!("get mirror connection from pool error: {:?}", e))?;
-            self.handle_mirror(session, mirror_conn, conn, cmd_type, ctx).await
+        if self.should_double_write(&header_frame) {
+            let dw_conn = self.double_writer.acquire_conn().await.map_err(|e| anyhow!("get double write connection from pool error: {:?}", e))?;
+            self.handle_double_write(session, dw_conn, conn, cmd_type, ctx).await
         } else {
-            self.handle_non_mirror_request(session, &header_frame, cmd_type, ctx, conn).await
+            self.handle_normal_request(session, &header_frame, cmd_type, ctx, conn).await
         }
     }
 
-    async fn handle_non_mirror_request(&self, session: &mut Session, header_frame: &Arc<ReqFrameData>,
-                                       cmd_type: CmdType, ctx: &mut <P as Proxy>::CTX,
-                                       mut conn: PoolConnection<RedisConnection>) -> anyhow::Result<()> {
+    async fn handle_normal_request(&self, session: &mut Session, header_frame: &Arc<ReqFrameData>,
+                                   cmd_type: CmdType, ctx: &mut <P as Proxy>::CTX,
+                                   mut conn: PoolConnection<RedisConnection>) -> anyhow::Result<()> {
         let auth_status =
             conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db).await?;
 
@@ -110,17 +110,14 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         self.inner.request_done(session, None, ctx).await;
         Ok(())
     }
-
-    async fn handle_mirror(&self, session: &mut Session,
-                           mut mirror_conn: PoolConnection<RedisConnection>,
-                           mut conn: PoolConnection<RedisConnection>,
-                           cmd_type: CmdType, _: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
-        let (auth_status_upstream, auth_status_mirror) = tokio::try_join!(
+    async fn handle_double_write(&self, session: &mut Session,
+                                 mut dw_conn: PoolConnection<RedisConnection>,
+                                 mut conn: PoolConnection<RedisConnection>,
+                                 cmd_type: CmdType, _: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
+        let (auth_status_upstream, auth_status_dw) = tokio::try_join!(
                 conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db),
-                mirror_conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db)
-        )?;
-
-        match (auth_status_upstream, auth_status_mirror) {
+                dw_conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db))?;
+        match (auth_status_upstream, auth_status_dw) {
             (AuthStatus::Authed, AuthStatus::Authed) => {}
             (_, _) => {
                 session.send_response_and_drain_req(b"-NOAUTH Authentication required.\r\n").await?;
@@ -139,14 +136,14 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             session.req_size += size;
         }
 
-        let res = tokio::join!(conn.query_with_resp_vec(&req_data_vec),  mirror_conn.query_with_resp_vec(&req_data_vec));
+        let res = tokio::join!(conn.query_with_resp_vec(&req_data_vec),  dw_conn.query_with_resp_vec(&req_data_vec));
 
         return match res {
             (Ok(res1), Ok(res2)) => {
                 if cmd_type == CmdType::AUTH {
                     session.is_authed = res1.0;
                 }
-                // if mirror is not ok, send upstream response to downstream
+                // if double write is not ok, send upstream response to downstream
                 if res2.0 == false {
                     for it in res2.1 {
                         let _ = session.write_downstream(&it).await;
@@ -160,7 +157,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             }
             _ => {
                 let _ = session.write_downstream(b"-error").await;
-                bail!("mirror error")
+                bail!("double write error")
             }
         };
     }

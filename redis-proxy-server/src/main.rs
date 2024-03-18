@@ -7,6 +7,7 @@ use log::info;
 use tikv_jemallocator::Jemalloc;
 
 use redis_proxy::config::Config;
+use redis_proxy::etcd_client::EtcdClient;
 use redis_proxy::prometheus::PrometheusServer;
 use redis_proxy::proxy::Proxy;
 use redis_proxy::server::ProxyServer;
@@ -39,14 +40,19 @@ async fn main() -> anyhow::Result<()> {
     if conf.debug.unwrap_or(false) {
         console_subscriber::init();
     }
-
     info!("starting redis proxy server...");
+    
+    let mut etcd_client = None;
+    if let Some(etcd_config) = &conf.etcd_config {
+        etcd_client = Some(EtcdClient::new(etcd_config.clone()).await?);
+        info!("etcd client connected.");
+    }
 
     let conf = Arc::new(conf);
-    let filters = load_filters(&conf).await?;
+    let filters = load_filters(&conf, etcd_client.clone()).await?;
 
     let proxy = RedisProxyImpl { filters, conf: conf.clone() };
-    let server = ProxyServer::new(conf, proxy)?;
+    let server = ProxyServer::new(conf, proxy, etcd_client)?;
     let _ = server.start().await;
     info!("redis proxy server quit.");
     Ok(())
@@ -59,17 +65,17 @@ fn start_prometheus_server(conf: &Config) {
     }
 }
 
-async fn load_filters(conf: &Arc<Config>) -> anyhow::Result<Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>>> {
+async fn load_filters(conf: &Arc<Config>, etcd_client: Option<EtcdClient>) -> anyhow::Result<Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>>> {
     let mut filters: Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>> = vec![];
     let splitter = conf.splitter.unwrap_or(':');
 
     if let Some(blacklist) = &conf.filter_chain.blacklist {
-        let blacklist_filter = BlackListFilter::new(splitter, blacklist, conf.etcd_config.clone()).await?;
+        let blacklist_filter = BlackListFilter::new(splitter, blacklist, etcd_client.clone()).await?;
         filters.push(Box::new(blacklist_filter));
     }
 
     if let Some(ref mirror) = &conf.filter_chain.mirror {
-        let mirror_filter = MirrorFilter::new(splitter, mirror, conf.etcd_config.clone()).await?;
+        let mirror_filter = MirrorFilter::new(splitter, mirror, etcd_client).await?;
         filters.push(Box::new(mirror_filter));
     }
     if let Some(_) = conf.filter_chain.log {

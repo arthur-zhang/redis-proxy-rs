@@ -20,6 +20,7 @@ pub struct Config {
     pub splitter: Option<char>,
     pub server: Server,
     pub upstream: Upstream,
+    pub double_write: GenericUpstream,
     pub etcd_config: Option<EtcdConfig>,
     pub filter_chain: FilterChain,
     pub prometheus: Option<Prometheus>,
@@ -71,7 +72,7 @@ pub struct Upstream {
 #[derive(Debug, Deserialize, Clone)]
 pub struct FilterChain {
     pub blacklist: Option<Blacklist>,
-    pub mirror: Option<Mirror>,
+    pub mirror: Option<GenericUpstream>,
     pub log: Option<Log>,
 }
 
@@ -88,7 +89,7 @@ pub struct Blacklist {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Mirror {
+pub struct GenericUpstream {
     pub address: String,
     pub config_center: ConfigCenter,
     pub local_routes: Option<Vec<LocalRoute>>,
