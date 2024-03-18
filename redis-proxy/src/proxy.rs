@@ -107,7 +107,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             self.proxy_handle_downstream(session, tx_downstream, rx_upstream, ctx),
             self.proxy_handle_upstream(conn, tx_upstream, rx_downstream, cmd_type)
         )?;
-        self.inner.request_done(session, None, ctx).await;
         Ok(())
     }
     async fn handle_double_write(&self, session: &mut Session,

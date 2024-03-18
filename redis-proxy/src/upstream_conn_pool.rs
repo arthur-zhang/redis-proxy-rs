@@ -1,12 +1,11 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::io::IoSlice;
-use std::mem::MaybeUninit;
 use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::Relaxed;
 
 use anyhow::{anyhow, bail};
-use bytes::{Buf, Bytes, BytesMut};
+use bytes::{Bytes, BytesMut};
 use futures::future::BoxFuture;
 use log::{debug, info};
 use poolx::{Connection, ConnectOptions, Error};
@@ -20,7 +19,6 @@ use redis_codec_core::resp_decoder::RespPktDecoder;
 use redis_proxy_common::cmd::CmdType;
 
 use crate::prometheus::{CONN_UPSTREAM, METRICS};
-use crate::session::Session;
 
 pub type Pool = poolx::Pool<RedisConnection>;
 
