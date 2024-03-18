@@ -3,7 +3,6 @@ use std::time::Instant;
 
 use anyhow::bail;
 use bytes::Bytes;
-use futures::StreamExt;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
