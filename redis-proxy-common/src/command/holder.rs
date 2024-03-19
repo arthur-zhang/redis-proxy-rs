@@ -13,29 +13,29 @@ lazy_static! {
      * Redis command's name(or prefix) and whether it is a multi-part command
      */
     pub static ref MULTIPART_COMMANDS: HashMap<String, bool> = HashMap::from([
-        (String::from("ACL"), true),
-        (String::from("CLIENT"), true),
-        (String::from("CLUSTER"), true),
-        (String::from("COMMAND"), true),
-        (String::from("CONFIG"), true),
-        (String::from("FUNCTION"), true),
-        (String::from("LATENCY"), true),
-        (String::from("MEMORY"), true),
-        (String::from("MODULE"), true),
-        (String::from("OBJECT"), true),
-        (String::from("PUBSUB"), true),
-        (String::from("SCRIPT"), true),
-        (String::from("SENTINEL"), true),
-        (String::from("SLOWLOG"), true),
-        (String::from("XGROUP"), true),
-        (String::from("XINFO"), true),
+        (String::from("acl"), true),
+        (String::from("client"), true),
+        (String::from("cluster"), true),
+        (String::from("command"), true),
+        (String::from("config"), true),
+        (String::from("function"), true),
+        (String::from("latency"), true),
+        (String::from("memory"), true),
+        (String::from("module"), true),
+        (String::from("object"), true),
+        (String::from("pubsub"), true),
+        (String::from("script"), true),
+        (String::from("sentinel"), true),
+        (String::from("slowlog"), true),
+        (String::from("xgroup"), true),
+        (String::from("xinfo"), true),
     ]);
 
     /**
      * Redis command's full name and its description
      */
     pub static ref COMMANDS_INFO: HashMap<String, RedisCmdDescribeEntity> = HashMap::from([
-        (String::from("ACL"), RedisCmdDescribeEntity {
+        (String::from("acl"), RedisCmdDescribeEntity {
             summary: String::from("A container for Access List Control commands."),
             container: None,
             group: String::from("server"),
@@ -45,7 +45,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL CAT"), RedisCmdDescribeEntity {
+        (String::from("acl cat"), RedisCmdDescribeEntity {
             summary: String::from("Lists the ACL categories, or the commands inside a category."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -55,7 +55,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL DELUSER"), RedisCmdDescribeEntity {
+        (String::from("acl deluser"), RedisCmdDescribeEntity {
             summary: String::from("Deletes ACL users, and terminates their connections."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -65,7 +65,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL DRYRUN"), RedisCmdDescribeEntity {
+        (String::from("acl dryrun"), RedisCmdDescribeEntity {
             summary: String::from("Simulates the execution of a command by a user, without executing the command."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -75,7 +75,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL GENPASS"), RedisCmdDescribeEntity {
+        (String::from("acl genpass"), RedisCmdDescribeEntity {
             summary: String::from("Generates a pseudorandom, secure password that can be used to identify ACL users."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -85,7 +85,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL GETUSER"), RedisCmdDescribeEntity {
+        (String::from("acl getuser"), RedisCmdDescribeEntity {
             summary: String::from("Lists the ACL rules of a user."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -95,7 +95,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL HELP"), RedisCmdDescribeEntity {
+        (String::from("acl help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -105,7 +105,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL LIST"), RedisCmdDescribeEntity {
+        (String::from("acl list"), RedisCmdDescribeEntity {
             summary: String::from("Dumps the effective rules in ACL file format."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -115,7 +115,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL LOAD"), RedisCmdDescribeEntity {
+        (String::from("acl load"), RedisCmdDescribeEntity {
             summary: String::from("Reloads the rules from the configured ACL file."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -125,7 +125,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL LOG"), RedisCmdDescribeEntity {
+        (String::from("acl log"), RedisCmdDescribeEntity {
             summary: String::from("Lists recent security events generated due to ACL rules."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -135,7 +135,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL SAVE"), RedisCmdDescribeEntity {
+        (String::from("acl save"), RedisCmdDescribeEntity {
             summary: String::from("Saves the effective ACL rules in the configured ACL file."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -145,7 +145,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL SETUSER"), RedisCmdDescribeEntity {
+        (String::from("acl setuser"), RedisCmdDescribeEntity {
             summary: String::from("Creates and modifies an ACL user and its rules."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -155,7 +155,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL USERS"), RedisCmdDescribeEntity {
+        (String::from("acl users"), RedisCmdDescribeEntity {
             summary: String::from("Lists all ACL users."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -165,7 +165,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("ACL WHOAMI"), RedisCmdDescribeEntity {
+        (String::from("acl whoami"), RedisCmdDescribeEntity {
             summary: String::from("Returns the authenticated username of the current connection."),
             container: Some(String::from("ACL")),
             group: String::from("server"),
@@ -175,7 +175,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("APPEND"), RedisCmdDescribeEntity {
+        (String::from("append"), RedisCmdDescribeEntity {
             summary: String::from("Appends a string to the value of a key. Creates the key if it doesn't exist."),
             container: None,
             group: String::from("string"),
@@ -190,7 +190,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ASKING"), RedisCmdDescribeEntity {
+        (String::from("asking"), RedisCmdDescribeEntity {
             summary: String::from("Signals that a cluster client is following an -ASK redirect."),
             container: None,
             group: String::from("cluster"),
@@ -200,7 +200,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("FAST"),]),
             key_specs: None,
         }),
-        (String::from("AUTH"), RedisCmdDescribeEntity {
+        (String::from("auth"), RedisCmdDescribeEntity {
             summary: String::from("Authenticates the connection."),
             container: None,
             group: String::from("connection"),
@@ -210,7 +210,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("NO_AUTH"),String::from("SENTINEL"),String::from("ALLOW_BUSY"),]),
             key_specs: None,
         }),
-        (String::from("BGREWRITEAOF"), RedisCmdDescribeEntity {
+        (String::from("bgrewriteaof"), RedisCmdDescribeEntity {
             summary: String::from("Asynchronously rewrites the append-only file to disk."),
             container: None,
             group: String::from("server"),
@@ -220,7 +220,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("BGSAVE"), RedisCmdDescribeEntity {
+        (String::from("bgsave"), RedisCmdDescribeEntity {
             summary: String::from("Asynchronously saves the database(s) to disk."),
             container: None,
             group: String::from("server"),
@@ -230,7 +230,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("BITCOUNT"), RedisCmdDescribeEntity {
+        (String::from("bitcount"), RedisCmdDescribeEntity {
             summary: String::from("Counts the number of set bits (population counting) in a string."),
             container: None,
             group: String::from("bitmap"),
@@ -245,7 +245,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BITFIELD"), RedisCmdDescribeEntity {
+        (String::from("bitfield"), RedisCmdDescribeEntity {
             summary: String::from("Performs arbitrary bitfield integer operations on strings."),
             container: None,
             group: String::from("bitmap"),
@@ -260,7 +260,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BITFIELD_RO"), RedisCmdDescribeEntity {
+        (String::from("bitfield_ro"), RedisCmdDescribeEntity {
             summary: String::from("Performs arbitrary read-only bitfield integer operations on strings."),
             container: None,
             group: String::from("bitmap"),
@@ -275,7 +275,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BITOP"), RedisCmdDescribeEntity {
+        (String::from("bitop"), RedisCmdDescribeEntity {
             summary: String::from("Performs bitwise operations on multiple strings, and stores the result."),
             container: None,
             group: String::from("bitmap"),
@@ -295,7 +295,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BITPOS"), RedisCmdDescribeEntity {
+        (String::from("bitpos"), RedisCmdDescribeEntity {
             summary: String::from("Finds the first set (1) or clear (0) bit in a string."),
             container: None,
             group: String::from("bitmap"),
@@ -310,7 +310,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BLMOVE"), RedisCmdDescribeEntity {
+        (String::from("blmove"), RedisCmdDescribeEntity {
             summary: String::from("Pops an element from a list, pushes it to another list and returns it. Blocks until an element is available otherwise. Deletes the list if the last element was moved."),
             container: None,
             group: String::from("list"),
@@ -330,7 +330,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BLMPOP"), RedisCmdDescribeEntity {
+        (String::from("blmpop"), RedisCmdDescribeEntity {
             summary: String::from("Pops the first element from one of multiple lists. Blocks until an element is available otherwise. Deletes the list if the last element was popped."),
             container: None,
             group: String::from("list"),
@@ -345,7 +345,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BLPOP"), RedisCmdDescribeEntity {
+        (String::from("blpop"), RedisCmdDescribeEntity {
             summary: String::from("Removes and returns the first element in a list. Blocks until an element is available otherwise. Deletes the list if the last element was popped."),
             container: None,
             group: String::from("list"),
@@ -360,7 +360,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BRPOP"), RedisCmdDescribeEntity {
+        (String::from("brpop"), RedisCmdDescribeEntity {
             summary: String::from("Removes and returns the last element in a list. Blocks until an element is available otherwise. Deletes the list if the last element was popped."),
             container: None,
             group: String::from("list"),
@@ -375,7 +375,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BRPOPLPUSH"), RedisCmdDescribeEntity {
+        (String::from("brpoplpush"), RedisCmdDescribeEntity {
             summary: String::from("Pops an element from a list, pushes it to another list and returns it. Block until an element is available otherwise. Deletes the list if the last element was popped."),
             container: None,
             group: String::from("list"),
@@ -395,7 +395,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BZMPOP"), RedisCmdDescribeEntity {
+        (String::from("bzmpop"), RedisCmdDescribeEntity {
             summary: String::from("Removes and returns a member by score from one or more sorted sets. Blocks until a member is available otherwise. Deletes the sorted set if the last element was popped."),
             container: None,
             group: String::from("sorted_set"),
@@ -410,7 +410,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BZPOPMAX"), RedisCmdDescribeEntity {
+        (String::from("bzpopmax"), RedisCmdDescribeEntity {
             summary: String::from("Removes and returns the member with the highest score from one or more sorted sets. Blocks until a member available otherwise.  Deletes the sorted set if the last element was popped."),
             container: None,
             group: String::from("sorted_set"),
@@ -425,7 +425,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("BZPOPMIN"), RedisCmdDescribeEntity {
+        (String::from("bzpopmin"), RedisCmdDescribeEntity {
             summary: String::from("Removes and returns the member with the lowest score from one or more sorted sets. Blocks until a member is available otherwise. Deletes the sorted set if the last element was popped."),
             container: None,
             group: String::from("sorted_set"),
@@ -440,7 +440,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("CLIENT"), RedisCmdDescribeEntity {
+        (String::from("client"), RedisCmdDescribeEntity {
             summary: String::from("A container for client connection commands."),
             container: None,
             group: String::from("connection"),
@@ -450,7 +450,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT CACHING"), RedisCmdDescribeEntity {
+        (String::from("client caching"), RedisCmdDescribeEntity {
             summary: String::from("Instructs the server whether to track the keys in the next request."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -460,7 +460,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT GETNAME"), RedisCmdDescribeEntity {
+        (String::from("client getname"), RedisCmdDescribeEntity {
             summary: String::from("Returns the name of the connection."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -470,7 +470,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT GETREDIR"), RedisCmdDescribeEntity {
+        (String::from("client getredir"), RedisCmdDescribeEntity {
             summary: String::from("Returns the client ID to which the connection's tracking notifications are redirected."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -480,7 +480,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT HELP"), RedisCmdDescribeEntity {
+        (String::from("client help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -490,7 +490,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT ID"), RedisCmdDescribeEntity {
+        (String::from("client id"), RedisCmdDescribeEntity {
             summary: String::from("Returns the unique client ID of the connection."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -500,7 +500,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT INFO"), RedisCmdDescribeEntity {
+        (String::from("client info"), RedisCmdDescribeEntity {
             summary: String::from("Returns information about the connection."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -510,7 +510,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT KILL"), RedisCmdDescribeEntity {
+        (String::from("client kill"), RedisCmdDescribeEntity {
             summary: String::from("Terminates open connections."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -520,7 +520,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT LIST"), RedisCmdDescribeEntity {
+        (String::from("client list"), RedisCmdDescribeEntity {
             summary: String::from("Lists open connections."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -530,7 +530,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT NO-EVICT"), RedisCmdDescribeEntity {
+        (String::from("client no-evict"), RedisCmdDescribeEntity {
             summary: String::from("Sets the client eviction mode of the connection."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -540,7 +540,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT NO-TOUCH"), RedisCmdDescribeEntity {
+        (String::from("client no-touch"), RedisCmdDescribeEntity {
             summary: String::from("Controls whether commands sent by the client affect the LRU/LFU of accessed keys."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -550,7 +550,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT PAUSE"), RedisCmdDescribeEntity {
+        (String::from("client pause"), RedisCmdDescribeEntity {
             summary: String::from("Suspends commands processing."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -560,7 +560,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT REPLY"), RedisCmdDescribeEntity {
+        (String::from("client reply"), RedisCmdDescribeEntity {
             summary: String::from("Instructs the server whether to reply to commands."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -570,7 +570,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT SETINFO"), RedisCmdDescribeEntity {
+        (String::from("client setinfo"), RedisCmdDescribeEntity {
             summary: String::from("Sets information specific to the client or connection."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -580,7 +580,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT SETNAME"), RedisCmdDescribeEntity {
+        (String::from("client setname"), RedisCmdDescribeEntity {
             summary: String::from("Sets the connection name."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -590,7 +590,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT TRACKING"), RedisCmdDescribeEntity {
+        (String::from("client tracking"), RedisCmdDescribeEntity {
             summary: String::from("Controls server-assisted client-side caching for the connection."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -600,7 +600,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT TRACKINGINFO"), RedisCmdDescribeEntity {
+        (String::from("client trackinginfo"), RedisCmdDescribeEntity {
             summary: String::from("Returns information about server-assisted client-side caching for the connection."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -610,7 +610,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT UNBLOCK"), RedisCmdDescribeEntity {
+        (String::from("client unblock"), RedisCmdDescribeEntity {
             summary: String::from("Unblocks a client blocked by a blocking command from a different connection."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -620,7 +620,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLIENT UNPAUSE"), RedisCmdDescribeEntity {
+        (String::from("client unpause"), RedisCmdDescribeEntity {
             summary: String::from("Resumes processing commands from paused clients."),
             container: Some(String::from("CLIENT")),
             group: String::from("connection"),
@@ -630,7 +630,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER"), RedisCmdDescribeEntity {
+        (String::from("cluster"), RedisCmdDescribeEntity {
             summary: String::from("A container for Redis Cluster commands."),
             container: None,
             group: String::from("cluster"),
@@ -640,7 +640,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("CLUSTER ADDSLOTS"), RedisCmdDescribeEntity {
+        (String::from("cluster addslots"), RedisCmdDescribeEntity {
             summary: String::from("Assigns new hash slots to a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -650,7 +650,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER ADDSLOTSRANGE"), RedisCmdDescribeEntity {
+        (String::from("cluster addslotsrange"), RedisCmdDescribeEntity {
             summary: String::from("Assigns new hash slot ranges to a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -660,7 +660,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER BUMPEPOCH"), RedisCmdDescribeEntity {
+        (String::from("cluster bumpepoch"), RedisCmdDescribeEntity {
             summary: String::from("Advances the cluster config epoch."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -670,7 +670,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER COUNT-FAILURE-REPORTS"), RedisCmdDescribeEntity {
+        (String::from("cluster count-failure-reports"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of active failure reports active for a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -680,7 +680,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER COUNTKEYSINSLOT"), RedisCmdDescribeEntity {
+        (String::from("cluster countkeysinslot"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of keys in a hash slot."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -690,7 +690,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER DELSLOTS"), RedisCmdDescribeEntity {
+        (String::from("cluster delslots"), RedisCmdDescribeEntity {
             summary: String::from("Sets hash slots as unbound for a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -700,7 +700,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER DELSLOTSRANGE"), RedisCmdDescribeEntity {
+        (String::from("cluster delslotsrange"), RedisCmdDescribeEntity {
             summary: String::from("Sets hash slot ranges as unbound for a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -710,7 +710,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER FAILOVER"), RedisCmdDescribeEntity {
+        (String::from("cluster failover"), RedisCmdDescribeEntity {
             summary: String::from("Forces a replica to perform a manual failover of its master."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -720,7 +720,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER FLUSHSLOTS"), RedisCmdDescribeEntity {
+        (String::from("cluster flushslots"), RedisCmdDescribeEntity {
             summary: String::from("Deletes all slots information from a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -730,7 +730,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER FORGET"), RedisCmdDescribeEntity {
+        (String::from("cluster forget"), RedisCmdDescribeEntity {
             summary: String::from("Removes a node from the nodes table."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -740,7 +740,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER GETKEYSINSLOT"), RedisCmdDescribeEntity {
+        (String::from("cluster getkeysinslot"), RedisCmdDescribeEntity {
             summary: String::from("Returns the key names in a hash slot."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -750,7 +750,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER HELP"), RedisCmdDescribeEntity {
+        (String::from("cluster help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -760,7 +760,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER INFO"), RedisCmdDescribeEntity {
+        (String::from("cluster info"), RedisCmdDescribeEntity {
             summary: String::from("Returns information about the state of a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -770,7 +770,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER KEYSLOT"), RedisCmdDescribeEntity {
+        (String::from("cluster keyslot"), RedisCmdDescribeEntity {
             summary: String::from("Returns the hash slot for a key."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -780,7 +780,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER LINKS"), RedisCmdDescribeEntity {
+        (String::from("cluster links"), RedisCmdDescribeEntity {
             summary: String::from("Returns a list of all TCP links to and from peer nodes."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -790,7 +790,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER MEET"), RedisCmdDescribeEntity {
+        (String::from("cluster meet"), RedisCmdDescribeEntity {
             summary: String::from("Forces a node to handshake with another node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -800,7 +800,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER MYID"), RedisCmdDescribeEntity {
+        (String::from("cluster myid"), RedisCmdDescribeEntity {
             summary: String::from("Returns the ID of a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -810,7 +810,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER MYSHARDID"), RedisCmdDescribeEntity {
+        (String::from("cluster myshardid"), RedisCmdDescribeEntity {
             summary: String::from("Returns the shard ID of a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -820,7 +820,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER NODES"), RedisCmdDescribeEntity {
+        (String::from("cluster nodes"), RedisCmdDescribeEntity {
             summary: String::from("Returns the cluster configuration for a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -830,7 +830,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER REPLICAS"), RedisCmdDescribeEntity {
+        (String::from("cluster replicas"), RedisCmdDescribeEntity {
             summary: String::from("Lists the replica nodes of a master node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -840,7 +840,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER REPLICATE"), RedisCmdDescribeEntity {
+        (String::from("cluster replicate"), RedisCmdDescribeEntity {
             summary: String::from("Configure a node as replica of a master node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -850,7 +850,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER RESET"), RedisCmdDescribeEntity {
+        (String::from("cluster reset"), RedisCmdDescribeEntity {
             summary: String::from("Resets a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -860,7 +860,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("STALE"),String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER SAVECONFIG"), RedisCmdDescribeEntity {
+        (String::from("cluster saveconfig"), RedisCmdDescribeEntity {
             summary: String::from("Forces a node to save the cluster configuration to disk."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -870,7 +870,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER SET-CONFIG-EPOCH"), RedisCmdDescribeEntity {
+        (String::from("cluster set-config-epoch"), RedisCmdDescribeEntity {
             summary: String::from("Sets the configuration epoch for a new node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -880,7 +880,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER SETSLOT"), RedisCmdDescribeEntity {
+        (String::from("cluster setslot"), RedisCmdDescribeEntity {
             summary: String::from("Binds a hash slot to a node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -890,7 +890,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER SHARDS"), RedisCmdDescribeEntity {
+        (String::from("cluster shards"), RedisCmdDescribeEntity {
             summary: String::from("Returns the mapping of cluster slots to shards."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -900,7 +900,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER SLAVES"), RedisCmdDescribeEntity {
+        (String::from("cluster slaves"), RedisCmdDescribeEntity {
             summary: String::from("Lists the replica nodes of a master node."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -910,7 +910,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CLUSTER SLOTS"), RedisCmdDescribeEntity {
+        (String::from("cluster slots"), RedisCmdDescribeEntity {
             summary: String::from("Returns the mapping of cluster slots to nodes."),
             container: Some(String::from("CLUSTER")),
             group: String::from("cluster"),
@@ -920,7 +920,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("COMMAND"), RedisCmdDescribeEntity {
+        (String::from("command"), RedisCmdDescribeEntity {
             summary: String::from("Returns detailed information about all commands."),
             container: None,
             group: String::from("server"),
@@ -930,7 +930,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("COMMAND COUNT"), RedisCmdDescribeEntity {
+        (String::from("command count"), RedisCmdDescribeEntity {
             summary: String::from("Returns a count of commands."),
             container: Some(String::from("COMMAND")),
             group: String::from("server"),
@@ -940,7 +940,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("COMMAND DOCS"), RedisCmdDescribeEntity {
+        (String::from("command docs"), RedisCmdDescribeEntity {
             summary: String::from("Returns documentary information about one, multiple or all commands."),
             container: Some(String::from("COMMAND")),
             group: String::from("server"),
@@ -950,7 +950,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("COMMAND GETKEYS"), RedisCmdDescribeEntity {
+        (String::from("command getkeys"), RedisCmdDescribeEntity {
             summary: String::from("Extracts the key names from an arbitrary command."),
             container: Some(String::from("COMMAND")),
             group: String::from("server"),
@@ -960,7 +960,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("COMMAND GETKEYSANDFLAGS"), RedisCmdDescribeEntity {
+        (String::from("command getkeysandflags"), RedisCmdDescribeEntity {
             summary: String::from("Extracts the key names and access flags for an arbitrary command."),
             container: Some(String::from("COMMAND")),
             group: String::from("server"),
@@ -970,7 +970,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("COMMAND HELP"), RedisCmdDescribeEntity {
+        (String::from("command help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("COMMAND")),
             group: String::from("server"),
@@ -980,7 +980,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("COMMAND INFO"), RedisCmdDescribeEntity {
+        (String::from("command info"), RedisCmdDescribeEntity {
             summary: String::from("Returns information about one, multiple or all commands."),
             container: Some(String::from("COMMAND")),
             group: String::from("server"),
@@ -990,7 +990,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("COMMAND LIST"), RedisCmdDescribeEntity {
+        (String::from("command list"), RedisCmdDescribeEntity {
             summary: String::from("Returns a list of command names."),
             container: Some(String::from("COMMAND")),
             group: String::from("server"),
@@ -1000,7 +1000,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("CONFIG"), RedisCmdDescribeEntity {
+        (String::from("config"), RedisCmdDescribeEntity {
             summary: String::from("A container for server configuration commands."),
             container: None,
             group: String::from("server"),
@@ -1010,7 +1010,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("CONFIG GET"), RedisCmdDescribeEntity {
+        (String::from("config get"), RedisCmdDescribeEntity {
             summary: String::from("Returns the effective values of configuration parameters."),
             container: Some(String::from("CONFIG")),
             group: String::from("server"),
@@ -1020,7 +1020,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CONFIG HELP"), RedisCmdDescribeEntity {
+        (String::from("config help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("CONFIG")),
             group: String::from("server"),
@@ -1030,7 +1030,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CONFIG RESETSTAT"), RedisCmdDescribeEntity {
+        (String::from("config resetstat"), RedisCmdDescribeEntity {
             summary: String::from("Resets the server's statistics."),
             container: Some(String::from("CONFIG")),
             group: String::from("server"),
@@ -1040,7 +1040,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CONFIG REWRITE"), RedisCmdDescribeEntity {
+        (String::from("config rewrite"), RedisCmdDescribeEntity {
             summary: String::from("Persists the effective configuration to file."),
             container: Some(String::from("CONFIG")),
             group: String::from("server"),
@@ -1050,7 +1050,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("CONFIG SET"), RedisCmdDescribeEntity {
+        (String::from("config set"), RedisCmdDescribeEntity {
             summary: String::from("Sets configuration parameters in-flight."),
             container: Some(String::from("CONFIG")),
             group: String::from("server"),
@@ -1060,7 +1060,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("COPY"), RedisCmdDescribeEntity {
+        (String::from("copy"), RedisCmdDescribeEntity {
             summary: String::from("Copies the value of a key to a new key."),
             container: None,
             group: String::from("generic"),
@@ -1080,7 +1080,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("DBSIZE"), RedisCmdDescribeEntity {
+        (String::from("dbsize"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of keys in the database."),
             container: None,
             group: String::from("server"),
@@ -1090,7 +1090,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
             key_specs: None,
         }),
-        (String::from("DEBUG"), RedisCmdDescribeEntity {
+        (String::from("debug"), RedisCmdDescribeEntity {
             summary: String::from("A container for debugging commands."),
             container: None,
             group: String::from("server"),
@@ -1100,7 +1100,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("PROTECTED"),]),
             key_specs: None,
         }),
-        (String::from("DECR"), RedisCmdDescribeEntity {
+        (String::from("decr"), RedisCmdDescribeEntity {
             summary: String::from("Decrements the integer value of a key by one. Uses 0 as initial value if the key doesn't exist."),
             container: None,
             group: String::from("string"),
@@ -1115,7 +1115,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("DECRBY"), RedisCmdDescribeEntity {
+        (String::from("decrby"), RedisCmdDescribeEntity {
             summary: String::from("Decrements a number from the integer value of a key. Uses 0 as initial value if the key doesn't exist."),
             container: None,
             group: String::from("string"),
@@ -1130,7 +1130,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("DEL"), RedisCmdDescribeEntity {
+        (String::from("del"), RedisCmdDescribeEntity {
             summary: String::from("Deletes one or more keys."),
             container: None,
             group: String::from("generic"),
@@ -1145,7 +1145,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("DISCARD"), RedisCmdDescribeEntity {
+        (String::from("discard"), RedisCmdDescribeEntity {
             summary: String::from("Discards a transaction."),
             container: None,
             group: String::from("transactions"),
@@ -1155,7 +1155,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("ALLOW_BUSY"),]),
             key_specs: None,
         }),
-        (String::from("DUMP"), RedisCmdDescribeEntity {
+        (String::from("dump"), RedisCmdDescribeEntity {
             summary: String::from("Returns a serialized representation of the value stored at a key."),
             container: None,
             group: String::from("generic"),
@@ -1170,7 +1170,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ECHO"), RedisCmdDescribeEntity {
+        (String::from("echo"), RedisCmdDescribeEntity {
             summary: String::from("Returns the given string."),
             container: None,
             group: String::from("connection"),
@@ -1180,7 +1180,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("FAST"),]),
             key_specs: None,
         }),
-        (String::from("EVAL"), RedisCmdDescribeEntity {
+        (String::from("eval"), RedisCmdDescribeEntity {
             summary: String::from("Executes a server-side Lua script."),
             container: None,
             group: String::from("scripting"),
@@ -1195,7 +1195,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("EVALSHA"), RedisCmdDescribeEntity {
+        (String::from("evalsha"), RedisCmdDescribeEntity {
             summary: String::from("Executes a server-side Lua script by SHA1 digest."),
             container: None,
             group: String::from("scripting"),
@@ -1210,7 +1210,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("EVALSHA_RO"), RedisCmdDescribeEntity {
+        (String::from("evalsha_ro"), RedisCmdDescribeEntity {
             summary: String::from("Executes a read-only server-side Lua script by SHA1 digest."),
             container: None,
             group: String::from("scripting"),
@@ -1225,7 +1225,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("EVAL_RO"), RedisCmdDescribeEntity {
+        (String::from("eval_ro"), RedisCmdDescribeEntity {
             summary: String::from("Executes a read-only server-side Lua script."),
             container: None,
             group: String::from("scripting"),
@@ -1240,7 +1240,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("EXEC"), RedisCmdDescribeEntity {
+        (String::from("exec"), RedisCmdDescribeEntity {
             summary: String::from("Executes all commands in a transaction."),
             container: None,
             group: String::from("transactions"),
@@ -1250,7 +1250,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SKIP_SLOWLOG"),]),
             key_specs: None,
         }),
-        (String::from("EXISTS"), RedisCmdDescribeEntity {
+        (String::from("exists"), RedisCmdDescribeEntity {
             summary: String::from("Determines whether one or more keys exist."),
             container: None,
             group: String::from("generic"),
@@ -1265,7 +1265,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("EXPIRE"), RedisCmdDescribeEntity {
+        (String::from("expire"), RedisCmdDescribeEntity {
             summary: String::from("Sets the expiration time of a key in seconds."),
             container: None,
             group: String::from("generic"),
@@ -1280,7 +1280,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("EXPIREAT"), RedisCmdDescribeEntity {
+        (String::from("expireat"), RedisCmdDescribeEntity {
             summary: String::from("Sets the expiration time of a key to a Unix timestamp."),
             container: None,
             group: String::from("generic"),
@@ -1295,7 +1295,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("EXPIRETIME"), RedisCmdDescribeEntity {
+        (String::from("expiretime"), RedisCmdDescribeEntity {
             summary: String::from("Returns the expiration time of a key as a Unix timestamp."),
             container: None,
             group: String::from("generic"),
@@ -1310,7 +1310,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("FAILOVER"), RedisCmdDescribeEntity {
+        (String::from("failover"), RedisCmdDescribeEntity {
             summary: String::from("Starts a coordinated failover from a server to one of its replicas."),
             container: None,
             group: String::from("server"),
@@ -1320,7 +1320,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("FCALL"), RedisCmdDescribeEntity {
+        (String::from("fcall"), RedisCmdDescribeEntity {
             summary: String::from("Invokes a function."),
             container: None,
             group: String::from("scripting"),
@@ -1335,7 +1335,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("FCALL_RO"), RedisCmdDescribeEntity {
+        (String::from("fcall_ro"), RedisCmdDescribeEntity {
             summary: String::from("Invokes a read-only function."),
             container: None,
             group: String::from("scripting"),
@@ -1350,7 +1350,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("FLUSHALL"), RedisCmdDescribeEntity {
+        (String::from("flushall"), RedisCmdDescribeEntity {
             summary: String::from("Removes all keys from all databases."),
             container: None,
             group: String::from("server"),
@@ -1360,7 +1360,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("WRITE"),]),
             key_specs: None,
         }),
-        (String::from("FLUSHDB"), RedisCmdDescribeEntity {
+        (String::from("flushdb"), RedisCmdDescribeEntity {
             summary: String::from("Remove all keys from the current database."),
             container: None,
             group: String::from("server"),
@@ -1370,7 +1370,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("WRITE"),]),
             key_specs: None,
         }),
-        (String::from("FUNCTION"), RedisCmdDescribeEntity {
+        (String::from("function"), RedisCmdDescribeEntity {
             summary: String::from("A container for function commands."),
             container: None,
             group: String::from("scripting"),
@@ -1380,7 +1380,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("FUNCTION DELETE"), RedisCmdDescribeEntity {
+        (String::from("function delete"), RedisCmdDescribeEntity {
             summary: String::from("Deletes a library and its functions."),
             container: Some(String::from("FUNCTION")),
             group: String::from("scripting"),
@@ -1390,7 +1390,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("WRITE"),]),
             key_specs: None,
         }),
-        (String::from("FUNCTION DUMP"), RedisCmdDescribeEntity {
+        (String::from("function dump"), RedisCmdDescribeEntity {
             summary: String::from("Dumps all libraries into a serialized binary payload."),
             container: Some(String::from("FUNCTION")),
             group: String::from("scripting"),
@@ -1400,7 +1400,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("FUNCTION FLUSH"), RedisCmdDescribeEntity {
+        (String::from("function flush"), RedisCmdDescribeEntity {
             summary: String::from("Deletes all libraries and functions."),
             container: Some(String::from("FUNCTION")),
             group: String::from("scripting"),
@@ -1410,7 +1410,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("WRITE"),]),
             key_specs: None,
         }),
-        (String::from("FUNCTION HELP"), RedisCmdDescribeEntity {
+        (String::from("function help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("FUNCTION")),
             group: String::from("scripting"),
@@ -1420,7 +1420,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("FUNCTION KILL"), RedisCmdDescribeEntity {
+        (String::from("function kill"), RedisCmdDescribeEntity {
             summary: String::from("Terminates a function during execution."),
             container: Some(String::from("FUNCTION")),
             group: String::from("scripting"),
@@ -1430,7 +1430,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("ALLOW_BUSY"),]),
             key_specs: None,
         }),
-        (String::from("FUNCTION LIST"), RedisCmdDescribeEntity {
+        (String::from("function list"), RedisCmdDescribeEntity {
             summary: String::from("Returns information about all libraries."),
             container: Some(String::from("FUNCTION")),
             group: String::from("scripting"),
@@ -1440,7 +1440,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("FUNCTION LOAD"), RedisCmdDescribeEntity {
+        (String::from("function load"), RedisCmdDescribeEntity {
             summary: String::from("Creates a library."),
             container: Some(String::from("FUNCTION")),
             group: String::from("scripting"),
@@ -1450,7 +1450,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("WRITE"),String::from("DENYOOM"),]),
             key_specs: None,
         }),
-        (String::from("FUNCTION RESTORE"), RedisCmdDescribeEntity {
+        (String::from("function restore"), RedisCmdDescribeEntity {
             summary: String::from("Restores all libraries from a payload."),
             container: Some(String::from("FUNCTION")),
             group: String::from("scripting"),
@@ -1460,7 +1460,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("WRITE"),String::from("DENYOOM"),]),
             key_specs: None,
         }),
-        (String::from("FUNCTION STATS"), RedisCmdDescribeEntity {
+        (String::from("function stats"), RedisCmdDescribeEntity {
             summary: String::from("Returns information about a function during execution."),
             container: Some(String::from("FUNCTION")),
             group: String::from("scripting"),
@@ -1470,7 +1470,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("ALLOW_BUSY"),]),
             key_specs: None,
         }),
-        (String::from("GEOADD"), RedisCmdDescribeEntity {
+        (String::from("geoadd"), RedisCmdDescribeEntity {
             summary: String::from("Adds one or more members to a geospatial index. The key is created if it doesn't exist."),
             container: None,
             group: String::from("geo"),
@@ -1485,7 +1485,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GEODIST"), RedisCmdDescribeEntity {
+        (String::from("geodist"), RedisCmdDescribeEntity {
             summary: String::from("Returns the distance between two members of a geospatial index."),
             container: None,
             group: String::from("geo"),
@@ -1500,7 +1500,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GEOHASH"), RedisCmdDescribeEntity {
+        (String::from("geohash"), RedisCmdDescribeEntity {
             summary: String::from("Returns members from a geospatial index as geohash strings."),
             container: None,
             group: String::from("geo"),
@@ -1515,7 +1515,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GEOPOS"), RedisCmdDescribeEntity {
+        (String::from("geopos"), RedisCmdDescribeEntity {
             summary: String::from("Returns the longitude and latitude of members from a geospatial index."),
             container: None,
             group: String::from("geo"),
@@ -1530,7 +1530,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GEORADIUS"), RedisCmdDescribeEntity {
+        (String::from("georadius"), RedisCmdDescribeEntity {
             summary: String::from("Queries a geospatial index for members within a distance from a coordinate, optionally stores the result."),
             container: None,
             group: String::from("geo"),
@@ -1555,7 +1555,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GEORADIUSBYMEMBER"), RedisCmdDescribeEntity {
+        (String::from("georadiusbymember"), RedisCmdDescribeEntity {
             summary: String::from("Queries a geospatial index for members within a distance from a member, optionally stores the result."),
             container: None,
             group: String::from("geo"),
@@ -1580,7 +1580,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GEORADIUSBYMEMBER_RO"), RedisCmdDescribeEntity {
+        (String::from("georadiusbymember_ro"), RedisCmdDescribeEntity {
             summary: String::from("Returns members from a geospatial index that are within a distance from a member."),
             container: None,
             group: String::from("geo"),
@@ -1595,7 +1595,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GEORADIUS_RO"), RedisCmdDescribeEntity {
+        (String::from("georadius_ro"), RedisCmdDescribeEntity {
             summary: String::from("Returns members from a geospatial index that are within a distance from a coordinate."),
             container: None,
             group: String::from("geo"),
@@ -1610,7 +1610,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GEOSEARCH"), RedisCmdDescribeEntity {
+        (String::from("geosearch"), RedisCmdDescribeEntity {
             summary: String::from("Queries a geospatial index for members inside an area of a box or a circle."),
             container: None,
             group: String::from("geo"),
@@ -1625,7 +1625,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GEOSEARCHSTORE"), RedisCmdDescribeEntity {
+        (String::from("geosearchstore"), RedisCmdDescribeEntity {
             summary: String::from("Queries a geospatial index for members inside an area of a box or a circle, optionally stores the result."),
             container: None,
             group: String::from("geo"),
@@ -1645,7 +1645,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GET"), RedisCmdDescribeEntity {
+        (String::from("get"), RedisCmdDescribeEntity {
             summary: String::from("Returns the string value of a key."),
             container: None,
             group: String::from("string"),
@@ -1660,7 +1660,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GETBIT"), RedisCmdDescribeEntity {
+        (String::from("getbit"), RedisCmdDescribeEntity {
             summary: String::from("Returns a bit value by offset."),
             container: None,
             group: String::from("bitmap"),
@@ -1675,7 +1675,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GETDEL"), RedisCmdDescribeEntity {
+        (String::from("getdel"), RedisCmdDescribeEntity {
             summary: String::from("Returns the string value of a key after deleting the key."),
             container: None,
             group: String::from("string"),
@@ -1690,7 +1690,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GETEX"), RedisCmdDescribeEntity {
+        (String::from("getex"), RedisCmdDescribeEntity {
             summary: String::from("Returns the string value of a key after setting its expiration time."),
             container: None,
             group: String::from("string"),
@@ -1705,7 +1705,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GETRANGE"), RedisCmdDescribeEntity {
+        (String::from("getrange"), RedisCmdDescribeEntity {
             summary: String::from("Returns a substring of the string stored at a key."),
             container: None,
             group: String::from("string"),
@@ -1720,7 +1720,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("GETSET"), RedisCmdDescribeEntity {
+        (String::from("getset"), RedisCmdDescribeEntity {
             summary: String::from("Returns the previous string value of a key after setting it to a new value."),
             container: None,
             group: String::from("string"),
@@ -1735,7 +1735,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HDEL"), RedisCmdDescribeEntity {
+        (String::from("hdel"), RedisCmdDescribeEntity {
             summary: String::from("Deletes one or more fields and their values from a hash. Deletes the hash if no fields remain."),
             container: None,
             group: String::from("hash"),
@@ -1750,7 +1750,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HELLO"), RedisCmdDescribeEntity {
+        (String::from("hello"), RedisCmdDescribeEntity {
             summary: String::from("Handshakes with the Redis server."),
             container: None,
             group: String::from("connection"),
@@ -1760,7 +1760,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("NO_AUTH"),String::from("SENTINEL"),String::from("ALLOW_BUSY"),]),
             key_specs: None,
         }),
-        (String::from("HEXISTS"), RedisCmdDescribeEntity {
+        (String::from("hexists"), RedisCmdDescribeEntity {
             summary: String::from("Determines whether a field exists in a hash."),
             container: None,
             group: String::from("hash"),
@@ -1775,7 +1775,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HGET"), RedisCmdDescribeEntity {
+        (String::from("hget"), RedisCmdDescribeEntity {
             summary: String::from("Returns the value of a field in a hash."),
             container: None,
             group: String::from("hash"),
@@ -1790,7 +1790,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HGETALL"), RedisCmdDescribeEntity {
+        (String::from("hgetall"), RedisCmdDescribeEntity {
             summary: String::from("Returns all fields and values in a hash."),
             container: None,
             group: String::from("hash"),
@@ -1805,7 +1805,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HINCRBY"), RedisCmdDescribeEntity {
+        (String::from("hincrby"), RedisCmdDescribeEntity {
             summary: String::from("Increments the integer value of a field in a hash by a number. Uses 0 as initial value if the field doesn't exist."),
             container: None,
             group: String::from("hash"),
@@ -1820,7 +1820,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HINCRBYFLOAT"), RedisCmdDescribeEntity {
+        (String::from("hincrbyfloat"), RedisCmdDescribeEntity {
             summary: String::from("Increments the floating point value of a field by a number. Uses 0 as initial value if the field doesn't exist."),
             container: None,
             group: String::from("hash"),
@@ -1835,7 +1835,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HKEYS"), RedisCmdDescribeEntity {
+        (String::from("hkeys"), RedisCmdDescribeEntity {
             summary: String::from("Returns all fields in a hash."),
             container: None,
             group: String::from("hash"),
@@ -1850,7 +1850,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HLEN"), RedisCmdDescribeEntity {
+        (String::from("hlen"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of fields in a hash."),
             container: None,
             group: String::from("hash"),
@@ -1865,7 +1865,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HMGET"), RedisCmdDescribeEntity {
+        (String::from("hmget"), RedisCmdDescribeEntity {
             summary: String::from("Returns the values of all fields in a hash."),
             container: None,
             group: String::from("hash"),
@@ -1880,7 +1880,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HMSET"), RedisCmdDescribeEntity {
+        (String::from("hmset"), RedisCmdDescribeEntity {
             summary: String::from("Sets the values of multiple fields."),
             container: None,
             group: String::from("hash"),
@@ -1895,7 +1895,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HRANDFIELD"), RedisCmdDescribeEntity {
+        (String::from("hrandfield"), RedisCmdDescribeEntity {
             summary: String::from("Returns one or more random fields from a hash."),
             container: None,
             group: String::from("hash"),
@@ -1910,7 +1910,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HSCAN"), RedisCmdDescribeEntity {
+        (String::from("hscan"), RedisCmdDescribeEntity {
             summary: String::from("Iterates over fields and values of a hash."),
             container: None,
             group: String::from("hash"),
@@ -1925,7 +1925,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HSET"), RedisCmdDescribeEntity {
+        (String::from("hset"), RedisCmdDescribeEntity {
             summary: String::from("Creates or modifies the value of a field in a hash."),
             container: None,
             group: String::from("hash"),
@@ -1940,7 +1940,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HSETNX"), RedisCmdDescribeEntity {
+        (String::from("hsetnx"), RedisCmdDescribeEntity {
             summary: String::from("Sets the value of a field in a hash only when the field doesn't exist."),
             container: None,
             group: String::from("hash"),
@@ -1955,7 +1955,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HSTRLEN"), RedisCmdDescribeEntity {
+        (String::from("hstrlen"), RedisCmdDescribeEntity {
             summary: String::from("Returns the length of the value of a field."),
             container: None,
             group: String::from("hash"),
@@ -1970,7 +1970,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("HVALS"), RedisCmdDescribeEntity {
+        (String::from("hvals"), RedisCmdDescribeEntity {
             summary: String::from("Returns all values in a hash."),
             container: None,
             group: String::from("hash"),
@@ -1985,7 +1985,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("INCR"), RedisCmdDescribeEntity {
+        (String::from("incr"), RedisCmdDescribeEntity {
             summary: String::from("Increments the integer value of a key by one. Uses 0 as initial value if the key doesn't exist."),
             container: None,
             group: String::from("string"),
@@ -2000,7 +2000,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("INCRBY"), RedisCmdDescribeEntity {
+        (String::from("incrby"), RedisCmdDescribeEntity {
             summary: String::from("Increments the integer value of a key by a number. Uses 0 as initial value if the key doesn't exist."),
             container: None,
             group: String::from("string"),
@@ -2015,7 +2015,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("INCRBYFLOAT"), RedisCmdDescribeEntity {
+        (String::from("incrbyfloat"), RedisCmdDescribeEntity {
             summary: String::from("Increment the floating point value of a key by a number. Uses 0 as initial value if the key doesn't exist."),
             container: None,
             group: String::from("string"),
@@ -2030,7 +2030,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("INFO"), RedisCmdDescribeEntity {
+        (String::from("info"), RedisCmdDescribeEntity {
             summary: String::from("Returns information and statistics about the server."),
             container: None,
             group: String::from("server"),
@@ -2040,7 +2040,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("KEYS"), RedisCmdDescribeEntity {
+        (String::from("keys"), RedisCmdDescribeEntity {
             summary: String::from("Returns all key names that match a pattern."),
             container: None,
             group: String::from("generic"),
@@ -2050,7 +2050,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("READONLY"),]),
             key_specs: None,
         }),
-        (String::from("LASTSAVE"), RedisCmdDescribeEntity {
+        (String::from("lastsave"), RedisCmdDescribeEntity {
             summary: String::from("Returns the Unix timestamp of the last successful save to disk."),
             container: None,
             group: String::from("server"),
@@ -2060,7 +2060,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("FAST"),]),
             key_specs: None,
         }),
-        (String::from("LATENCY"), RedisCmdDescribeEntity {
+        (String::from("latency"), RedisCmdDescribeEntity {
             summary: String::from("A container for latency diagnostics commands."),
             container: None,
             group: String::from("server"),
@@ -2070,7 +2070,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("LATENCY DOCTOR"), RedisCmdDescribeEntity {
+        (String::from("latency doctor"), RedisCmdDescribeEntity {
             summary: String::from("Returns a human-readable latency analysis report."),
             container: Some(String::from("LATENCY")),
             group: String::from("server"),
@@ -2080,7 +2080,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("LATENCY GRAPH"), RedisCmdDescribeEntity {
+        (String::from("latency graph"), RedisCmdDescribeEntity {
             summary: String::from("Returns a latency graph for an event."),
             container: Some(String::from("LATENCY")),
             group: String::from("server"),
@@ -2090,7 +2090,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("LATENCY HELP"), RedisCmdDescribeEntity {
+        (String::from("latency help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("LATENCY")),
             group: String::from("server"),
@@ -2100,7 +2100,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("LATENCY HISTOGRAM"), RedisCmdDescribeEntity {
+        (String::from("latency histogram"), RedisCmdDescribeEntity {
             summary: String::from("Returns the cumulative distribution of latencies of a subset or all commands."),
             container: Some(String::from("LATENCY")),
             group: String::from("server"),
@@ -2110,7 +2110,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("LATENCY HISTORY"), RedisCmdDescribeEntity {
+        (String::from("latency history"), RedisCmdDescribeEntity {
             summary: String::from("Returns timestamp-latency samples for an event."),
             container: Some(String::from("LATENCY")),
             group: String::from("server"),
@@ -2120,7 +2120,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("LATENCY LATEST"), RedisCmdDescribeEntity {
+        (String::from("latency latest"), RedisCmdDescribeEntity {
             summary: String::from("Returns the latest latency samples for all events."),
             container: Some(String::from("LATENCY")),
             group: String::from("server"),
@@ -2130,7 +2130,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("LATENCY RESET"), RedisCmdDescribeEntity {
+        (String::from("latency reset"), RedisCmdDescribeEntity {
             summary: String::from("Resets the latency data for one or more events."),
             container: Some(String::from("LATENCY")),
             group: String::from("server"),
@@ -2140,7 +2140,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("LCS"), RedisCmdDescribeEntity {
+        (String::from("lcs"), RedisCmdDescribeEntity {
             summary: String::from("Finds the longest common substring."),
             container: None,
             group: String::from("string"),
@@ -2155,7 +2155,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LINDEX"), RedisCmdDescribeEntity {
+        (String::from("lindex"), RedisCmdDescribeEntity {
             summary: String::from("Returns an element from a list by its index."),
             container: None,
             group: String::from("list"),
@@ -2170,7 +2170,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LINSERT"), RedisCmdDescribeEntity {
+        (String::from("linsert"), RedisCmdDescribeEntity {
             summary: String::from("Inserts an element before or after another element in a list."),
             container: None,
             group: String::from("list"),
@@ -2185,7 +2185,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LLEN"), RedisCmdDescribeEntity {
+        (String::from("llen"), RedisCmdDescribeEntity {
             summary: String::from("Returns the length of a list."),
             container: None,
             group: String::from("list"),
@@ -2200,7 +2200,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LMOVE"), RedisCmdDescribeEntity {
+        (String::from("lmove"), RedisCmdDescribeEntity {
             summary: String::from("Returns an element after popping it from one list and pushing it to another. Deletes the list if the last element was moved."),
             container: None,
             group: String::from("list"),
@@ -2220,7 +2220,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LMPOP"), RedisCmdDescribeEntity {
+        (String::from("lmpop"), RedisCmdDescribeEntity {
             summary: String::from("Returns multiple elements from a list after removing them. Deletes the list if the last element was popped."),
             container: None,
             group: String::from("list"),
@@ -2235,7 +2235,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LOLWUT"), RedisCmdDescribeEntity {
+        (String::from("lolwut"), RedisCmdDescribeEntity {
             summary: String::from("Displays computer art and the Redis version"),
             container: None,
             group: String::from("server"),
@@ -2245,7 +2245,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
             key_specs: None,
         }),
-        (String::from("LPOP"), RedisCmdDescribeEntity {
+        (String::from("lpop"), RedisCmdDescribeEntity {
             summary: String::from("Returns the first elements in a list after removing it. Deletes the list if the last element was popped."),
             container: None,
             group: String::from("list"),
@@ -2260,7 +2260,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LPOS"), RedisCmdDescribeEntity {
+        (String::from("lpos"), RedisCmdDescribeEntity {
             summary: String::from("Returns the index of matching elements in a list."),
             container: None,
             group: String::from("list"),
@@ -2275,7 +2275,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LPUSH"), RedisCmdDescribeEntity {
+        (String::from("lpush"), RedisCmdDescribeEntity {
             summary: String::from("Prepends one or more elements to a list. Creates the key if it doesn't exist."),
             container: None,
             group: String::from("list"),
@@ -2290,7 +2290,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LPUSHX"), RedisCmdDescribeEntity {
+        (String::from("lpushx"), RedisCmdDescribeEntity {
             summary: String::from("Prepends one or more elements to a list only when the list exists."),
             container: None,
             group: String::from("list"),
@@ -2305,7 +2305,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LRANGE"), RedisCmdDescribeEntity {
+        (String::from("lrange"), RedisCmdDescribeEntity {
             summary: String::from("Returns a range of elements from a list."),
             container: None,
             group: String::from("list"),
@@ -2320,7 +2320,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LREM"), RedisCmdDescribeEntity {
+        (String::from("lrem"), RedisCmdDescribeEntity {
             summary: String::from("Removes elements from a list. Deletes the list if the last element was removed."),
             container: None,
             group: String::from("list"),
@@ -2335,7 +2335,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LSET"), RedisCmdDescribeEntity {
+        (String::from("lset"), RedisCmdDescribeEntity {
             summary: String::from("Sets the value of an element in a list by its index."),
             container: None,
             group: String::from("list"),
@@ -2350,7 +2350,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("LTRIM"), RedisCmdDescribeEntity {
+        (String::from("ltrim"), RedisCmdDescribeEntity {
             summary: String::from("Removes elements from both ends a list. Deletes the list if all elements were trimmed."),
             container: None,
             group: String::from("list"),
@@ -2365,7 +2365,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("MEMORY"), RedisCmdDescribeEntity {
+        (String::from("memory"), RedisCmdDescribeEntity {
             summary: String::from("A container for memory diagnostics commands."),
             container: None,
             group: String::from("server"),
@@ -2375,7 +2375,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("MEMORY DOCTOR"), RedisCmdDescribeEntity {
+        (String::from("memory doctor"), RedisCmdDescribeEntity {
             summary: String::from("Outputs a memory problems report."),
             container: Some(String::from("MEMORY")),
             group: String::from("server"),
@@ -2385,7 +2385,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("MEMORY HELP"), RedisCmdDescribeEntity {
+        (String::from("memory help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("MEMORY")),
             group: String::from("server"),
@@ -2395,7 +2395,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("MEMORY MALLOC-STATS"), RedisCmdDescribeEntity {
+        (String::from("memory malloc-stats"), RedisCmdDescribeEntity {
             summary: String::from("Returns the allocator statistics."),
             container: Some(String::from("MEMORY")),
             group: String::from("server"),
@@ -2405,7 +2405,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("MEMORY PURGE"), RedisCmdDescribeEntity {
+        (String::from("memory purge"), RedisCmdDescribeEntity {
             summary: String::from("Asks the allocator to release memory."),
             container: Some(String::from("MEMORY")),
             group: String::from("server"),
@@ -2415,7 +2415,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("MEMORY STATS"), RedisCmdDescribeEntity {
+        (String::from("memory stats"), RedisCmdDescribeEntity {
             summary: String::from("Returns details about memory usage."),
             container: Some(String::from("MEMORY")),
             group: String::from("server"),
@@ -2425,7 +2425,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("MEMORY USAGE"), RedisCmdDescribeEntity {
+        (String::from("memory usage"), RedisCmdDescribeEntity {
             summary: String::from("Estimates the memory usage of a key."),
             container: Some(String::from("MEMORY")),
             group: String::from("server"),
@@ -2440,7 +2440,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("MGET"), RedisCmdDescribeEntity {
+        (String::from("mget"), RedisCmdDescribeEntity {
             summary: String::from("Atomically returns the string values of one or more keys."),
             container: None,
             group: String::from("string"),
@@ -2455,7 +2455,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("MIGRATE"), RedisCmdDescribeEntity {
+        (String::from("migrate"), RedisCmdDescribeEntity {
             summary: String::from("Atomically transfers a key from one Redis instance to another."),
             container: None,
             group: String::from("generic"),
@@ -2475,7 +2475,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("MODULE"), RedisCmdDescribeEntity {
+        (String::from("module"), RedisCmdDescribeEntity {
             summary: String::from("A container for module commands."),
             container: None,
             group: String::from("server"),
@@ -2485,7 +2485,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("MODULE HELP"), RedisCmdDescribeEntity {
+        (String::from("module help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("MODULE")),
             group: String::from("server"),
@@ -2495,7 +2495,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("MODULE LIST"), RedisCmdDescribeEntity {
+        (String::from("module list"), RedisCmdDescribeEntity {
             summary: String::from("Returns all loaded modules."),
             container: Some(String::from("MODULE")),
             group: String::from("server"),
@@ -2505,7 +2505,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("MODULE LOAD"), RedisCmdDescribeEntity {
+        (String::from("module load"), RedisCmdDescribeEntity {
             summary: String::from("Loads a module."),
             container: Some(String::from("MODULE")),
             group: String::from("server"),
@@ -2515,7 +2515,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("PROTECTED"),]),
             key_specs: None,
         }),
-        (String::from("MODULE LOADEX"), RedisCmdDescribeEntity {
+        (String::from("module loadex"), RedisCmdDescribeEntity {
             summary: String::from("Loads a module using extended parameters."),
             container: Some(String::from("MODULE")),
             group: String::from("server"),
@@ -2525,7 +2525,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("PROTECTED"),]),
             key_specs: None,
         }),
-        (String::from("MODULE UNLOAD"), RedisCmdDescribeEntity {
+        (String::from("module unload"), RedisCmdDescribeEntity {
             summary: String::from("Unloads a module."),
             container: Some(String::from("MODULE")),
             group: String::from("server"),
@@ -2535,7 +2535,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("PROTECTED"),]),
             key_specs: None,
         }),
-        (String::from("MONITOR"), RedisCmdDescribeEntity {
+        (String::from("monitor"), RedisCmdDescribeEntity {
             summary: String::from("Listens for all requests received by the server in real-time."),
             container: None,
             group: String::from("server"),
@@ -2545,7 +2545,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("MOVE"), RedisCmdDescribeEntity {
+        (String::from("move"), RedisCmdDescribeEntity {
             summary: String::from("Moves a key to another database."),
             container: None,
             group: String::from("generic"),
@@ -2560,7 +2560,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("MSET"), RedisCmdDescribeEntity {
+        (String::from("mset"), RedisCmdDescribeEntity {
             summary: String::from("Atomically creates or modifies the string values of one or more keys."),
             container: None,
             group: String::from("string"),
@@ -2575,7 +2575,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("MSETNX"), RedisCmdDescribeEntity {
+        (String::from("msetnx"), RedisCmdDescribeEntity {
             summary: String::from("Atomically modifies the string values of one or more keys only when all keys don't exist."),
             container: None,
             group: String::from("string"),
@@ -2590,7 +2590,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("MULTI"), RedisCmdDescribeEntity {
+        (String::from("multi"), RedisCmdDescribeEntity {
             summary: String::from("Starts a transaction."),
             container: None,
             group: String::from("transactions"),
@@ -2600,7 +2600,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("ALLOW_BUSY"),]),
             key_specs: None,
         }),
-        (String::from("OBJECT"), RedisCmdDescribeEntity {
+        (String::from("object"), RedisCmdDescribeEntity {
             summary: String::from("A container for object introspection commands."),
             container: None,
             group: String::from("generic"),
@@ -2610,7 +2610,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("OBJECT ENCODING"), RedisCmdDescribeEntity {
+        (String::from("object encoding"), RedisCmdDescribeEntity {
             summary: String::from("Returns the internal encoding of a Redis object."),
             container: Some(String::from("OBJECT")),
             group: String::from("generic"),
@@ -2625,7 +2625,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("OBJECT FREQ"), RedisCmdDescribeEntity {
+        (String::from("object freq"), RedisCmdDescribeEntity {
             summary: String::from("Returns the logarithmic access frequency counter of a Redis object."),
             container: Some(String::from("OBJECT")),
             group: String::from("generic"),
@@ -2640,7 +2640,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("OBJECT HELP"), RedisCmdDescribeEntity {
+        (String::from("object help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("OBJECT")),
             group: String::from("generic"),
@@ -2650,7 +2650,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("OBJECT IDLETIME"), RedisCmdDescribeEntity {
+        (String::from("object idletime"), RedisCmdDescribeEntity {
             summary: String::from("Returns the time since the last access to a Redis object."),
             container: Some(String::from("OBJECT")),
             group: String::from("generic"),
@@ -2665,7 +2665,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("OBJECT REFCOUNT"), RedisCmdDescribeEntity {
+        (String::from("object refcount"), RedisCmdDescribeEntity {
             summary: String::from("Returns the reference count of a value of a key."),
             container: Some(String::from("OBJECT")),
             group: String::from("generic"),
@@ -2680,7 +2680,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("PERSIST"), RedisCmdDescribeEntity {
+        (String::from("persist"), RedisCmdDescribeEntity {
             summary: String::from("Removes the expiration time of a key."),
             container: None,
             group: String::from("generic"),
@@ -2695,7 +2695,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("PEXPIRE"), RedisCmdDescribeEntity {
+        (String::from("pexpire"), RedisCmdDescribeEntity {
             summary: String::from("Sets the expiration time of a key in milliseconds."),
             container: None,
             group: String::from("generic"),
@@ -2710,7 +2710,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("PEXPIREAT"), RedisCmdDescribeEntity {
+        (String::from("pexpireat"), RedisCmdDescribeEntity {
             summary: String::from("Sets the expiration time of a key to a Unix milliseconds timestamp."),
             container: None,
             group: String::from("generic"),
@@ -2725,7 +2725,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("PEXPIRETIME"), RedisCmdDescribeEntity {
+        (String::from("pexpiretime"), RedisCmdDescribeEntity {
             summary: String::from("Returns the expiration time of a key as a Unix milliseconds timestamp."),
             container: None,
             group: String::from("generic"),
@@ -2740,7 +2740,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("PFADD"), RedisCmdDescribeEntity {
+        (String::from("pfadd"), RedisCmdDescribeEntity {
             summary: String::from("Adds elements to a HyperLogLog key. Creates the key if it doesn't exist."),
             container: None,
             group: String::from("hyperloglog"),
@@ -2755,7 +2755,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("PFCOUNT"), RedisCmdDescribeEntity {
+        (String::from("pfcount"), RedisCmdDescribeEntity {
             summary: String::from("Returns the approximated cardinality of the set(s) observed by the HyperLogLog key(s)."),
             container: None,
             group: String::from("hyperloglog"),
@@ -2770,7 +2770,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("PFDEBUG"), RedisCmdDescribeEntity {
+        (String::from("pfdebug"), RedisCmdDescribeEntity {
             summary: String::from("Internal commands for debugging HyperLogLog values."),
             container: None,
             group: String::from("hyperloglog"),
@@ -2785,7 +2785,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("PFMERGE"), RedisCmdDescribeEntity {
+        (String::from("pfmerge"), RedisCmdDescribeEntity {
             summary: String::from("Merges one or more HyperLogLog values into a single key."),
             container: None,
             group: String::from("hyperloglog"),
@@ -2805,7 +2805,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("PFSELFTEST"), RedisCmdDescribeEntity {
+        (String::from("pfselftest"), RedisCmdDescribeEntity {
             summary: String::from("An internal command for testing HyperLogLog values."),
             container: None,
             group: String::from("hyperloglog"),
@@ -2815,7 +2815,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),]),
             key_specs: None,
         }),
-        (String::from("PING"), RedisCmdDescribeEntity {
+        (String::from("ping"), RedisCmdDescribeEntity {
             summary: String::from("Returns the server's liveliness response."),
             container: None,
             group: String::from("connection"),
@@ -2825,7 +2825,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("FAST"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("PSETEX"), RedisCmdDescribeEntity {
+        (String::from("psetex"), RedisCmdDescribeEntity {
             summary: String::from("Sets both string value and expiration time in milliseconds of a key. The key is created if it doesn't exist."),
             container: None,
             group: String::from("string"),
@@ -2840,7 +2840,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("PSUBSCRIBE"), RedisCmdDescribeEntity {
+        (String::from("psubscribe"), RedisCmdDescribeEntity {
             summary: String::from("Listens for messages published to channels that match one or more patterns."),
             container: None,
             group: String::from("pubsub"),
@@ -2850,7 +2850,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("PUBSUB"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("PSYNC"), RedisCmdDescribeEntity {
+        (String::from("psync"), RedisCmdDescribeEntity {
             summary: String::from("An internal command used in replication."),
             container: None,
             group: String::from("server"),
@@ -2860,7 +2860,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NO_MULTI"),String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("PTTL"), RedisCmdDescribeEntity {
+        (String::from("pttl"), RedisCmdDescribeEntity {
             summary: String::from("Returns the expiration time in milliseconds of a key."),
             container: None,
             group: String::from("generic"),
@@ -2875,7 +2875,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("PUBLISH"), RedisCmdDescribeEntity {
+        (String::from("publish"), RedisCmdDescribeEntity {
             summary: String::from("Posts a message to a channel."),
             container: None,
             group: String::from("pubsub"),
@@ -2885,7 +2885,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("MAY_REPLICATE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("PUBSUB"), RedisCmdDescribeEntity {
+        (String::from("pubsub"), RedisCmdDescribeEntity {
             summary: String::from("A container for Pub/Sub commands."),
             container: None,
             group: String::from("pubsub"),
@@ -2895,7 +2895,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("PUBSUB CHANNELS"), RedisCmdDescribeEntity {
+        (String::from("pubsub channels"), RedisCmdDescribeEntity {
             summary: String::from("Returns the active channels."),
             container: Some(String::from("PUBSUB")),
             group: String::from("pubsub"),
@@ -2905,7 +2905,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("PUBSUB HELP"), RedisCmdDescribeEntity {
+        (String::from("pubsub help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("PUBSUB")),
             group: String::from("pubsub"),
@@ -2915,7 +2915,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("PUBSUB NUMPAT"), RedisCmdDescribeEntity {
+        (String::from("pubsub numpat"), RedisCmdDescribeEntity {
             summary: String::from("Returns a count of unique pattern subscriptions."),
             container: Some(String::from("PUBSUB")),
             group: String::from("pubsub"),
@@ -2925,7 +2925,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("PUBSUB NUMSUB"), RedisCmdDescribeEntity {
+        (String::from("pubsub numsub"), RedisCmdDescribeEntity {
             summary: String::from("Returns a count of subscribers to channels."),
             container: Some(String::from("PUBSUB")),
             group: String::from("pubsub"),
@@ -2935,7 +2935,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("PUBSUB SHARDCHANNELS"), RedisCmdDescribeEntity {
+        (String::from("pubsub shardchannels"), RedisCmdDescribeEntity {
             summary: String::from("Returns the active shard channels."),
             container: Some(String::from("PUBSUB")),
             group: String::from("pubsub"),
@@ -2945,7 +2945,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("PUBSUB SHARDNUMSUB"), RedisCmdDescribeEntity {
+        (String::from("pubsub shardnumsub"), RedisCmdDescribeEntity {
             summary: String::from("Returns the count of subscribers of shard channels."),
             container: Some(String::from("PUBSUB")),
             group: String::from("pubsub"),
@@ -2955,7 +2955,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("PUNSUBSCRIBE"), RedisCmdDescribeEntity {
+        (String::from("punsubscribe"), RedisCmdDescribeEntity {
             summary: String::from("Stops listening to messages published to channels that match one or more patterns."),
             container: None,
             group: String::from("pubsub"),
@@ -2965,7 +2965,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("PUBSUB"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("QUIT"), RedisCmdDescribeEntity {
+        (String::from("quit"), RedisCmdDescribeEntity {
             summary: String::from("Closes the connection."),
             container: None,
             group: String::from("connection"),
@@ -2975,7 +2975,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ALLOW_BUSY"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("NO_AUTH"),]),
             key_specs: None,
         }),
-        (String::from("RANDOMKEY"), RedisCmdDescribeEntity {
+        (String::from("randomkey"), RedisCmdDescribeEntity {
             summary: String::from("Returns a random key name from the database."),
             container: None,
             group: String::from("generic"),
@@ -2985,7 +2985,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("READONLY"),String::from("TOUCHES_ARBITRARY_KEYS"),]),
             key_specs: None,
         }),
-        (String::from("READONLY"), RedisCmdDescribeEntity {
+        (String::from("readonly"), RedisCmdDescribeEntity {
             summary: String::from("Enables read-only queries for a connection to a Redis Cluster replica node."),
             container: None,
             group: String::from("cluster"),
@@ -2995,7 +2995,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("FAST"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("READWRITE"), RedisCmdDescribeEntity {
+        (String::from("readwrite"), RedisCmdDescribeEntity {
             summary: String::from("Enables read-write queries for a connection to a Reids Cluster replica node."),
             container: None,
             group: String::from("cluster"),
@@ -3005,7 +3005,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("FAST"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("RENAME"), RedisCmdDescribeEntity {
+        (String::from("rename"), RedisCmdDescribeEntity {
             summary: String::from("Renames a key and overwrites the destination."),
             container: None,
             group: String::from("generic"),
@@ -3025,7 +3025,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("RENAMENX"), RedisCmdDescribeEntity {
+        (String::from("renamenx"), RedisCmdDescribeEntity {
             summary: String::from("Renames a key only when the target key name doesn't exist."),
             container: None,
             group: String::from("generic"),
@@ -3045,7 +3045,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("REPLCONF"), RedisCmdDescribeEntity {
+        (String::from("replconf"), RedisCmdDescribeEntity {
             summary: String::from("An internal command for configuring the replication stream."),
             container: None,
             group: String::from("server"),
@@ -3055,7 +3055,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("ALLOW_BUSY"),]),
             key_specs: None,
         }),
-        (String::from("REPLICAOF"), RedisCmdDescribeEntity {
+        (String::from("replicaof"), RedisCmdDescribeEntity {
             summary: String::from("Configures a server as replica of another, or promotes it to a master."),
             container: None,
             group: String::from("server"),
@@ -3065,7 +3065,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("RESET"), RedisCmdDescribeEntity {
+        (String::from("reset"), RedisCmdDescribeEntity {
             summary: String::from("Resets the connection."),
             container: None,
             group: String::from("connection"),
@@ -3075,7 +3075,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("NO_AUTH"),String::from("ALLOW_BUSY"),]),
             key_specs: None,
         }),
-        (String::from("RESTORE"), RedisCmdDescribeEntity {
+        (String::from("restore"), RedisCmdDescribeEntity {
             summary: String::from("Creates a key from the serialized representation of a value."),
             container: None,
             group: String::from("generic"),
@@ -3090,7 +3090,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("RESTORE-ASKING"), RedisCmdDescribeEntity {
+        (String::from("restore-asking"), RedisCmdDescribeEntity {
             summary: String::from("An internal command for migrating keys in a cluster."),
             container: None,
             group: String::from("server"),
@@ -3105,7 +3105,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ROLE"), RedisCmdDescribeEntity {
+        (String::from("role"), RedisCmdDescribeEntity {
             summary: String::from("Returns the replication role."),
             container: None,
             group: String::from("server"),
@@ -3115,7 +3115,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("RPOP"), RedisCmdDescribeEntity {
+        (String::from("rpop"), RedisCmdDescribeEntity {
             summary: String::from("Returns and removes the last elements of a list. Deletes the list if the last element was popped."),
             container: None,
             group: String::from("list"),
@@ -3130,7 +3130,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("RPOPLPUSH"), RedisCmdDescribeEntity {
+        (String::from("rpoplpush"), RedisCmdDescribeEntity {
             summary: String::from("Returns the last element of a list after removing and pushing it to another list. Deletes the list if the last element was popped."),
             container: None,
             group: String::from("list"),
@@ -3150,7 +3150,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("RPUSH"), RedisCmdDescribeEntity {
+        (String::from("rpush"), RedisCmdDescribeEntity {
             summary: String::from("Appends one or more elements to a list. Creates the key if it doesn't exist."),
             container: None,
             group: String::from("list"),
@@ -3165,7 +3165,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("RPUSHX"), RedisCmdDescribeEntity {
+        (String::from("rpushx"), RedisCmdDescribeEntity {
             summary: String::from("Appends an element to a list only when the list exists."),
             container: None,
             group: String::from("list"),
@@ -3180,7 +3180,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SADD"), RedisCmdDescribeEntity {
+        (String::from("sadd"), RedisCmdDescribeEntity {
             summary: String::from("Adds one or more members to a set. Creates the key if it doesn't exist."),
             container: None,
             group: String::from("set"),
@@ -3195,7 +3195,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SAVE"), RedisCmdDescribeEntity {
+        (String::from("save"), RedisCmdDescribeEntity {
             summary: String::from("Synchronously saves the database(s) to disk."),
             container: None,
             group: String::from("server"),
@@ -3205,7 +3205,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("NO_MULTI"),]),
             key_specs: None,
         }),
-        (String::from("SCAN"), RedisCmdDescribeEntity {
+        (String::from("scan"), RedisCmdDescribeEntity {
             summary: String::from("Iterates over the key names in the database."),
             container: None,
             group: String::from("generic"),
@@ -3215,7 +3215,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("READONLY"),String::from("TOUCHES_ARBITRARY_KEYS"),]),
             key_specs: None,
         }),
-        (String::from("SCARD"), RedisCmdDescribeEntity {
+        (String::from("scard"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of members in a set."),
             container: None,
             group: String::from("set"),
@@ -3230,7 +3230,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SCRIPT"), RedisCmdDescribeEntity {
+        (String::from("script"), RedisCmdDescribeEntity {
             summary: String::from("A container for Lua scripts management commands."),
             container: None,
             group: String::from("scripting"),
@@ -3240,7 +3240,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("SCRIPT DEBUG"), RedisCmdDescribeEntity {
+        (String::from("script debug"), RedisCmdDescribeEntity {
             summary: String::from("Sets the debug mode of server-side Lua scripts."),
             container: Some(String::from("SCRIPT")),
             group: String::from("scripting"),
@@ -3250,7 +3250,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("SCRIPT EXISTS"), RedisCmdDescribeEntity {
+        (String::from("script exists"), RedisCmdDescribeEntity {
             summary: String::from("Determines whether server-side Lua scripts exist in the script cache."),
             container: Some(String::from("SCRIPT")),
             group: String::from("scripting"),
@@ -3260,7 +3260,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("SCRIPT FLUSH"), RedisCmdDescribeEntity {
+        (String::from("script flush"), RedisCmdDescribeEntity {
             summary: String::from("Removes all server-side Lua scripts from the script cache."),
             container: Some(String::from("SCRIPT")),
             group: String::from("scripting"),
@@ -3270,7 +3270,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("SCRIPT HELP"), RedisCmdDescribeEntity {
+        (String::from("script help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("SCRIPT")),
             group: String::from("scripting"),
@@ -3280,7 +3280,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("SCRIPT KILL"), RedisCmdDescribeEntity {
+        (String::from("script kill"), RedisCmdDescribeEntity {
             summary: String::from("Terminates a server-side Lua script during execution."),
             container: Some(String::from("SCRIPT")),
             group: String::from("scripting"),
@@ -3290,7 +3290,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("ALLOW_BUSY"),]),
             key_specs: None,
         }),
-        (String::from("SCRIPT LOAD"), RedisCmdDescribeEntity {
+        (String::from("script load"), RedisCmdDescribeEntity {
             summary: String::from("Loads a server-side Lua script to the script cache."),
             container: Some(String::from("SCRIPT")),
             group: String::from("scripting"),
@@ -3300,7 +3300,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("SDIFF"), RedisCmdDescribeEntity {
+        (String::from("sdiff"), RedisCmdDescribeEntity {
             summary: String::from("Returns the difference of multiple sets."),
             container: None,
             group: String::from("set"),
@@ -3315,7 +3315,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SDIFFSTORE"), RedisCmdDescribeEntity {
+        (String::from("sdiffstore"), RedisCmdDescribeEntity {
             summary: String::from("Stores the difference of multiple sets in a key."),
             container: None,
             group: String::from("set"),
@@ -3335,7 +3335,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SELECT"), RedisCmdDescribeEntity {
+        (String::from("select"), RedisCmdDescribeEntity {
             summary: String::from("Changes the selected database."),
             container: None,
             group: String::from("connection"),
@@ -3345,7 +3345,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("FAST"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL"), RedisCmdDescribeEntity {
+        (String::from("sentinel"), RedisCmdDescribeEntity {
             summary: String::from("A container for Redis Sentinel commands."),
             container: None,
             group: String::from("sentinel"),
@@ -3355,7 +3355,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL CKQUORUM"), RedisCmdDescribeEntity {
+        (String::from("sentinel ckquorum"), RedisCmdDescribeEntity {
             summary: String::from("Checks for a Redis Sentinel quorum."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3365,7 +3365,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL CONFIG"), RedisCmdDescribeEntity {
+        (String::from("sentinel config"), RedisCmdDescribeEntity {
             summary: String::from("Configures Redis Sentinel."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3375,7 +3375,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL DEBUG"), RedisCmdDescribeEntity {
+        (String::from("sentinel debug"), RedisCmdDescribeEntity {
             summary: String::from("Lists or updates the current configurable parameters of Redis Sentinel."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3385,7 +3385,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL FAILOVER"), RedisCmdDescribeEntity {
+        (String::from("sentinel failover"), RedisCmdDescribeEntity {
             summary: String::from("Forces a Redis Sentinel failover."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3395,7 +3395,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL FLUSHCONFIG"), RedisCmdDescribeEntity {
+        (String::from("sentinel flushconfig"), RedisCmdDescribeEntity {
             summary: String::from("Rewrites the Redis Sentinel configuration file."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3405,7 +3405,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL GET-MASTER-ADDR-BY-NAME"), RedisCmdDescribeEntity {
+        (String::from("sentinel get-master-addr-by-name"), RedisCmdDescribeEntity {
             summary: String::from("Returns the port and address of a master Redis instance."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3415,7 +3415,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL HELP"), RedisCmdDescribeEntity {
+        (String::from("sentinel help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3425,7 +3425,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL INFO-CACHE"), RedisCmdDescribeEntity {
+        (String::from("sentinel info-cache"), RedisCmdDescribeEntity {
             summary: String::from("Returns the cached `INFO` replies from the deployment's instances."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3435,7 +3435,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL IS-MASTER-DOWN-BY-ADDR"), RedisCmdDescribeEntity {
+        (String::from("sentinel is-master-down-by-addr"), RedisCmdDescribeEntity {
             summary: String::from("Determines whether a master Redis instance is down."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3445,7 +3445,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL MASTER"), RedisCmdDescribeEntity {
+        (String::from("sentinel master"), RedisCmdDescribeEntity {
             summary: String::from("Returns the state of a master Redis instance."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3455,7 +3455,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL MASTERS"), RedisCmdDescribeEntity {
+        (String::from("sentinel masters"), RedisCmdDescribeEntity {
             summary: String::from("Returns a list of monitored Redis masters."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3465,7 +3465,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL MONITOR"), RedisCmdDescribeEntity {
+        (String::from("sentinel monitor"), RedisCmdDescribeEntity {
             summary: String::from("Starts monitoring."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3475,7 +3475,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL MYID"), RedisCmdDescribeEntity {
+        (String::from("sentinel myid"), RedisCmdDescribeEntity {
             summary: String::from("Returns the Redis Sentinel instance ID."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3485,7 +3485,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL PENDING-SCRIPTS"), RedisCmdDescribeEntity {
+        (String::from("sentinel pending-scripts"), RedisCmdDescribeEntity {
             summary: String::from("Returns information about pending scripts for Redis Sentinel."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3495,7 +3495,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL REMOVE"), RedisCmdDescribeEntity {
+        (String::from("sentinel remove"), RedisCmdDescribeEntity {
             summary: String::from("Stops monitoring."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3505,7 +3505,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL REPLICAS"), RedisCmdDescribeEntity {
+        (String::from("sentinel replicas"), RedisCmdDescribeEntity {
             summary: String::from("Returns a list of the monitored Redis replicas."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3515,7 +3515,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL RESET"), RedisCmdDescribeEntity {
+        (String::from("sentinel reset"), RedisCmdDescribeEntity {
             summary: String::from("Resets Redis masters by name matching a pattern."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3525,7 +3525,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL SENTINELS"), RedisCmdDescribeEntity {
+        (String::from("sentinel sentinels"), RedisCmdDescribeEntity {
             summary: String::from("Returns a list of Sentinel instances."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3535,7 +3535,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL SET"), RedisCmdDescribeEntity {
+        (String::from("sentinel set"), RedisCmdDescribeEntity {
             summary: String::from("Changes the configuration of a monitored Redis master."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3545,7 +3545,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL SIMULATE-FAILURE"), RedisCmdDescribeEntity {
+        (String::from("sentinel simulate-failure"), RedisCmdDescribeEntity {
             summary: String::from("Simulates failover scenarios."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3555,7 +3555,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SENTINEL SLAVES"), RedisCmdDescribeEntity {
+        (String::from("sentinel slaves"), RedisCmdDescribeEntity {
             summary: String::from("Returns a list of the monitored replicas."),
             container: Some(String::from("SENTINEL")),
             group: String::from("sentinel"),
@@ -3565,7 +3565,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SET"), RedisCmdDescribeEntity {
+        (String::from("set"), RedisCmdDescribeEntity {
             summary: String::from("Sets the string value of a key, ignoring its type. The key is created if it doesn't exist."),
             container: None,
             group: String::from("string"),
@@ -3580,7 +3580,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SETBIT"), RedisCmdDescribeEntity {
+        (String::from("setbit"), RedisCmdDescribeEntity {
             summary: String::from("Sets or clears the bit at offset of the string value. Creates the key if it doesn't exist."),
             container: None,
             group: String::from("bitmap"),
@@ -3595,7 +3595,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SETEX"), RedisCmdDescribeEntity {
+        (String::from("setex"), RedisCmdDescribeEntity {
             summary: String::from("Sets the string value and expiration time of a key. Creates the key if it doesn't exist."),
             container: None,
             group: String::from("string"),
@@ -3610,7 +3610,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SETNX"), RedisCmdDescribeEntity {
+        (String::from("setnx"), RedisCmdDescribeEntity {
             summary: String::from("Set the string value of a key only when the key doesn't exist."),
             container: None,
             group: String::from("string"),
@@ -3625,7 +3625,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SETRANGE"), RedisCmdDescribeEntity {
+        (String::from("setrange"), RedisCmdDescribeEntity {
             summary: String::from("Overwrites a part of a string value with another by an offset. Creates the key if it doesn't exist."),
             container: None,
             group: String::from("string"),
@@ -3640,7 +3640,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SHUTDOWN"), RedisCmdDescribeEntity {
+        (String::from("shutdown"), RedisCmdDescribeEntity {
             summary: String::from("Synchronously saves the database(s) to disk and shuts down the Redis server."),
             container: None,
             group: String::from("server"),
@@ -3650,7 +3650,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("NO_MULTI"),String::from("SENTINEL"),String::from("ALLOW_BUSY"),]),
             key_specs: None,
         }),
-        (String::from("SINTER"), RedisCmdDescribeEntity {
+        (String::from("sinter"), RedisCmdDescribeEntity {
             summary: String::from("Returns the intersect of multiple sets."),
             container: None,
             group: String::from("set"),
@@ -3665,7 +3665,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SINTERCARD"), RedisCmdDescribeEntity {
+        (String::from("sintercard"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of members of the intersect of multiple sets."),
             container: None,
             group: String::from("set"),
@@ -3680,7 +3680,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SINTERSTORE"), RedisCmdDescribeEntity {
+        (String::from("sinterstore"), RedisCmdDescribeEntity {
             summary: String::from("Stores the intersect of multiple sets in a key."),
             container: None,
             group: String::from("set"),
@@ -3700,7 +3700,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SISMEMBER"), RedisCmdDescribeEntity {
+        (String::from("sismember"), RedisCmdDescribeEntity {
             summary: String::from("Determines whether a member belongs to a set."),
             container: None,
             group: String::from("set"),
@@ -3715,7 +3715,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SLAVEOF"), RedisCmdDescribeEntity {
+        (String::from("slaveof"), RedisCmdDescribeEntity {
             summary: String::from("Sets a Redis server as a replica of another, or promotes it to being a master."),
             container: None,
             group: String::from("server"),
@@ -3725,7 +3725,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("SLOWLOG"), RedisCmdDescribeEntity {
+        (String::from("slowlog"), RedisCmdDescribeEntity {
             summary: String::from("A container for slow log commands."),
             container: None,
             group: String::from("server"),
@@ -3735,7 +3735,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("SLOWLOG GET"), RedisCmdDescribeEntity {
+        (String::from("slowlog get"), RedisCmdDescribeEntity {
             summary: String::from("Returns the slow log's entries."),
             container: Some(String::from("SLOWLOG")),
             group: String::from("server"),
@@ -3745,7 +3745,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("SLOWLOG HELP"), RedisCmdDescribeEntity {
+        (String::from("slowlog help"), RedisCmdDescribeEntity {
             summary: String::from("Show helpful text about the different subcommands"),
             container: Some(String::from("SLOWLOG")),
             group: String::from("server"),
@@ -3755,7 +3755,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("SLOWLOG LEN"), RedisCmdDescribeEntity {
+        (String::from("slowlog len"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of entries in the slow log."),
             container: Some(String::from("SLOWLOG")),
             group: String::from("server"),
@@ -3765,7 +3765,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("SLOWLOG RESET"), RedisCmdDescribeEntity {
+        (String::from("slowlog reset"), RedisCmdDescribeEntity {
             summary: String::from("Clears all entries from the slow log."),
             container: Some(String::from("SLOWLOG")),
             group: String::from("server"),
@@ -3775,7 +3775,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("ADMIN"),String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("SMEMBERS"), RedisCmdDescribeEntity {
+        (String::from("smembers"), RedisCmdDescribeEntity {
             summary: String::from("Returns all members of a set."),
             container: None,
             group: String::from("set"),
@@ -3790,7 +3790,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SMISMEMBER"), RedisCmdDescribeEntity {
+        (String::from("smismember"), RedisCmdDescribeEntity {
             summary: String::from("Determines whether multiple members belong to a set."),
             container: None,
             group: String::from("set"),
@@ -3805,7 +3805,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SMOVE"), RedisCmdDescribeEntity {
+        (String::from("smove"), RedisCmdDescribeEntity {
             summary: String::from("Moves a member from one set to another."),
             container: None,
             group: String::from("set"),
@@ -3825,7 +3825,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SORT"), RedisCmdDescribeEntity {
+        (String::from("sort"), RedisCmdDescribeEntity {
             summary: String::from("Sorts the elements in a list, a set, or a sorted set, optionally storing the result."),
             container: None,
             group: String::from("generic"),
@@ -3850,7 +3850,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SORT_RO"), RedisCmdDescribeEntity {
+        (String::from("sort_ro"), RedisCmdDescribeEntity {
             summary: String::from("Returns the sorted elements of a list, a set, or a sorted set."),
             container: None,
             group: String::from("generic"),
@@ -3870,7 +3870,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SPOP"), RedisCmdDescribeEntity {
+        (String::from("spop"), RedisCmdDescribeEntity {
             summary: String::from("Returns one or more random members from a set after removing them. Deletes the set if the last member was popped."),
             container: None,
             group: String::from("set"),
@@ -3885,7 +3885,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SPUBLISH"), RedisCmdDescribeEntity {
+        (String::from("spublish"), RedisCmdDescribeEntity {
             summary: String::from("Post a message to a shard channel"),
             container: None,
             group: String::from("pubsub"),
@@ -3900,7 +3900,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SRANDMEMBER"), RedisCmdDescribeEntity {
+        (String::from("srandmember"), RedisCmdDescribeEntity {
             summary: String::from("Get one or multiple random members from a set"),
             container: None,
             group: String::from("set"),
@@ -3915,7 +3915,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SREM"), RedisCmdDescribeEntity {
+        (String::from("srem"), RedisCmdDescribeEntity {
             summary: String::from("Removes one or more members from a set. Deletes the set if the last member was removed."),
             container: None,
             group: String::from("set"),
@@ -3930,7 +3930,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SSCAN"), RedisCmdDescribeEntity {
+        (String::from("sscan"), RedisCmdDescribeEntity {
             summary: String::from("Iterates over members of a set."),
             container: None,
             group: String::from("set"),
@@ -3945,7 +3945,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SSUBSCRIBE"), RedisCmdDescribeEntity {
+        (String::from("ssubscribe"), RedisCmdDescribeEntity {
             summary: String::from("Listens for messages published to shard channels."),
             container: None,
             group: String::from("pubsub"),
@@ -3960,7 +3960,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("STRLEN"), RedisCmdDescribeEntity {
+        (String::from("strlen"), RedisCmdDescribeEntity {
             summary: String::from("Returns the length of a string value."),
             container: None,
             group: String::from("string"),
@@ -3975,7 +3975,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SUBSCRIBE"), RedisCmdDescribeEntity {
+        (String::from("subscribe"), RedisCmdDescribeEntity {
             summary: String::from("Listens for messages published to channels."),
             container: None,
             group: String::from("pubsub"),
@@ -3985,7 +3985,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("PUBSUB"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("SUBSTR"), RedisCmdDescribeEntity {
+        (String::from("substr"), RedisCmdDescribeEntity {
             summary: String::from("Returns a substring from a string value."),
             container: None,
             group: String::from("string"),
@@ -4000,7 +4000,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SUNION"), RedisCmdDescribeEntity {
+        (String::from("sunion"), RedisCmdDescribeEntity {
             summary: String::from("Returns the union of multiple sets."),
             container: None,
             group: String::from("set"),
@@ -4015,7 +4015,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SUNIONSTORE"), RedisCmdDescribeEntity {
+        (String::from("sunionstore"), RedisCmdDescribeEntity {
             summary: String::from("Stores the union of multiple sets in a key."),
             container: None,
             group: String::from("set"),
@@ -4035,7 +4035,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SUNSUBSCRIBE"), RedisCmdDescribeEntity {
+        (String::from("sunsubscribe"), RedisCmdDescribeEntity {
             summary: String::from("Stops listening to messages posted to shard channels."),
             container: None,
             group: String::from("pubsub"),
@@ -4050,7 +4050,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("SWAPDB"), RedisCmdDescribeEntity {
+        (String::from("swapdb"), RedisCmdDescribeEntity {
             summary: String::from("Swaps two Redis databases."),
             container: None,
             group: String::from("server"),
@@ -4060,7 +4060,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
             key_specs: None,
         }),
-        (String::from("SYNC"), RedisCmdDescribeEntity {
+        (String::from("sync"), RedisCmdDescribeEntity {
             summary: String::from("An internal command used in replication."),
             container: None,
             group: String::from("server"),
@@ -4070,7 +4070,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NO_MULTI"),String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("TIME"), RedisCmdDescribeEntity {
+        (String::from("time"), RedisCmdDescribeEntity {
             summary: String::from("Returns the server time."),
             container: None,
             group: String::from("server"),
@@ -4080,7 +4080,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("FAST"),]),
             key_specs: None,
         }),
-        (String::from("TOUCH"), RedisCmdDescribeEntity {
+        (String::from("touch"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of existing keys out of those specified after updating the time they were last accessed."),
             container: None,
             group: String::from("generic"),
@@ -4095,7 +4095,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("TTL"), RedisCmdDescribeEntity {
+        (String::from("ttl"), RedisCmdDescribeEntity {
             summary: String::from("Returns the expiration time in seconds of a key."),
             container: None,
             group: String::from("generic"),
@@ -4110,7 +4110,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("TYPE"), RedisCmdDescribeEntity {
+        (String::from("type"), RedisCmdDescribeEntity {
             summary: String::from("Determines the type of value stored at a key."),
             container: None,
             group: String::from("generic"),
@@ -4125,7 +4125,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("UNLINK"), RedisCmdDescribeEntity {
+        (String::from("unlink"), RedisCmdDescribeEntity {
             summary: String::from("Asynchronously deletes one or more keys."),
             container: None,
             group: String::from("generic"),
@@ -4140,7 +4140,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("UNSUBSCRIBE"), RedisCmdDescribeEntity {
+        (String::from("unsubscribe"), RedisCmdDescribeEntity {
             summary: String::from("Stops listening to messages posted to channels."),
             container: None,
             group: String::from("pubsub"),
@@ -4150,7 +4150,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("PUBSUB"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
             key_specs: None,
         }),
-        (String::from("UNWATCH"), RedisCmdDescribeEntity {
+        (String::from("unwatch"), RedisCmdDescribeEntity {
             summary: String::from("Forgets about watched keys of a transaction."),
             container: None,
             group: String::from("transactions"),
@@ -4160,7 +4160,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("ALLOW_BUSY"),]),
             key_specs: None,
         }),
-        (String::from("WAIT"), RedisCmdDescribeEntity {
+        (String::from("wait"), RedisCmdDescribeEntity {
             summary: String::from("Blocks until the asynchronous replication of all preceding write commands sent by the connection is completed."),
             container: None,
             group: String::from("generic"),
@@ -4170,7 +4170,7 @@ lazy_static! {
             command_flags: Some(vec![]),
             key_specs: None,
         }),
-        (String::from("WAITAOF"), RedisCmdDescribeEntity {
+        (String::from("waitaof"), RedisCmdDescribeEntity {
             summary: String::from("Blocks until all of the preceding write commands sent by the connection are written to the append-only file of the master and/or replicas."),
             container: None,
             group: String::from("generic"),
@@ -4180,7 +4180,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("NOSCRIPT"),]),
             key_specs: None,
         }),
-        (String::from("WATCH"), RedisCmdDescribeEntity {
+        (String::from("watch"), RedisCmdDescribeEntity {
             summary: String::from("Monitors changes to keys to determine the execution of a transaction."),
             container: None,
             group: String::from("transactions"),
@@ -4195,7 +4195,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XACK"), RedisCmdDescribeEntity {
+        (String::from("xack"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of messages that were successfully acknowledged by the consumer group member of a stream."),
             container: None,
             group: String::from("stream"),
@@ -4210,7 +4210,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XADD"), RedisCmdDescribeEntity {
+        (String::from("xadd"), RedisCmdDescribeEntity {
             summary: String::from("Appends a new message to a stream. Creates the key if it doesn't exist."),
             container: None,
             group: String::from("stream"),
@@ -4225,7 +4225,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XAUTOCLAIM"), RedisCmdDescribeEntity {
+        (String::from("xautoclaim"), RedisCmdDescribeEntity {
             summary: String::from("Changes, or acquires, ownership of messages in a consumer group, as if the messages were delivered to as consumer group member."),
             container: None,
             group: String::from("stream"),
@@ -4240,7 +4240,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XCLAIM"), RedisCmdDescribeEntity {
+        (String::from("xclaim"), RedisCmdDescribeEntity {
             summary: String::from("Changes, or acquires, ownership of a message in a consumer group, as if the message was delivered a consumer group member."),
             container: None,
             group: String::from("stream"),
@@ -4255,7 +4255,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XDEL"), RedisCmdDescribeEntity {
+        (String::from("xdel"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of messages after removing them from a stream."),
             container: None,
             group: String::from("stream"),
@@ -4270,7 +4270,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XGROUP"), RedisCmdDescribeEntity {
+        (String::from("xgroup"), RedisCmdDescribeEntity {
             summary: String::from("A container for consumer groups commands."),
             container: None,
             group: String::from("stream"),
@@ -4280,7 +4280,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("XGROUP CREATE"), RedisCmdDescribeEntity {
+        (String::from("xgroup create"), RedisCmdDescribeEntity {
             summary: String::from("Creates a consumer group."),
             container: Some(String::from("XGROUP")),
             group: String::from("stream"),
@@ -4295,7 +4295,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XGROUP CREATECONSUMER"), RedisCmdDescribeEntity {
+        (String::from("xgroup createconsumer"), RedisCmdDescribeEntity {
             summary: String::from("Creates a consumer in a consumer group."),
             container: Some(String::from("XGROUP")),
             group: String::from("stream"),
@@ -4310,7 +4310,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XGROUP DELCONSUMER"), RedisCmdDescribeEntity {
+        (String::from("xgroup delconsumer"), RedisCmdDescribeEntity {
             summary: String::from("Deletes a consumer from a consumer group."),
             container: Some(String::from("XGROUP")),
             group: String::from("stream"),
@@ -4325,7 +4325,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XGROUP DESTROY"), RedisCmdDescribeEntity {
+        (String::from("xgroup destroy"), RedisCmdDescribeEntity {
             summary: String::from("Destroys a consumer group."),
             container: Some(String::from("XGROUP")),
             group: String::from("stream"),
@@ -4340,7 +4340,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XGROUP HELP"), RedisCmdDescribeEntity {
+        (String::from("xgroup help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("XGROUP")),
             group: String::from("stream"),
@@ -4350,7 +4350,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("XGROUP SETID"), RedisCmdDescribeEntity {
+        (String::from("xgroup setid"), RedisCmdDescribeEntity {
             summary: String::from("Sets the last-delivered ID of a consumer group."),
             container: Some(String::from("XGROUP")),
             group: String::from("stream"),
@@ -4365,7 +4365,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XINFO"), RedisCmdDescribeEntity {
+        (String::from("xinfo"), RedisCmdDescribeEntity {
             summary: String::from("A container for stream introspection commands."),
             container: None,
             group: String::from("stream"),
@@ -4375,7 +4375,7 @@ lazy_static! {
             command_flags: None,
             key_specs: None,
         }),
-        (String::from("XINFO CONSUMERS"), RedisCmdDescribeEntity {
+        (String::from("xinfo consumers"), RedisCmdDescribeEntity {
             summary: String::from("Returns a list of the consumers in a consumer group."),
             container: Some(String::from("XINFO")),
             group: String::from("stream"),
@@ -4390,7 +4390,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XINFO GROUPS"), RedisCmdDescribeEntity {
+        (String::from("xinfo groups"), RedisCmdDescribeEntity {
             summary: String::from("Returns a list of the consumer groups of a stream."),
             container: Some(String::from("XINFO")),
             group: String::from("stream"),
@@ -4405,7 +4405,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XINFO HELP"), RedisCmdDescribeEntity {
+        (String::from("xinfo help"), RedisCmdDescribeEntity {
             summary: String::from("Returns helpful text about the different subcommands."),
             container: Some(String::from("XINFO")),
             group: String::from("stream"),
@@ -4415,7 +4415,7 @@ lazy_static! {
             command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
             key_specs: None,
         }),
-        (String::from("XINFO STREAM"), RedisCmdDescribeEntity {
+        (String::from("xinfo stream"), RedisCmdDescribeEntity {
             summary: String::from("Returns information about a stream."),
             container: Some(String::from("XINFO")),
             group: String::from("stream"),
@@ -4430,7 +4430,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XLEN"), RedisCmdDescribeEntity {
+        (String::from("xlen"), RedisCmdDescribeEntity {
             summary: String::from("Return the number of messages in a stream."),
             container: None,
             group: String::from("stream"),
@@ -4445,7 +4445,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XPENDING"), RedisCmdDescribeEntity {
+        (String::from("xpending"), RedisCmdDescribeEntity {
             summary: String::from("Returns the information and entries from a stream consumer group's pending entries list."),
             container: None,
             group: String::from("stream"),
@@ -4460,7 +4460,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XRANGE"), RedisCmdDescribeEntity {
+        (String::from("xrange"), RedisCmdDescribeEntity {
             summary: String::from("Returns the messages from a stream within a range of IDs."),
             container: None,
             group: String::from("stream"),
@@ -4475,7 +4475,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XREAD"), RedisCmdDescribeEntity {
+        (String::from("xread"), RedisCmdDescribeEntity {
             summary: String::from("Returns messages from multiple streams with IDs greater than the ones requested. Blocks until a message is available otherwise."),
             container: None,
             group: String::from("stream"),
@@ -4490,7 +4490,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XREADGROUP"), RedisCmdDescribeEntity {
+        (String::from("xreadgroup"), RedisCmdDescribeEntity {
             summary: String::from("Returns new or historical messages from a stream for a consumer in a group. Blocks until a message is available otherwise."),
             container: None,
             group: String::from("stream"),
@@ -4505,7 +4505,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XREVRANGE"), RedisCmdDescribeEntity {
+        (String::from("xrevrange"), RedisCmdDescribeEntity {
             summary: String::from("Returns the messages from a stream within a range of IDs in reverse order."),
             container: None,
             group: String::from("stream"),
@@ -4520,7 +4520,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XSETID"), RedisCmdDescribeEntity {
+        (String::from("xsetid"), RedisCmdDescribeEntity {
             summary: String::from("An internal command for replicating stream values."),
             container: None,
             group: String::from("stream"),
@@ -4535,7 +4535,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("XTRIM"), RedisCmdDescribeEntity {
+        (String::from("xtrim"), RedisCmdDescribeEntity {
             summary: String::from("Deletes messages from the beginning of a stream."),
             container: None,
             group: String::from("stream"),
@@ -4550,7 +4550,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZADD"), RedisCmdDescribeEntity {
+        (String::from("zadd"), RedisCmdDescribeEntity {
             summary: String::from("Adds one or more members to a sorted set, or updates their scores. Creates the key if it doesn't exist."),
             container: None,
             group: String::from("sorted_set"),
@@ -4565,7 +4565,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZCARD"), RedisCmdDescribeEntity {
+        (String::from("zcard"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of members in a sorted set."),
             container: None,
             group: String::from("sorted_set"),
@@ -4580,7 +4580,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZCOUNT"), RedisCmdDescribeEntity {
+        (String::from("zcount"), RedisCmdDescribeEntity {
             summary: String::from("Returns the count of members in a sorted set that have scores within a range."),
             container: None,
             group: String::from("sorted_set"),
@@ -4595,7 +4595,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZDIFF"), RedisCmdDescribeEntity {
+        (String::from("zdiff"), RedisCmdDescribeEntity {
             summary: String::from("Returns the difference between multiple sorted sets."),
             container: None,
             group: String::from("sorted_set"),
@@ -4610,7 +4610,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZDIFFSTORE"), RedisCmdDescribeEntity {
+        (String::from("zdiffstore"), RedisCmdDescribeEntity {
             summary: String::from("Stores the difference of multiple sorted sets in a key."),
             container: None,
             group: String::from("sorted_set"),
@@ -4630,7 +4630,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZINCRBY"), RedisCmdDescribeEntity {
+        (String::from("zincrby"), RedisCmdDescribeEntity {
             summary: String::from("Increments the score of a member in a sorted set."),
             container: None,
             group: String::from("sorted_set"),
@@ -4645,7 +4645,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZINTER"), RedisCmdDescribeEntity {
+        (String::from("zinter"), RedisCmdDescribeEntity {
             summary: String::from("Returns the intersect of multiple sorted sets."),
             container: None,
             group: String::from("sorted_set"),
@@ -4660,7 +4660,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZINTERCARD"), RedisCmdDescribeEntity {
+        (String::from("zintercard"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of members of the intersect of multiple sorted sets."),
             container: None,
             group: String::from("sorted_set"),
@@ -4675,7 +4675,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZINTERSTORE"), RedisCmdDescribeEntity {
+        (String::from("zinterstore"), RedisCmdDescribeEntity {
             summary: String::from("Stores the intersect of multiple sorted sets in a key."),
             container: None,
             group: String::from("sorted_set"),
@@ -4695,7 +4695,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZLEXCOUNT"), RedisCmdDescribeEntity {
+        (String::from("zlexcount"), RedisCmdDescribeEntity {
             summary: String::from("Returns the number of members in a sorted set within a lexicographical range."),
             container: None,
             group: String::from("sorted_set"),
@@ -4710,7 +4710,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZMPOP"), RedisCmdDescribeEntity {
+        (String::from("zmpop"), RedisCmdDescribeEntity {
             summary: String::from("Returns the highest- or lowest-scoring members from one or more sorted sets after removing them. Deletes the sorted set if the last member was popped."),
             container: None,
             group: String::from("sorted_set"),
@@ -4725,7 +4725,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZMSCORE"), RedisCmdDescribeEntity {
+        (String::from("zmscore"), RedisCmdDescribeEntity {
             summary: String::from("Returns the score of one or more members in a sorted set."),
             container: None,
             group: String::from("sorted_set"),
@@ -4740,7 +4740,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZPOPMAX"), RedisCmdDescribeEntity {
+        (String::from("zpopmax"), RedisCmdDescribeEntity {
             summary: String::from("Returns the highest-scoring members from a sorted set after removing them. Deletes the sorted set if the last member was popped."),
             container: None,
             group: String::from("sorted_set"),
@@ -4755,7 +4755,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZPOPMIN"), RedisCmdDescribeEntity {
+        (String::from("zpopmin"), RedisCmdDescribeEntity {
             summary: String::from("Returns the lowest-scoring members from a sorted set after removing them. Deletes the sorted set if the last member was popped."),
             container: None,
             group: String::from("sorted_set"),
@@ -4770,7 +4770,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZRANDMEMBER"), RedisCmdDescribeEntity {
+        (String::from("zrandmember"), RedisCmdDescribeEntity {
             summary: String::from("Returns one or more random members from a sorted set."),
             container: None,
             group: String::from("sorted_set"),
@@ -4785,7 +4785,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZRANGE"), RedisCmdDescribeEntity {
+        (String::from("zrange"), RedisCmdDescribeEntity {
             summary: String::from("Returns members in a sorted set within a range of indexes."),
             container: None,
             group: String::from("sorted_set"),
@@ -4800,7 +4800,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZRANGEBYLEX"), RedisCmdDescribeEntity {
+        (String::from("zrangebylex"), RedisCmdDescribeEntity {
             summary: String::from("Returns members in a sorted set within a lexicographical range."),
             container: None,
             group: String::from("sorted_set"),
@@ -4815,7 +4815,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZRANGEBYSCORE"), RedisCmdDescribeEntity {
+        (String::from("zrangebyscore"), RedisCmdDescribeEntity {
             summary: String::from("Returns members in a sorted set within a range of scores."),
             container: None,
             group: String::from("sorted_set"),
@@ -4830,7 +4830,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZRANGESTORE"), RedisCmdDescribeEntity {
+        (String::from("zrangestore"), RedisCmdDescribeEntity {
             summary: String::from("Stores a range of members from sorted set in a key."),
             container: None,
             group: String::from("sorted_set"),
@@ -4850,7 +4850,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZRANK"), RedisCmdDescribeEntity {
+        (String::from("zrank"), RedisCmdDescribeEntity {
             summary: String::from("Returns the index of a member in a sorted set ordered by ascending scores."),
             container: None,
             group: String::from("sorted_set"),
@@ -4865,7 +4865,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZREM"), RedisCmdDescribeEntity {
+        (String::from("zrem"), RedisCmdDescribeEntity {
             summary: String::from("Removes one or more members from a sorted set. Deletes the sorted set if all members were removed."),
             container: None,
             group: String::from("sorted_set"),
@@ -4880,7 +4880,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZREMRANGEBYLEX"), RedisCmdDescribeEntity {
+        (String::from("zremrangebylex"), RedisCmdDescribeEntity {
             summary: String::from("Removes members in a sorted set within a lexicographical range. Deletes the sorted set if all members were removed."),
             container: None,
             group: String::from("sorted_set"),
@@ -4895,7 +4895,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZREMRANGEBYRANK"), RedisCmdDescribeEntity {
+        (String::from("zremrangebyrank"), RedisCmdDescribeEntity {
             summary: String::from("Removes members in a sorted set within a range of indexes. Deletes the sorted set if all members were removed."),
             container: None,
             group: String::from("sorted_set"),
@@ -4910,7 +4910,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZREMRANGEBYSCORE"), RedisCmdDescribeEntity {
+        (String::from("zremrangebyscore"), RedisCmdDescribeEntity {
             summary: String::from("Removes members in a sorted set within a range of scores. Deletes the sorted set if all members were removed."),
             container: None,
             group: String::from("sorted_set"),
@@ -4925,7 +4925,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZREVRANGE"), RedisCmdDescribeEntity {
+        (String::from("zrevrange"), RedisCmdDescribeEntity {
             summary: String::from("Returns members in a sorted set within a range of indexes in reverse order."),
             container: None,
             group: String::from("sorted_set"),
@@ -4940,7 +4940,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZREVRANGEBYLEX"), RedisCmdDescribeEntity {
+        (String::from("zrevrangebylex"), RedisCmdDescribeEntity {
             summary: String::from("Returns members in a sorted set within a lexicographical range in reverse order."),
             container: None,
             group: String::from("sorted_set"),
@@ -4955,7 +4955,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZREVRANGEBYSCORE"), RedisCmdDescribeEntity {
+        (String::from("zrevrangebyscore"), RedisCmdDescribeEntity {
             summary: String::from("Returns members in a sorted set within a range of scores in reverse order."),
             container: None,
             group: String::from("sorted_set"),
@@ -4970,7 +4970,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZREVRANK"), RedisCmdDescribeEntity {
+        (String::from("zrevrank"), RedisCmdDescribeEntity {
             summary: String::from("Returns the index of a member in a sorted set ordered by descending scores."),
             container: None,
             group: String::from("sorted_set"),
@@ -4985,7 +4985,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZSCAN"), RedisCmdDescribeEntity {
+        (String::from("zscan"), RedisCmdDescribeEntity {
             summary: String::from("Iterates over members and scores of a sorted set."),
             container: None,
             group: String::from("sorted_set"),
@@ -5000,7 +5000,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZSCORE"), RedisCmdDescribeEntity {
+        (String::from("zscore"), RedisCmdDescribeEntity {
             summary: String::from("Returns the score of a member in a sorted set."),
             container: None,
             group: String::from("sorted_set"),
@@ -5015,7 +5015,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZUNION"), RedisCmdDescribeEntity {
+        (String::from("zunion"), RedisCmdDescribeEntity {
             summary: String::from("Returns the union of multiple sorted sets."),
             container: None,
             group: String::from("sorted_set"),
@@ -5030,7 +5030,7 @@ lazy_static! {
                 },
             ]),
         }),
-        (String::from("ZUNIONSTORE"), RedisCmdDescribeEntity {
+        (String::from("zunionstore"), RedisCmdDescribeEntity {
             summary: String::from("Stores the union of multiple sorted sets in a key."),
             container: None,
             group: String::from("sorted_set"),

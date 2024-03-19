@@ -38,12 +38,12 @@ fn main() {
 
     let mut multi_cmd_map = String::new();
     for (container, _) in all_multi_cmd_map {
-        multi_cmd_map.push_str(&format!("        (String::from(\"{}\"), true),\n", container));
+        multi_cmd_map.push_str(&format!("        (String::from(\"{}\"), true),\n", container.to_lowercase()));
     }
 
     let mut cmd_map = String::new();
     for (k, v) in all_cmd_map {
-        let head = format!("        (String::from(\"{}\"), RedisCmdDescribeEntity {{\n", k);
+        let head = format!("        (String::from(\"{}\"), RedisCmdDescribeEntity {{\n", k.to_lowercase());
         let summary = format!("            summary: String::from(\"{}\"),\n", v.summary);
         let container = if let Some(c) = v.container {
             format!("            container: Some(String::from(\"{}\")),\n", c)
