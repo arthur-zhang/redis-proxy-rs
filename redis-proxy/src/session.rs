@@ -70,10 +70,18 @@ impl Session {
         self.header_frame.as_ref().map(|it| it.cmd_type).unwrap_or(CmdType::UNKNOWN)
     }
 
+    #[inline]
+    pub fn header_frame_unchecked(&self) -> &ReqFrameData {
+        self.header_frame.as_ref().unwrap()
+    }
+
+    #[inline]
     pub async fn send_resp_to_downstream(&mut self, data: Bytes) -> anyhow::Result<()> {
         self.downstream_writer.write_all(&data).await?;
         Ok(())
     }
+
+    #[inline]
     pub async fn read_downstream(&mut self) -> Option<Result<ReqFrameData, DecodeError>> {
         self.downstream_reader.next().await
     }

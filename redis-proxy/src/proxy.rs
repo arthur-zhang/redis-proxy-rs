@@ -1,3 +1,4 @@
+use std::io::IoSlice;
 use std::sync::Arc;
 
 use anyhow::{anyhow, bail};
@@ -65,6 +66,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             }
             Err(err) => {
                 self.inner.request_done(&mut session, Some(&err), &mut ctx).await;
+                return None;
             }
         }
         Some(session)
@@ -124,23 +126,29 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             }
         }
 
+        let header_data = session.header_frame_unchecked().raw_bytes.clone();
+        let mut iov = vec![IoSlice::new(&header_data)];
 
-        let header_data = session.header_frame.as_ref().unwrap().raw_bytes.clone();
-        let mut req_data_vec = vec![];
-        req_data_vec.push(header_data);
+        let req_body_resp = session.drain_req_until_done().await?;
 
-        if let Some((resp, size)) = session.drain_req_until_done().await? {
-            req_data_vec.extend_from_slice(&resp);
+        if let Some((req_body_parts, size)) = &req_body_resp {
             session.req_size += size;
+            for resp_bytes in req_body_parts {
+                iov.push(IoSlice::new(&resp_bytes));
+            }
         }
 
-        let join_result = tokio::join!(conn.query_with_resp_vec(&req_data_vec),  dw_conn.query_with_resp_vec(&req_data_vec));
+        let join_result = tokio::join!(conn.query_vectored(&iov),  dw_conn.query_vectored(&iov));
 
         return match join_result {
-            (Ok((upstream_resp_ok, upstream_bytes)), Ok((dw_resp_ok, dw_bytes))) => {
+            (Ok((upstream_resp_ok, upstream_bytes, upstream_resp_size)),
+                Ok((dw_resp_ok, dw_bytes, _))) => {
                 if cmd_type == CmdType::AUTH {
                     session.is_authed = upstream_resp_ok;
                 }
+                session.res_size += upstream_resp_size;
+                session.res_is_ok = upstream_resp_ok && dw_resp_ok;
+
                 if dw_resp_ok {
                     session.write_downstream_batch(upstream_bytes).await?;
                 } else {
