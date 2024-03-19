@@ -16,7 +16,7 @@ pub struct DoubleWriter {
 
 impl DoubleWriter {
     pub async fn new(
-        splitter: char, 
+        splitter: char,
         router_name: String,
         upstream_conf: &GenericUpstream,
         etcd_client: Option<EtcdClient>,
@@ -28,7 +28,8 @@ impl DoubleWriter {
             upstream_conf.local_routes.clone(),
             etcd_client).await?;
         let conn_option = upstream_conf.address.parse::<RedisConnectionOption>().unwrap();
-        let pool: poolx::Pool<RedisConnection> = upstream_conf.conn_pool_conf.new_pool_opt().connect_lazy_with(conn_option);
+        let pool: poolx::Pool<RedisConnection> = upstream_conf.conn_pool_conf.new_pool_opt()
+            .connect_lazy_with(conn_option);
 
         Ok(Self { router, pool })
     }

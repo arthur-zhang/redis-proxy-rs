@@ -128,24 +128,26 @@ impl RedisConnection {
                 }
             }
             (true, false) => {
-                // connection is auth, but ctx is not auth, should return no auth
+                // connection is auth, but session is not auth, should return no auth
                 Ok(AuthStatus::AuthFailed)
             }
         };
     }
 
-    pub async fn query_with_resp_vec<'a>(&mut self, vec: &Vec<Bytes>) -> anyhow::Result<(bool, Vec<Bytes>)> {
-        let ios = vec.iter().map(|bytes| IoSlice::new(&bytes)).collect::<Vec<_>>();
-        self.w.write_vectored(&ios).await?;
+    pub async fn query_vectored(&mut self, iov: &[IoSlice<'_>]) -> anyhow::Result<(bool, Vec<Bytes>, usize)> {
+        self.w.write_vectored(&iov).await?;
 
-        let mut result = vec![];
+        let mut result: Vec<Bytes> = Vec::with_capacity(1);
+        let mut total_size = 0;
+
         while let Some(it) = self.r.next().await {
             match it {
                 Ok(it) => {
                     let is_done = it.is_done;
+                    total_size += it.data.len();
                     result.push(it.data);
                     if is_done {
-                        return Ok((it.res_is_ok, result));
+                        return Ok((it.res_is_ok, result, total_size));
                     }
                 }
                 Err(e) => {
@@ -212,7 +214,8 @@ impl Connection for RedisConnection {
 
     fn ping(&mut self) -> BoxFuture<'_, Result<(), Error>> {
         Box::pin(async move {
-            Ok(())
+            self.query_with_resp(b"*1\r\n$4\r\nPING\r\n").await?;
+            return Ok(());
         })
     }
 }
@@ -221,7 +224,7 @@ impl FromStr for RedisConnectionOption {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let url = s.parse::<Url>().map_err(|e| Error::Configuration(Box::new(e)))?;
+        let url = s.parse::<Url>().map_err(|e| anyhow!("parse url error: {:?}", e))?;
         Self::from_url(&url)
     }
 }
@@ -242,7 +245,7 @@ impl ConnectOptions for RedisConnectionOption {
         Box::pin({
             let addr = self.addr.clone();
             async move {
-                let conn = tokio::net::TcpStream::connect(addr).await.map_err(|e| Error::Io(std::io::Error::from(e)))?;
+                let conn = tokio::net::TcpStream::connect(addr).await.map_err(|e| anyhow!("connect error :{:?}", e))?;
                 conn.set_nodelay(true).unwrap();
                 METRICS.connections.with_label_values(&[CONN_UPSTREAM]).inc();
                 let (r, w) = conn.into_split();

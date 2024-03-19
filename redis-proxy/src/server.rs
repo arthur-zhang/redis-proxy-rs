@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::{debug, error};
+use log::{debug};
 use tokio::net::TcpListener;
 
 use redis_codec_core::resp_decoder::ResFramedData;
@@ -26,10 +26,7 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
     }
 
     pub async fn start(self) -> anyhow::Result<()> {
-        let listener = TcpListener::bind(&self.config.server.address).await.map_err(|e| {
-            error!("bind error: {:?}", e);
-            e
-        })?;
+        let listener = TcpListener::bind(&self.config.server.address).await?;
 
         let conn_option = self.config.upstream.address.parse::<RedisConnectionOption>().unwrap();
         let pool: poolx::Pool<RedisConnection> = self.config.upstream.conn_pool_conf
