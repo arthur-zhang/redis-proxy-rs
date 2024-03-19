@@ -5,6 +5,7 @@ use crate::cmd::CmdType;
 
 pub mod cmd;
 pub mod tools;
+pub mod command;
 
 // #[derive(Clone)]
 pub struct ReqFrameData {
