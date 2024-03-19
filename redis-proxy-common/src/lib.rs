@@ -1,27 +1,32 @@
 use std::fmt::{Debug, Formatter};
 use std::ops::Range;
 
-use crate::cmd::CmdType;
+use smol_str::SmolStr;
 
-pub mod cmd;
 pub mod tools;
 pub mod command;
 
-// #[derive(Clone)]
 pub struct ReqFrameData {
     pub is_head_frame: bool,
-    pub cmd_type: CmdType,
+    pub cmd_type: SmolStr,
     bulk_read_args: Option<Vec<Range<usize>>>,
+    key_bulk_indices: Vec<u64>,
     pub raw_bytes: bytes::Bytes,
     pub end_of_body: bool,
 }
 
 impl ReqFrameData {
-    pub fn new(is_first_frame: bool, cmd_type: CmdType, bulk_read_args: Option<Vec<Range<usize>>>, raw_bytes: bytes::Bytes, is_done: bool) -> Self {
+    pub fn new(is_first_frame: bool,
+               cmd_type: SmolStr,
+               bulk_read_args: Option<Vec<Range<usize>>>,
+               key_bulk_indices: Vec<u64>,
+               raw_bytes: bytes::Bytes,
+               is_done: bool) -> Self {
         Self {
             is_head_frame: is_first_frame,
             cmd_type,
             bulk_read_args,
+            key_bulk_indices,
             raw_bytes,
             end_of_body: is_done,
         }
@@ -32,6 +37,21 @@ impl ReqFrameData {
                 return None;
             }
             return Some(ranges.iter().map(|it| &self.raw_bytes[it.start..it.end]).collect());
+        }
+        return None;
+    }
+
+    pub fn keys(&self) -> Option<Vec<&[u8]>> {
+        if let Some(ref ranges) = self.bulk_read_args {
+            if ranges.is_empty() {
+                return None;
+            }
+            if self.key_bulk_indices.is_empty() {
+                return None;
+            }
+            return Some(self.key_bulk_indices.iter().map(|index|
+                &self.raw_bytes[ranges[*index as usize].start..ranges[*index as usize].end]).collect()
+            );
         }
         return None;
     }

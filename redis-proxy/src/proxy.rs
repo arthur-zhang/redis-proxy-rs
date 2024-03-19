@@ -7,12 +7,13 @@ use bytes::Bytes;
 use futures::StreamExt;
 use log::{debug, error, info};
 use poolx::PoolConnection;
+use smol_str::SmolStr;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use redis_codec_core::resp_decoder::ResFramedData;
-use redis_proxy_common::cmd::CmdType;
+use redis_proxy_common::command::utils::{CMD_TYPE_ALL, CMD_TYPE_AUTH, is_connection_cmd, is_write_cmd};
 use redis_proxy_common::ReqFrameData;
 
 use crate::double_writer::DoubleWriter;
@@ -31,12 +32,12 @@ pub struct RedisProxy<P> {
 
 impl<P> RedisProxy<P> {
     fn should_double_write(&self, header_frame: &ReqFrameData) -> bool {
-        return if header_frame.cmd_type.is_connection_command() {
+        return if is_connection_cmd(&header_frame.cmd_type) {
             true
-        } else if header_frame.cmd_type.is_read_cmd() {
-            false
-        } else {
+        } else if is_write_cmd(&header_frame.cmd_type) {
             self.double_writer.should_double_write(header_frame)
+        } else {
+            false
         };
     }
 }
@@ -48,7 +49,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         self.inner.on_session_create().await.ok()?;
         let header_frame = session.read_downstream().await?.ok()?;
         let header_frame = Arc::new(header_frame);
-        let cmd_type = header_frame.cmd_type;
+        //let cmd_type = header_frame.cmd_type;
         session.init_from_header_frame(header_frame.clone());
 
         let mut ctx = self.inner.new_ctx();
@@ -60,7 +61,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             return Some(session);
         }
 
-        match self.handle_request_half(&mut session, header_frame, cmd_type, &mut ctx).await {
+        match self.handle_request_half(&mut session, header_frame.clone(), &header_frame.cmd_type, &mut ctx).await {
             Ok(_) => {
                 self.inner.request_done(&mut session, None, &mut ctx).await;
             }
@@ -72,7 +73,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         Some(session)
     }
     pub async fn handle_request_half(&self, session: &mut Session, header_frame: Arc<ReqFrameData>,
-                                     cmd_type: CmdType,
+                                     cmd_type: &SmolStr,
                                      ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let conn =
             self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
@@ -86,7 +87,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     }
 
     async fn handle_normal_request(&self, session: &mut Session, header_frame: &Arc<ReqFrameData>,
-                                   cmd_type: CmdType, ctx: &mut <P as Proxy>::CTX,
+                                   cmd_type: &SmolStr, ctx: &mut <P as Proxy>::CTX,
                                    mut conn: PoolConnection<RedisConnection>) -> anyhow::Result<()> {
         let auth_status =
             conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db).await?;
@@ -114,7 +115,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     async fn handle_double_write(&self, session: &mut Session,
                                  mut dw_conn: PoolConnection<RedisConnection>,
                                  mut conn: PoolConnection<RedisConnection>,
-                                 cmd_type: CmdType, _: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
+                                 cmd_type: &SmolStr, _: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let (auth_status_upstream, auth_status_dw) = tokio::try_join!(
                 conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db),
                 dw_conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db))?;
@@ -143,7 +144,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         return match join_result {
             (Ok((upstream_resp_ok, upstream_bytes, upstream_resp_size)),
                 Ok((dw_resp_ok, dw_bytes, _))) => {
-                if cmd_type == CmdType::AUTH {
+                if CMD_TYPE_AUTH.eq(cmd_type) {
                     session.is_authed = upstream_resp_ok;
                 }
                 session.res_size += upstream_resp_size;
@@ -207,7 +208,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                             response_done = res_framed_data.is_done;
 
                             let cmd_type = session.cmd_type();
-                            if cmd_type == CmdType::AUTH && res_framed_data.is_done {
+                            if CMD_TYPE_ALL.eq(cmd_type) && res_framed_data.is_done {
                                 session.is_authed = res_framed_data.res_is_ok;
                             }
                         }
@@ -233,7 +234,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                                    mut conn: PoolConnection<RedisConnection>,
                                    tx_upstream: Sender<ProxyChanData>,
                                    mut rx_downstream: Receiver<ProxyChanData>,
-                                   cmd_type: CmdType)
+                                   cmd_type: &SmolStr)
                                    -> anyhow::Result<()> {
         let mut request_done = false;
         let mut response_done = false;
@@ -244,7 +245,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                     match data {
                         Some(Ok(data)) => {
                             let is_done = data.is_done;
-                            if cmd_type == CmdType::AUTH {
+                            if CMD_TYPE_AUTH.eq(cmd_type) {
                                 conn.is_authed = data.res_is_ok;
                             }
                             tx_upstream.send(ProxyChanData::ResFrameData(data)).await?;

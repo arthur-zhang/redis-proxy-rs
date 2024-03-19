@@ -3,8 +3,10 @@ use std::sync::Arc;
 
 use log::{error, info};
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 
-use redis_proxy_common::cmd::CmdType;
+use redis_proxy_common::command::holder::COMMANDS_INFO;
+use redis_proxy_common::command::utils::CMD_TYPE_ALL;
 
 use crate::config::{ConfigCenter, LocalRoute};
 use crate::etcd_client::EtcdClient;
@@ -13,7 +15,7 @@ pub mod etcd;
 pub mod local;
 
 pub trait Router: Send + Sync {
-    fn match_route(&self, key: &[u8], cmd_type: CmdType) -> bool;
+    fn match_route(&self, key: &[u8], cmd_type: &SmolStr) -> bool;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -50,10 +52,11 @@ impl Route {
             //todo validate key regex
         }
         for cmd in &self.commands {
-            let cmd_type = CmdType::from(cmd.as_bytes());
-            if cmd_type == CmdType::UNKNOWN {
-                error!("unknown command type: {}, route id: {:?}", cmd, self.id);
-                return Err(anyhow::anyhow!("unknown command type: {}, route id: {:?}", cmd, self.id));
+            let cmd = &SmolStr::from(cmd);
+            let cmd = COMMANDS_INFO.get(cmd);
+            if cmd.is_none() {
+                error!("unknown command type: {:?}, route id: {:?}", cmd, self.id);
+                return Err(anyhow::anyhow!("unknown command type: {:?}, route id: {:?}", cmd, self.id));
             }
         }
         Ok(())
@@ -87,7 +90,7 @@ impl InnerRouter {
         }
     }
 
-    pub fn get(&self, s: &[u8], cmd_type: CmdType) -> Option<&Route> {
+    pub fn get(&self, s: &[u8], cmd_type: &SmolStr) -> Option<&Route> {
         if s.is_empty() {
             return None;
         }
@@ -112,7 +115,7 @@ impl InnerRouter {
 #[derive(Debug, Default)]
 pub struct Node {
     name: String,
-    command_router: HashMap<CmdType, Route>,
+    command_router: HashMap<SmolStr, Route>,
     children: HashMap<String, Node>,
 }
 
@@ -139,14 +142,11 @@ impl Node {
         if parts.len() == 1 || part == "**" { // it means it is the last part of the route
             let mut command_router = HashMap::new();
             for cmd in &route.commands {
-                let cmd_type = CmdType::from(cmd.as_bytes());
-                if cmd_type == CmdType::UNKNOWN {
-                    continue;
-                }
+                let cmd_type = SmolStr::from(cmd);
                 command_router.insert(cmd_type, route.clone());
             }
             if command_router.is_empty() {
-                command_router.insert(CmdType::UNKNOWN, route.clone());
+                command_router.insert(CMD_TYPE_ALL.clone(), route.clone());
             }
             for (cmd_type, route) in command_router {
                 matched_child.command_router.insert(cmd_type, route);
@@ -155,10 +155,10 @@ impl Node {
         matched_child.push(&parts[1..], route);
     }
 
-    fn get(&self, parts: &[&str], level: usize, cmd_type: CmdType) -> Option<&Route> {
+    fn get(&self, parts: &[&str], level: usize, cmd_type: &SmolStr) -> Option<&Route> {
         if level >= parts.len() || self.name == "**" {
-            return self.command_router.get(&cmd_type)
-                .or_else(|| self.command_router.get(&CmdType::UNKNOWN));
+            return self.command_router.get(cmd_type)
+                .or_else(|| self.command_router.get(&CMD_TYPE_ALL as &SmolStr));
         }
 
         if self.children.is_empty() {
@@ -232,7 +232,7 @@ pub async fn create_router(
 
 #[cfg(test)]
 mod tests {
-    use redis_proxy_common::cmd::CmdType;
+    use smol_str::SmolStr;
 
     use crate::router::{InnerRouter, Route};
 
@@ -264,31 +264,31 @@ mod tests {
         let router = InnerRouter::new(routes, ':');
         router._dump();
 
-        let route = router.get("account:login".as_bytes(), CmdType::GET);
+        let route = router.get("account:login".as_bytes(), &SmolStr::new("get"));
         assert_eq!(route.unwrap().id, "a");
 
-        let route = router.get("account:login:whatever".as_bytes(), CmdType::GET);
+        let route = router.get("account:login:whatever".as_bytes(), &SmolStr::new("get"));
         assert_eq!(route.unwrap().id, "b");
 
-        let route = router.get("account:login:userId".as_bytes(), CmdType::GET);
+        let route = router.get("account:login:userId".as_bytes(), &SmolStr::new("get"));
         assert_eq!(route.unwrap().id, "c");
 
-        let route = router.get("account:login:userId".as_bytes(), CmdType::SET);
+        let route = router.get("account:login:userId".as_bytes(), &SmolStr::new("set"));
         assert_eq!(route.unwrap().id, "d");
 
-        let route = router.get("account:whatever:userId".as_bytes(), CmdType::GET);
+        let route = router.get("account:whatever:userId".as_bytes(), &SmolStr::new("get"));
         assert_eq!(route.unwrap().id, "d");
 
-        let route = router.get("account:login:userId".as_bytes(), CmdType::HGET);
+        let route = router.get("account:login:userId".as_bytes(), &SmolStr::new("hget"));
         assert_eq!(route.unwrap().id, "bb");
 
-        let route = router.get("account:login:whatever:whatever".as_bytes(), CmdType::GET);
+        let route = router.get("account:login:whatever:whatever".as_bytes(), &SmolStr::new("get"));
         assert_eq!(route.unwrap().id, "bb");
 
-        let route = router.get("account:whatever:whatever".as_bytes(), CmdType::GET);
+        let route = router.get("account:whatever:whatever".as_bytes(), &SmolStr::new("get"));
         assert!(route.is_none());
 
-        let route = router.get("account:login".as_bytes(), CmdType::HGET);
+        let route = router.get("account:login".as_bytes(), &SmolStr::new("hget"));
         assert!(route.is_none());
     }
 }
