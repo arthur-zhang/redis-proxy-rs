@@ -1,14 +1,15 @@
-use crate::command::holder::COMMANDS_INFO;
+use smol_str::SmolStr;
+
 use crate::command::RedisCmdDescribeEntity;
 
-pub fn is_read_command(cmd: &str) -> bool {
+pub fn is_read_command(cmd: &SmolStr) -> bool {
     todo!()
 }
 
-pub fn should_read_more(cmd: &str) -> bool {
+pub fn should_read_more(cmd: &SmolStr) -> bool {
     todo!()
 }
 
-pub fn get_command_info(cmd: &str) -> &RedisCmdDescribeEntity {
-    COMMANDS_INFO.get(cmd).expect("command not found")
+pub fn get_command_info(cmd: &SmolStr) -> &RedisCmdDescribeEntity {
+    todo!()
 }
