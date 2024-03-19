@@ -14,21 +14,21 @@ lazy_static! {
      */
     pub static ref MULTIPART_COMMANDS: HashMap<String, bool> = HashMap::from([
         (String::from("ACL"), true),
-        (String::from("LATENCY"), true),
-        (String::from("XGROUP"), true),
-        (String::from("SENTINEL"), true),
-        (String::from("PUBSUB"), true),
         (String::from("CLIENT"), true),
-        (String::from("CONFIG"), true),
-        (String::from("XINFO"), true),
         (String::from("CLUSTER"), true),
-        (String::from("SCRIPT"), true),
-        (String::from("OBJECT"), true),
         (String::from("COMMAND"), true),
-        (String::from("SLOWLOG"), true),
+        (String::from("CONFIG"), true),
         (String::from("FUNCTION"), true),
+        (String::from("LATENCY"), true),
         (String::from("MEMORY"), true),
         (String::from("MODULE"), true),
+        (String::from("OBJECT"), true),
+        (String::from("PUBSUB"), true),
+        (String::from("SCRIPT"), true),
+        (String::from("SENTINEL"), true),
+        (String::from("SLOWLOG"), true),
+        (String::from("XGROUP"), true),
+        (String::from("XINFO"), true),
     ]);
 
     /**

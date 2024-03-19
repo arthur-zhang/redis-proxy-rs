@@ -15,7 +15,7 @@ fn main() {
     let cmd_json_path = "../redis-command";
 
     let mut all_cmd_map = BTreeMap::new();
-    let mut all_multi_cmd_map = HashMap::new();
+    let mut all_multi_cmd_map = BTreeMap::new();
 
     fs::read_dir(cmd_json_path).unwrap().for_each(|entry| {
         let entry = entry.unwrap();
