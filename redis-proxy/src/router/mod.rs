@@ -49,7 +49,6 @@ impl Route {
                 error!("empty key in route: {:?}", self.id);
                 return Err(anyhow::anyhow!("empty key in route: {:?}", self.id));
             }
-            //todo validate key regex
         }
         for cmd in &self.commands {
             let cmd = &SmolStr::from(cmd);

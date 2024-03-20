@@ -18,6 +18,7 @@ pub struct ReqPktDecoder {
     state: State,
     cmd_type: SmolStr,
     bulk_size: u64,
+    cmd_bulk_size: u64,
     pending_integer: u64,
     bulk_read_index: u64,
     req_start: Instant,
@@ -29,6 +30,7 @@ impl PartialEq for ReqPktDecoder {
             self.state == other.state &&
             self.cmd_type == other.cmd_type &&
             self.bulk_size == other.bulk_size &&
+            self.cmd_bulk_size == other.cmd_bulk_size &&
             self.pending_integer == other.pending_integer &&
             self.bulk_read_index == other.bulk_read_index
     }
@@ -59,7 +61,7 @@ impl Decoder for ReqPktDecoder {
         let self_snapshot = self.clone();
         let mut need_more_data = false;
 
-        let mut bulk_read_args: Option<Vec<Range<usize>>> = None;
+        let mut bulks: Option<Vec<Range<usize>>> = None;
 
         while p.has_remaining() || self.state == State::ValueComplete {
             match self.state {
@@ -111,7 +113,14 @@ impl Decoder for ReqPktDecoder {
                         need_more_data = true;
                         break;
                     }
-                    
+
+                    let start_index = offset_from(p.as_ptr(), src.as_ptr());
+                    let end_index = start_index + self.pending_integer as usize;
+                    if bulks.is_none() {
+                        bulks = Some(Vec::new());
+                    }
+                    bulks.as_mut().unwrap().push(start_index..end_index);
+
                     let command = to_lower_effective(&p[..self.pending_integer as usize]);
                     let command = unsafe {
                         SmolStr::from(std::str::from_utf8_unchecked(&command))
@@ -130,6 +139,7 @@ impl Decoder for ReqPktDecoder {
 
                     if is_multipart_cmd(&self.cmd_type, self.bulk_size) {
                         self.state = State::SubCmdIntegerStart;
+                        self.cmd_bulk_size = 2;
                     } else {
                         self.bulk_read_index = 1;
                         self.pending_integer = 0;
@@ -168,11 +178,19 @@ impl Decoder for ReqPktDecoder {
                         need_more_data = true;
                         break;
                     }
+
+                    let start_index = offset_from(p.as_ptr(), src.as_ptr());
+                    let end_index = start_index + self.pending_integer as usize;
+                    if bulks.is_none() {
+                        bulks = Some(Vec::new());
+                    }
+                    bulks.as_mut().unwrap().push(start_index..end_index);
+                    
                     let sub_command = to_lower_effective(&p[..self.pending_integer as usize]);
                     let sub_command = unsafe {
                         SmolStr::from(std::str::from_utf8_unchecked(&sub_command))
                     };
-                    //todo: use more efficient way concat command and sub command
+                    
                     self.cmd_type = SmolStr::from(format!("{} {}", self.cmd_type, sub_command));
                     p.advance(self.pending_integer as usize);
                     self.state = State::SubCmdCR;
@@ -229,10 +247,10 @@ impl Decoder for ReqPktDecoder {
                         }
                         let start_index = offset_from(p.as_ptr(), src.as_ptr());
                         let end_index = start_index + self.pending_integer as usize;
-                        if bulk_read_args.is_none() {
-                            bulk_read_args = Some(Vec::new());
+                        if bulks.is_none() {
+                            bulks = Some(Vec::new());
                         }
-                        bulk_read_args.as_mut().unwrap().push(start_index..end_index);
+                        bulks.as_mut().unwrap().push(start_index..end_index);
                     }
                     let n = min(p.len(), self.pending_integer as usize);
                     self.pending_integer -= n as u64;
@@ -288,8 +306,8 @@ impl Decoder for ReqPktDecoder {
 
         let is_done = self.bulk_read_index == self.bulk_size;
 
-        let key_bulk_indices = get_cmd_key_bulk_index(&self.cmd_type, self.bulk_size);
-        Ok(Some(ReqFrameData::new(frame_start, self.cmd_type.clone(), bulk_read_args, key_bulk_indices, bytes, is_done)))
+        let key_bulk_indices = get_cmd_key_bulk_index(&self.cmd_type, self.bulk_size, &bulks);
+        Ok(Some(ReqFrameData::new(frame_start, self.cmd_type.clone(), bulks, self.cmd_bulk_size, key_bulk_indices, bytes, is_done)))
     }
 }
 
@@ -299,6 +317,7 @@ impl ReqPktDecoder {
             state: State::ValueRootStart,
             cmd_type: SmolStr::new(""),
             bulk_size: u64::MAX,
+            cmd_bulk_size: 1_u64,
             pending_integer: 0,
             bulk_read_index: 0,
             req_start: Instant::now(),
@@ -308,6 +327,7 @@ impl ReqPktDecoder {
         self.state = State::ValueRootStart;
         self.cmd_type = SmolStr::new("");
         self.bulk_size = u64::MAX;
+        self.cmd_bulk_size = 1_u64;
         self.pending_integer = 0;
         self.bulk_read_index = 0;
         self.req_start = Instant::now();
@@ -394,6 +414,7 @@ mod tests {
             state: State::ValueRootStart,
             cmd_type: SmolStr::new(""),
             bulk_size: u64::MAX,
+            cmd_bulk_size: 1_u64,
             pending_integer: 0,
             bulk_read_index: 0,
             req_start: Instant::now(),
@@ -418,6 +439,7 @@ mod tests {
             state: State::IntegerStart,
             cmd_type: SmolStr::new("set"),
             bulk_size: 3,
+            cmd_bulk_size: 1_u64,
             pending_integer: 0,
             bulk_read_index: 2,
             req_start: Instant::now(),
@@ -425,7 +447,7 @@ mod tests {
         assert_eq!(decoder, decoder2);
 
         assert_eq!(res.unwrap(), ReqFrameData::new(true, SmolStr::new("set"),
-                                                   Some(vec![18..34]), vec![1],
+                                                   Some(vec![18..34]), 1_u64, vec![1],
                                                    Bytes::from(&cmd[..36]), false));
         assert_eq!(true, bytes_mut.is_empty());
 
@@ -433,6 +455,7 @@ mod tests {
             state: State::ArgLF,
             cmd_type: SmolStr::new("set"),
             bulk_size: 3,
+            cmd_bulk_size: 1_u64,
             pending_integer: 0,
             bulk_read_index: 2,
             req_start: Instant::now(),
@@ -444,7 +467,7 @@ mod tests {
         assert_eq!(res.is_some(), true);
         assert_eq!(decoder, decoder3);
         assert_eq!(res.unwrap(), ReqFrameData::new(false, SmolStr::new("set"),
-                                                   Some(vec![]),vec![1],
+                                                   Some(vec![]), 1_u64,vec![1],
                                                    Bytes::from(&cmd[36..44]), false));
         assert_eq!(true, bytes_mut.is_empty());
 
@@ -453,6 +476,7 @@ mod tests {
             state: State::ValueRootStart,
             cmd_type: SmolStr::new("set"),
             bulk_size: 3,
+            cmd_bulk_size: 1_u64,
             pending_integer: 0,
             bulk_read_index: 3,
             req_start: Instant::now(),
@@ -463,7 +487,7 @@ mod tests {
         assert_eq!(res.is_some(), true);
         assert_eq!(decoder, decoder4);
         assert_eq!(res.unwrap(), ReqFrameData::new(false, SmolStr::new("set"),
-                                                   Some(vec![]), vec![1],
+                                                   Some(vec![]), 1_u64, vec![1],
                                                    Bytes::from(&cmd[44..45]), true));
         assert_eq!(true, bytes_mut.is_empty());
     }

@@ -133,17 +133,17 @@ impl Session {
 
     fn on_select_db(&mut self) {
         if let Some(ref header_frame) = self.header_frame {
-            if let Some(args) = header_frame.args() {
-                let db = std::str::from_utf8(args[0]).map(|it| it.parse::<u64>().unwrap_or(0)).unwrap_or(0);
+            if let Some(args) = header_frame.bulks() {
+                let db = std::str::from_utf8(args[1]).map(|it| it.parse::<u64>().unwrap_or(0)).unwrap_or(0);
                 self.db = db;
             }
         }
     }
     pub fn on_auth(&mut self) {
         if let Some(ref header_frame) = self.header_frame {
-            if let Some(args) = header_frame.args() {
+            if let Some(args) = header_frame.bulks() {
                 if args.len() > 0 {
-                    let auth_password = args[0].to_vec();
+                    let auth_password = args[1].to_vec();
                     self.password = Some(auth_password);
                 }
             }

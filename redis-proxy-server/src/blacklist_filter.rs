@@ -35,9 +35,9 @@ impl Proxy for BlackListFilter {
 
     async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> anyhow::Result<bool> {
         let req_frame = session.header_frame.as_ref().unwrap();
-        let args = req_frame.keys();
-        if let Some(args) = args {
-            for key in args {
+        let keys = req_frame.keys();
+        if let Some(keys) = keys {
+            for key in keys {
                 if self.router.match_route(key, &req_frame.cmd_type) {
                     session.send_resp_to_downstream(Bytes::from_static(b"-ERR black list\r\n")).await?;
                     return Ok(true);

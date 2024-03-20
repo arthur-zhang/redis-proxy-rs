@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
-use bytes::Bytes;
 use futures::StreamExt;
 use log::{debug, error, info};
 use poolx::PoolConnection;
@@ -218,7 +217,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                             }
                         }
                         Some(_) => {
-                            todo ! ()
+                            unimplemented!("unexpected data")
                         }
 
                         None => {
@@ -275,7 +274,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
                         Some(a) =>{
                             error!("unexpected data: {:?}", a);
-                            todo!()
+                            unimplemented!("unexpected data")
                         }
                         _ => {
                             request_done = true;
@@ -295,7 +294,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 #[async_trait]
 pub trait Proxy {
     type CTX;
-    fn new_ctx(&self) -> Self::CTX { todo!() }
+    fn new_ctx(&self) -> Self::CTX { unimplemented!("unexpected data") }
 
     async fn on_session_create(&self) -> anyhow::Result<()> {
         Ok(())
@@ -310,7 +309,7 @@ pub trait Proxy {
         &self,
         _session: &mut Session,
         _ctx: &mut Self::CTX,
-    ) -> anyhow::Result<peer::RedisPeer> { todo!() }
+    ) -> anyhow::Result<peer::RedisPeer> { unimplemented!("unexpected data") }
 
     /// Handle the incoming request.
     ///

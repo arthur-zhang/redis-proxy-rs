@@ -9,7 +9,8 @@ pub mod command;
 pub struct ReqFrameData {
     pub is_head_frame: bool,
     pub cmd_type: SmolStr,
-    bulk_read_args: Option<Vec<Range<usize>>>,
+    bulks: Option<Vec<Range<usize>>>,
+    pub cmd_bulk_size: u64,
     key_bulk_indices: Vec<u64>,
     pub raw_bytes: bytes::Bytes,
     pub end_of_body: bool,
@@ -18,21 +19,23 @@ pub struct ReqFrameData {
 impl ReqFrameData {
     pub fn new(is_first_frame: bool,
                cmd_type: SmolStr,
-               bulk_read_args: Option<Vec<Range<usize>>>,
+               bulks: Option<Vec<Range<usize>>>,
+               cmd_bulk_size: u64,
                key_bulk_indices: Vec<u64>,
                raw_bytes: bytes::Bytes,
                is_done: bool) -> Self {
         Self {
             is_head_frame: is_first_frame,
             cmd_type,
-            bulk_read_args,
+            bulks,
+            cmd_bulk_size,
             key_bulk_indices,
             raw_bytes,
             end_of_body: is_done,
         }
     }
-    pub fn args(&self) -> Option<Vec<&[u8]>> {
-        if let Some(ref ranges) = self.bulk_read_args {
+    pub fn bulks(&self) -> Option<Vec<&[u8]>> {
+        if let Some(ref ranges) = self.bulks {
             if ranges.is_empty() {
                 return None;
             }
@@ -42,7 +45,7 @@ impl ReqFrameData {
     }
 
     pub fn keys(&self) -> Option<Vec<&[u8]>> {
-        if let Some(ref ranges) = self.bulk_read_args {
+        if let Some(ref ranges) = self.bulks {
             if ranges.is_empty() {
                 return None;
             }
@@ -63,9 +66,9 @@ impl Debug for ReqFrameData {
             .field("data", &std::str::from_utf8(&self.raw_bytes))
             .field("is_head_frame", &self.is_head_frame)
             .field("cmd_type", &self.cmd_type)
-            .field("bulk_read_args", &self.bulk_read_args)
+            .field("bulks", &self.bulks)
             .field("end_of_body", &self.end_of_body)
-            .field("args", &self.args())
+            .field("args", &self.bulks())
             .finish()
     }
 }
@@ -74,7 +77,7 @@ impl PartialEq for ReqFrameData {
     fn eq(&self, other: &Self) -> bool {
         self.is_head_frame == other.is_head_frame
             && self.cmd_type == other.cmd_type
-            && self.bulk_read_args == other.bulk_read_args
+            && self.bulks == other.bulks
             && self.raw_bytes == other.raw_bytes
             && self.end_of_body == other.end_of_body
     }

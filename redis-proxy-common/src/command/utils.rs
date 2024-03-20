@@ -1,3 +1,4 @@
+use std::ops::Range;
 use lazy_static::lazy_static;
 use smol_str::SmolStr;
 
@@ -45,7 +46,7 @@ pub fn is_multipart_cmd(cmd: &SmolStr, bulk_size: u64) -> bool {
     MULTIPART_COMMANDS.get(cmd).is_some() && bulk_size > 1
 }
 
-pub fn get_cmd_key_bulk_index(cmd: &SmolStr, bulk_size: u64) -> Vec<u64> {
+pub fn get_cmd_key_bulk_index(cmd: &SmolStr, bulk_size: u64, bulks: &Option<Vec<Range<usize>>>) -> Vec<u64> {
     if let Some(cmd) = COMMANDS_INFO.get(cmd) {
         if let Some(key_specs) = &cmd.key_specs {
             //todo
