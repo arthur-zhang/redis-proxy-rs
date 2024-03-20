@@ -38,12 +38,12 @@ fn main() {
 
     let mut multi_cmd_map = String::new();
     for (container, _) in all_multi_cmd_map {
-        multi_cmd_map.push_str(&format!("        (String::from(\"{}\"), true),\n", container.to_lowercase()));
+        multi_cmd_map.push_str(&format!("        (SmolStr::from(\"{}\"), true),\n", container.to_ascii_lowercase()));
     }
 
     let mut cmd_map = String::new();
     for (k, v) in all_cmd_map {
-        let head = format!("        (String::from(\"{}\"), RedisCmdDescribeEntity {{\n", k.to_lowercase());
+        let head = format!("        (SmolStr::from(\"{}\"), RedisCmdDescribeEntity {{\n", k.to_ascii_lowercase());
         let summary = format!("            summary: String::from(\"{}\"),\n", v.summary);
         let container = if let Some(c) = v.container {
             format!("            container: Some(String::from(\"{}\")),\n", c)
@@ -69,7 +69,7 @@ fn main() {
             String::from("            command_flags: None,\n")
         };
         let key_specs = if let Some(key_specs) = v.key_specs {
-            let mut ks_vec = String::from("            key_specs: Some(vec![");
+            let mut ks_vec = String::from("            key_specs: Some(vec![\n");
             for ks in key_specs {
                 ks_vec.push_str("                KeySpecs{\n");
                 ks_vec.push_str("                    flags: vec![");
@@ -130,19 +130,20 @@ fn main() {
     cmd_holder_rs_content.push_str(" * do not modify it manually!\n");
     cmd_holder_rs_content.push_str(" */\n");
     cmd_holder_rs_content.push_str("use std::collections::HashMap;\n\n");
-    cmd_holder_rs_content.push_str("use lazy_static::lazy_static;\n\n");
-    cmd_holder_rs_content.push_str("use crate::command::{RedisCmdDescribeEntity, KeySpecs, BeginSearch, FindKeys, Index, Keyword, Range, KeyNum};\n\n");
+    cmd_holder_rs_content.push_str("use lazy_static::lazy_static;\n");
+    cmd_holder_rs_content.push_str("use smol_str::SmolStr;\n\n");
+    cmd_holder_rs_content.push_str("use crate::command::{BeginSearch, FindKeys, Index, KeyNum, KeySpecs, Keyword, Range, RedisCmdDescribeEntity};\n\n");
     cmd_holder_rs_content.push_str("lazy_static! {\n");
     cmd_holder_rs_content.push_str("    /**\n");
-    cmd_holder_rs_content.push_str("     * Redis command's name(or prefix) and whether it is a multi-part command\n");
+    cmd_holder_rs_content.push_str("     * Redis command's name(or container) and whether it is a multipart command\n");
     cmd_holder_rs_content.push_str("     */\n");
-    cmd_holder_rs_content.push_str("    pub static ref MULTIPART_COMMANDS: HashMap<String, bool> = HashMap::from([\n");
+    cmd_holder_rs_content.push_str("    pub static ref MULTIPART_COMMANDS: HashMap<SmolStr, bool> = HashMap::from([\n");
     cmd_holder_rs_content.push_str(&multi_cmd_map);
     cmd_holder_rs_content.push_str("    ]);\n\n");
     cmd_holder_rs_content.push_str("    /**\n");
     cmd_holder_rs_content.push_str("     * Redis command's full name and its description\n");
     cmd_holder_rs_content.push_str("     */\n");
-    cmd_holder_rs_content.push_str("    pub static ref COMMANDS_INFO: HashMap<String, RedisCmdDescribeEntity> = HashMap::from([\n");
+    cmd_holder_rs_content.push_str("    pub static ref COMMANDS_INFO: HashMap<SmolStr, RedisCmdDescribeEntity> = HashMap::from([\n");
     cmd_holder_rs_content.push_str(&cmd_map);
     cmd_holder_rs_content.push_str("    ]);\n");
     cmd_holder_rs_content.push_str("}\n");

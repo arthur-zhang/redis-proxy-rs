@@ -3,8 +3,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use log::info;
-
-use redis_proxy_common::cmd::CmdType;
+use smol_str::SmolStr;
 
 use crate::etcd_client::EtcdClient;
 use crate::router::{InnerRouter, Route, Router};
@@ -19,7 +18,7 @@ pub struct EtcdRouter {
 }
 
 impl Router for EtcdRouter {
-    fn match_route(&self, key: &[u8], cmd_type: CmdType) -> bool {
+    fn match_route(&self, key: &[u8], cmd_type: &SmolStr) -> bool {
         self.inner.load_full().get(key, cmd_type).is_some()
     }
 }

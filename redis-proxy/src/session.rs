@@ -3,6 +3,7 @@ use std::time::Instant;
 
 use anyhow::bail;
 use bytes::Bytes;
+use smol_str::SmolStr;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
@@ -12,7 +13,7 @@ use tokio_util::codec::FramedRead;
 use redis_codec_core::error::DecodeError;
 use redis_codec_core::req_decoder::ReqPktDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
-use redis_proxy_common::cmd::CmdType;
+use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, CMD_TYPE_SELECT, CMD_TYPE_UNKNOWN};
 use redis_proxy_common::ReqFrameData;
 
 pub struct Session {
@@ -51,12 +52,12 @@ impl Session {
         self.req_size = header_frame.raw_bytes.len();
         self.res_size = 0;
         self.req_start = self.downstream_reader.decoder().req_start();
-        let cmd_type = header_frame.cmd_type;
+        let cmd_type = &header_frame.cmd_type.clone();
         self.header_frame = Some(header_frame);
 
-        if cmd_type == CmdType::SELECT {
+        if CMD_TYPE_SELECT.eq(cmd_type) {
             self.on_select_db();
-        } else if cmd_type == CmdType::AUTH {
+        } else if CMD_TYPE_AUTH.eq(cmd_type) {
             self.on_auth();
         }
     }
@@ -67,8 +68,8 @@ impl Session {
     }
 
     #[inline]
-    pub fn cmd_type(&self) -> CmdType {
-        self.header_frame.as_ref().map(|it| it.cmd_type).unwrap_or(CmdType::UNKNOWN)
+    pub fn cmd_type(&self) -> &SmolStr {
+        self.header_frame.as_ref().map(|it| &it.cmd_type).unwrap_or(&CMD_TYPE_UNKNOWN)
     }
 
     #[inline]

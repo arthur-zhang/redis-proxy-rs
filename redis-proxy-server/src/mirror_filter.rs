@@ -9,6 +9,7 @@ use redis_proxy::double_writer::DoubleWriter;
 use redis_proxy::etcd_client::EtcdClient;
 use redis_proxy::proxy::Proxy;
 use redis_proxy::session::Session;
+use redis_proxy_common::command::utils::{is_connection_cmd, is_write_cmd};
 use redis_proxy_common::ReqFrameData;
 
 use crate::filter_trait::{FilterContext, Value};
@@ -34,12 +35,12 @@ impl Proxy for MirrorFilter {
 
     async fn proxy_upstream_filter(&self, session: &mut Session, ctx: &mut Self::CTX) -> anyhow::Result<bool> {
         let data = session.header_frame.as_ref().unwrap();
-        let should_mirror = if data.cmd_type.is_connection_command() {
+        let should_mirror = if is_connection_cmd(&data.cmd_type) {
             true
-        } else if data.cmd_type.is_read_cmd() {
-            false
-        } else {
+        } else if is_write_cmd(&data.cmd_type) {
             self.double_writer.should_double_write(data)
+        } else {
+            false
         };
         if !should_mirror {
             return Ok(false);

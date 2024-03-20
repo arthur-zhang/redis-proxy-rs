@@ -10,13 +10,14 @@ use futures::future::BoxFuture;
 use log::{debug, info};
 use poolx::{Connection, ConnectOptions, Error};
 use poolx::url::Url;
+use smol_str::SmolStr;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 
 use redis_codec_core::resp_decoder::{ResFramedData, RespPktDecoder};
-use redis_proxy_common::cmd::CmdType;
+use redis_proxy_common::command::utils::CMD_TYPE_AUTH;
 
 use crate::prometheus::{CONN_UPSTREAM, METRICS};
 
@@ -73,9 +74,9 @@ impl RedisConnection {
     }
 
     // get password and db from session, auth connection if needed
-    pub async fn init_from_session(&mut self, cmd_type: CmdType, session_authed: bool,
+    pub async fn init_from_session(&mut self, cmd_type: &SmolStr, session_authed: bool,
                                    password: &Option<Vec<u8>>, session_db: u64) -> anyhow::Result<AuthStatus> {
-        if cmd_type != CmdType::AUTH {
+        if !CMD_TYPE_AUTH.eq(cmd_type) {
             let auth_status = self.auth_connection_if_needed(session_authed, password).await?;
             if matches!(auth_status, AuthStatus::AuthFailed) {
                 return Ok(AuthStatus::AuthFailed);

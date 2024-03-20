@@ -4,9 +4,10 @@ use std::ops::Range;
 use std::time::Instant;
 
 use bytes::{Buf, Bytes, BytesMut};
+use smol_str::SmolStr;
 use tokio_util::codec::{Decoder, Encoder};
 
-use redis_proxy_common::cmd::{CmdType, KeyInfo};
+use redis_proxy_common::command::utils::{get_cmd_key_bulk_index, is_multipart_cmd, to_lower_effective};
 use redis_proxy_common::ReqFrameData;
 use redis_proxy_common::tools::{CR, is_digit, LF, offset_from};
 
@@ -15,10 +16,9 @@ use crate::error::DecodeError;
 #[derive(Clone, Debug)]
 pub struct ReqPktDecoder {
     state: State,
-    cmd_type: CmdType,
+    cmd_type: SmolStr,
     bulk_size: u64,
     pending_integer: u64,
-    bulk_read_size: u64,
     bulk_read_index: u64,
     req_start: Instant,
 }
@@ -30,7 +30,6 @@ impl PartialEq for ReqPktDecoder {
             self.cmd_type == other.cmd_type &&
             self.bulk_size == other.bulk_size &&
             self.pending_integer == other.pending_integer &&
-            self.bulk_read_size == other.bulk_read_size &&
             self.bulk_read_index == other.bulk_read_index
     }
 }
@@ -112,7 +111,12 @@ impl Decoder for ReqPktDecoder {
                         need_more_data = true;
                         break;
                     }
-                    self.cmd_type = CmdType::from(&p[..self.pending_integer as usize]);
+                    
+                    let command = to_lower_effective(&p[..self.pending_integer as usize]);
+                    let command = unsafe {
+                        SmolStr::from(std::str::from_utf8_unchecked(&command))
+                    };
+                    self.cmd_type = command;
                     p.advance(self.pending_integer as usize);
                     self.state = State::CmdCR;
                 }
@@ -123,7 +127,64 @@ impl Decoder for ReqPktDecoder {
                 }
                 State::CmdLF => {
                     if p[0] != LF { return Err(DecodeError::InvalidProtocol); }
-                    self.bulk_read_size = self.bulk_read_count();
+
+                    if is_multipart_cmd(&self.cmd_type, self.bulk_size) {
+                        self.state = State::SubCmdIntegerStart;
+                    } else {
+                        self.bulk_read_index = 1;
+                        self.pending_integer = 0;
+                        p.advance(1);
+                        frame_start = true;
+
+                        if self.bulk_read_index == self.bulk_size {
+                            self.state = State::ValueComplete;
+                        } else {
+                            self.state = State::IntegerStart;
+                        }
+                    }
+                }
+                State::SubCmdIntegerStart => {
+                    if p[0] != b'$' { return Err(DecodeError::UnexpectedErr); }
+                    self.state = State::SubCmdInteger;
+                    p.advance(1);
+                }
+                State::SubCmdInteger => {
+                    if p[0] == CR {
+                        self.state = State::SubCmdIntegerLF;
+                    } else if is_digit(p[0]) {
+                        self.pending_integer = 10 * self.pending_integer + (p[0] - b'0') as u64;
+                    } else {
+                        return Err(DecodeError::InvalidProtocol);
+                    }
+                    p.advance(1);
+                }
+                State::SubCmdIntegerLF => {
+                    if p[0] != LF { return Err(DecodeError::InvalidProtocol); }
+                    self.state = State::SubCmd;
+                    p.advance(1);
+                }
+                State::SubCmd => {
+                    if p.len() < self.pending_integer as usize {
+                        need_more_data = true;
+                        break;
+                    }
+                    let sub_command = to_lower_effective(&p[..self.pending_integer as usize]);
+                    let sub_command = unsafe {
+                        SmolStr::from(std::str::from_utf8_unchecked(&sub_command))
+                    };
+                    //todo: use more efficient way concat command and sub command
+                    self.cmd_type = SmolStr::from(format!("{} {}", self.cmd_type, sub_command));
+                    p.advance(self.pending_integer as usize);
+                    self.state = State::SubCmdCR;
+                }
+                State::SubCmdCR => {
+                    if p[0] != CR { return Err(DecodeError::InvalidProtocol); }
+                    p.advance(1);
+                    self.state = State::SubCmdLF;
+                }
+                State::SubCmdLF => {
+                    if p[0] != LF { return Err(DecodeError::InvalidProtocol); }
+
                     self.bulk_read_index = 1;
                     self.pending_integer = 0;
                     p.advance(1);
@@ -135,7 +196,6 @@ impl Decoder for ReqPktDecoder {
                         self.state = State::IntegerStart;
                     }
                 }
-
                 State::IntegerStart => {
                     if p[0] != b'$' {
                         return Err(DecodeError::InvalidProtocol);
@@ -161,7 +221,7 @@ impl Decoder for ReqPktDecoder {
                 }
                 State::BulkStringBody => {
                     // read more
-                    if self.bulk_read_index < self.bulk_read_size {
+                    if self.bulk_read_index < self.bulk_size {
                         if p.len() < self.pending_integer as usize {
                             p.advance(p.len());
                             need_more_data = true;
@@ -192,7 +252,7 @@ impl Decoder for ReqPktDecoder {
                     p.advance(1);
                     self.bulk_read_index += 1;
 
-                    if self.bulk_read_index == self.bulk_read_size || self.bulk_read_index == self.bulk_size {
+                    if self.bulk_read_index == self.bulk_size {
                         self.state = State::ValueComplete;
                     } else {
                         self.state = State::IntegerStart;
@@ -214,7 +274,7 @@ impl Decoder for ReqPktDecoder {
         // 1. Not enough data
         // 2. A frame is complete(or a partial bulk string body)
 
-        if p.is_empty() && self.bulk_read_index < self.bulk_read_size {
+        if p.is_empty() && self.bulk_read_index < self.bulk_size {
             need_more_data = true;
         }
 
@@ -228,7 +288,8 @@ impl Decoder for ReqPktDecoder {
 
         let is_done = self.bulk_read_index == self.bulk_size;
 
-        Ok(Some(ReqFrameData::new(frame_start, self.cmd_type.clone(), bulk_read_args, bytes, is_done)))
+        let key_bulk_indices = get_cmd_key_bulk_index(&self.cmd_type, self.bulk_size);
+        Ok(Some(ReqFrameData::new(frame_start, self.cmd_type.clone(), bulk_read_args, key_bulk_indices, bytes, is_done)))
     }
 }
 
@@ -236,38 +297,22 @@ impl ReqPktDecoder {
     pub fn new() -> Self {
         Self {
             state: State::ValueRootStart,
-            cmd_type: CmdType::UNKNOWN,
+            cmd_type: SmolStr::new(""),
             bulk_size: u64::MAX,
             pending_integer: 0,
-            bulk_read_size: u64::MAX,
             bulk_read_index: 0,
             req_start: Instant::now(),
         }
     }
     pub fn reset(&mut self) {
         self.state = State::ValueRootStart;
-        self.cmd_type = CmdType::UNKNOWN;
+        self.cmd_type = SmolStr::new("");
         self.bulk_size = u64::MAX;
         self.pending_integer = 0;
-        self.bulk_read_size = u64::MAX;
         self.bulk_read_index = 0;
         self.req_start = Instant::now();
     }
-
-    fn bulk_read_count(&self) -> u64 {
-        let key_info = self.cmd_type.redis_key_info();
-        if matches!(key_info, KeyInfo::OneKey) {
-            return 2;
-        }
-        return self.bulk_size;
-    }
-
-    // pub fn is_eager(&self) -> bool {
-    //     self.eager_read_size != 0 && self.bulk_read_index < self.eager_read_size
-    // }
-    pub fn cmd_type(&self) -> CmdType {
-        self.cmd_type
-    }
+    
     pub fn req_start(&self) -> Instant {
         self.req_start
     }
@@ -286,6 +331,14 @@ enum State {
     Cmd,
     CmdCR,
     CmdLF,
+
+    SubCmdIntegerStart,
+    SubCmdInteger,
+    SubCmdIntegerLF,
+    SubCmd,
+    SubCmdCR,
+    SubCmdLF,
+
     IntegerStart,
     Integer,
     IntegerLF,
@@ -339,10 +392,9 @@ mod tests {
         assert_eq!(res.is_none(), true);
         let decoder1 = ReqPktDecoder {
             state: State::ValueRootStart,
-            cmd_type: CmdType::UNKNOWN,
+            cmd_type: SmolStr::new(""),
             bulk_size: u64::MAX,
             pending_integer: 0,
-            bulk_read_size: u64::MAX,
             bulk_read_index: 0,
             req_start: Instant::now(),
         };
@@ -364,26 +416,24 @@ mod tests {
         println!("res: {:?}", res);
         let decoder2 = ReqPktDecoder {
             state: State::IntegerStart,
-            cmd_type: CmdType::SET,
+            cmd_type: SmolStr::new("set"),
             bulk_size: 3,
             pending_integer: 0,
-            bulk_read_size: 2,
             bulk_read_index: 2,
             req_start: Instant::now(),
         };
         assert_eq!(decoder, decoder2);
 
-        assert_eq!(res.unwrap(), ReqFrameData::new(true, CmdType::SET,
-                                                   Some(vec![18..34]),
+        assert_eq!(res.unwrap(), ReqFrameData::new(true, SmolStr::new("set"),
+                                                   Some(vec![18..34]), vec![1],
                                                    Bytes::from(&cmd[..36]), false));
         assert_eq!(true, bytes_mut.is_empty());
 
         let decoder3 = ReqPktDecoder {
             state: State::ArgLF,
-            cmd_type: CmdType::SET,
+            cmd_type: SmolStr::new("set"),
             bulk_size: 3,
             pending_integer: 0,
-            bulk_read_size: 2,
             bulk_read_index: 2,
             req_start: Instant::now(),
         };
@@ -393,18 +443,17 @@ mod tests {
         println!("req frame data: {:?}", res);
         assert_eq!(res.is_some(), true);
         assert_eq!(decoder, decoder3);
-        assert_eq!(res.unwrap(), ReqFrameData::new(false, CmdType::SET,
-                                                   Some(vec![]),
+        assert_eq!(res.unwrap(), ReqFrameData::new(false, SmolStr::new("set"),
+                                                   Some(vec![]),vec![1],
                                                    Bytes::from(&cmd[36..44]), false));
         assert_eq!(true, bytes_mut.is_empty());
 
 
         let decoder4 = ReqPktDecoder {
             state: State::ValueRootStart,
-            cmd_type: CmdType::SET,
+            cmd_type: SmolStr::new("set"),
             bulk_size: 3,
             pending_integer: 0,
-            bulk_read_size: 2,
             bulk_read_index: 3,
             req_start: Instant::now(),
         };
@@ -413,8 +462,8 @@ mod tests {
         println!("req frame data: {:?}", res);
         assert_eq!(res.is_some(), true);
         assert_eq!(decoder, decoder4);
-        assert_eq!(res.unwrap(), ReqFrameData::new(false, CmdType::SET,
-                                                   Some(vec![]),
+        assert_eq!(res.unwrap(), ReqFrameData::new(false, SmolStr::new("set"),
+                                                   Some(vec![]), vec![1],
                                                    Bytes::from(&cmd[44..45]), true));
         assert_eq!(true, bytes_mut.is_empty());
     }
