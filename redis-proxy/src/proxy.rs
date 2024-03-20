@@ -164,13 +164,13 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 session.res_is_ok = res_framed_data.res_is_ok;
             }
             session.res_size += res_framed_data.data.len();
-            session.write_downstream(&res_framed_data.data).await?;
-
-
             let cmd_type = session.cmd_type();
             if CMD_TYPE_AUTH.eq(cmd_type) && res_framed_data.is_done {
                 session.is_authed = res_framed_data.res_is_ok;
             }
+           
+            session.write_downstream(&res_framed_data.data).await?;
+
             if res_framed_data.is_done {
                 break;
             }
@@ -185,7 +185,8 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                                    -> anyhow::Result<()> {
         while let Some(Ok(data)) = conn.r.next().await {
             let is_done = data.is_done;
-            if CMD_TYPE_AUTH.eq(cmd_type) {
+
+            if CMD_TYPE_AUTH.eq(cmd_type) && is_done {
                 conn.is_authed = data.res_is_ok;
             }
             tx_upstream.send(data).await?;
