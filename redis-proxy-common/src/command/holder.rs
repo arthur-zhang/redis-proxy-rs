@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use lazy_static::lazy_static;
 use smol_str::SmolStr;
 
-use crate::command::{BeginSearch, FindKeys, Index, KeyNum, KeySpecs, Keyword, Range, RedisCmdDescribeEntity};
+use crate::command::{BeginSearch, Command, FindKeys, Group, Index, KeyNum, KeySpecs, Keyword, Range};
 
 lazy_static! {
     /**
@@ -35,155 +35,140 @@ lazy_static! {
     /**
      * Redis command's full name and its description
      */
-    pub static ref COMMANDS_INFO: HashMap<SmolStr, RedisCmdDescribeEntity> = HashMap::from([
-        (SmolStr::from("acl"), RedisCmdDescribeEntity {
-            summary: String::from("A container for Access List Control commands."),
+    pub static ref COMMAND_ATTRIBUTES: HashMap<SmolStr, Command> = HashMap::from([
+        (SmolStr::from("acl"), Command {
+            name: String::from("ACL"),
             container: None,
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: -2,
             function: None,
-            command_flags: Some(vec![String::from("SENTINEL"),]),
+            command_flags: 131072,
             key_specs: None,
         }),
-        (SmolStr::from("acl cat"), RedisCmdDescribeEntity {
-            summary: String::from("Lists the ACL categories, or the commands inside a category."),
+        (SmolStr::from("acl cat"), Command {
+            name: String::from("CAT"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: -2,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("acl deluser"), RedisCmdDescribeEntity {
-            summary: String::from("Deletes ACL users, and terminates their connections."),
+        (SmolStr::from("acl deluser"), Command {
+            name: String::from("DELUSER"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: -3,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("acl dryrun"), RedisCmdDescribeEntity {
-            summary: String::from("Simulates the execution of a command by a user, without executing the command."),
+        (SmolStr::from("acl dryrun"), Command {
+            name: String::from("DRYRUN"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("7.0.0"),
+            group: Group::Server,
             arity: -4,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("acl genpass"), RedisCmdDescribeEntity {
-            summary: String::from("Generates a pseudorandom, secure password that can be used to identify ACL users."),
+        (SmolStr::from("acl genpass"), Command {
+            name: String::from("GENPASS"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: -2,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("acl getuser"), RedisCmdDescribeEntity {
-            summary: String::from("Lists the ACL rules of a user."),
+        (SmolStr::from("acl getuser"), Command {
+            name: String::from("GETUSER"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: 3,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("acl help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("acl help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179712,
             key_specs: None,
         }),
-        (SmolStr::from("acl list"), RedisCmdDescribeEntity {
-            summary: String::from("Dumps the effective rules in ACL file format."),
+        (SmolStr::from("acl list"), Command {
+            name: String::from("LIST"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("acl load"), RedisCmdDescribeEntity {
-            summary: String::from("Reloads the rules from the configured ACL file."),
+        (SmolStr::from("acl load"), Command {
+            name: String::from("LOAD"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("acl log"), RedisCmdDescribeEntity {
-            summary: String::from("Lists recent security events generated due to ACL rules."),
+        (SmolStr::from("acl log"), Command {
+            name: String::from("LOG"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: -2,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("acl save"), RedisCmdDescribeEntity {
-            summary: String::from("Saves the effective ACL rules in the configured ACL file."),
+        (SmolStr::from("acl save"), Command {
+            name: String::from("SAVE"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("acl setuser"), RedisCmdDescribeEntity {
-            summary: String::from("Creates and modifies an ACL user and its rules."),
+        (SmolStr::from("acl setuser"), Command {
+            name: String::from("SETUSER"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: -3,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("acl users"), RedisCmdDescribeEntity {
-            summary: String::from("Lists all ACL users."),
+        (SmolStr::from("acl users"), Command {
+            name: String::from("USERS"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("acl whoami"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the authenticated username of the current connection."),
+        (SmolStr::from("acl whoami"), Command {
+            name: String::from("WHOAMI"),
             container: Some(String::from("ACL")),
-            group: String::from("server"),
-            since: String::from("6.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("aclCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("append"), RedisCmdDescribeEntity {
-            summary: String::from("Appends a string to the value of a key. Creates the key if it doesn't exist."),
+        (SmolStr::from("append"), Command {
+            name: String::from("APPEND"),
             container: None,
-            group: String::from("string"),
-            since: String::from("2.0.0"),
+            group: Group::String,
             arity: 3,
             function: Some(String::from("appendCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("INSERT"),],
@@ -192,54 +177,49 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("asking"), RedisCmdDescribeEntity {
-            summary: String::from("Signals that a cluster client is following an -ASK redirect."),
+        (SmolStr::from("asking"), Command {
+            name: String::from("ASKING"),
             container: None,
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 1,
             function: Some(String::from("askingCommand")),
-            command_flags: Some(vec![String::from("FAST"),]),
+            command_flags: 32,
             key_specs: None,
         }),
-        (SmolStr::from("auth"), RedisCmdDescribeEntity {
-            summary: String::from("Authenticates the connection."),
+        (SmolStr::from("auth"), Command {
+            name: String::from("AUTH"),
             container: None,
-            group: String::from("connection"),
-            since: String::from("1.0.0"),
+            group: Group::Connection,
             arity: -2,
             function: Some(String::from("authCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("NO_AUTH"),String::from("SENTINEL"),String::from("ALLOW_BUSY"),]),
+            command_flags: 1181026,
             key_specs: None,
         }),
-        (SmolStr::from("bgrewriteaof"), RedisCmdDescribeEntity {
-            summary: String::from("Asynchronously rewrites the append-only file to disk."),
+        (SmolStr::from("bgrewriteaof"), Command {
+            name: String::from("BGREWRITEAOF"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: 1,
             function: Some(String::from("bgrewriteaofCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),]),
+            command_flags: 769,
             key_specs: None,
         }),
-        (SmolStr::from("bgsave"), RedisCmdDescribeEntity {
-            summary: String::from("Asynchronously saves the database(s) to disk."),
+        (SmolStr::from("bgsave"), Command {
+            name: String::from("BGSAVE"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: -1,
             function: Some(String::from("bgsaveCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),]),
+            command_flags: 769,
             key_specs: None,
         }),
-        (SmolStr::from("bitcount"), RedisCmdDescribeEntity {
-            summary: String::from("Counts the number of set bits (population counting) in a string."),
+        (SmolStr::from("bitcount"), Command {
+            name: String::from("BITCOUNT"),
             container: None,
-            group: String::from("bitmap"),
-            since: String::from("2.6.0"),
+            group: Group::Bitmap,
             arity: -2,
             function: Some(String::from("bitcountCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -248,14 +228,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("bitfield"), RedisCmdDescribeEntity {
-            summary: String::from("Performs arbitrary bitfield integer operations on strings."),
+        (SmolStr::from("bitfield"), Command {
+            name: String::from("BITFIELD"),
             container: None,
-            group: String::from("bitmap"),
-            since: String::from("3.2.0"),
+            group: Group::Bitmap,
             arity: -2,
             function: Some(String::from("bitfieldCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),String::from("ACCESS"),String::from("VARIABLE_FLAGS"),],
@@ -264,14 +243,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("bitfield_ro"), RedisCmdDescribeEntity {
-            summary: String::from("Performs arbitrary read-only bitfield integer operations on strings."),
+        (SmolStr::from("bitfield_ro"), Command {
+            name: String::from("BITFIELD_RO"),
             container: None,
-            group: String::from("bitmap"),
-            since: String::from("6.0.0"),
+            group: Group::Bitmap,
             arity: -2,
             function: Some(String::from("bitfieldroCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -280,14 +258,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("bitop"), RedisCmdDescribeEntity {
-            summary: String::from("Performs bitwise operations on multiple strings, and stores the result."),
+        (SmolStr::from("bitop"), Command {
+            name: String::from("BITOP"),
             container: None,
-            group: String::from("bitmap"),
-            since: String::from("2.6.0"),
+            group: Group::Bitmap,
             arity: -4,
             function: Some(String::from("bitopCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -301,14 +278,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("bitpos"), RedisCmdDescribeEntity {
-            summary: String::from("Finds the first set (1) or clear (0) bit in a string."),
+        (SmolStr::from("bitpos"), Command {
+            name: String::from("BITPOS"),
             container: None,
-            group: String::from("bitmap"),
-            since: String::from("2.8.7"),
+            group: Group::Bitmap,
             arity: -3,
             function: Some(String::from("bitposCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -317,14 +293,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("blmove"), RedisCmdDescribeEntity {
-            summary: String::from("Pops an element from a list, pushes it to another list and returns it. Blocks until an element is available otherwise. Deletes the list if the last element was moved."),
+        (SmolStr::from("blmove"), Command {
+            name: String::from("BLMOVE"),
             container: None,
-            group: String::from("list"),
-            since: String::from("6.2.0"),
+            group: Group::List,
             arity: 6,
             function: Some(String::from("blmoveCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("BLOCKING"),]),
+            command_flags: 4194328,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -338,14 +313,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("blmpop"), RedisCmdDescribeEntity {
-            summary: String::from("Pops the first element from one of multiple lists. Blocks until an element is available otherwise. Deletes the list if the last element was popped."),
+        (SmolStr::from("blmpop"), Command {
+            name: String::from("BLMPOP"),
             container: None,
-            group: String::from("list"),
-            since: String::from("7.0.0"),
+            group: Group::List,
             arity: -5,
             function: Some(String::from("blmpopCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("BLOCKING"),]),
+            command_flags: 4194312,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -354,14 +328,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("blpop"), RedisCmdDescribeEntity {
-            summary: String::from("Removes and returns the first element in a list. Blocks until an element is available otherwise. Deletes the list if the last element was popped."),
+        (SmolStr::from("blpop"), Command {
+            name: String::from("BLPOP"),
             container: None,
-            group: String::from("list"),
-            since: String::from("2.0.0"),
+            group: Group::List,
             arity: -3,
             function: Some(String::from("blpopCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("BLOCKING"),]),
+            command_flags: 4194312,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -370,14 +343,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("brpop"), RedisCmdDescribeEntity {
-            summary: String::from("Removes and returns the last element in a list. Blocks until an element is available otherwise. Deletes the list if the last element was popped."),
+        (SmolStr::from("brpop"), Command {
+            name: String::from("BRPOP"),
             container: None,
-            group: String::from("list"),
-            since: String::from("2.0.0"),
+            group: Group::List,
             arity: -3,
             function: Some(String::from("brpopCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("BLOCKING"),]),
+            command_flags: 4194312,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -386,14 +358,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("brpoplpush"), RedisCmdDescribeEntity {
-            summary: String::from("Pops an element from a list, pushes it to another list and returns it. Block until an element is available otherwise. Deletes the list if the last element was popped."),
+        (SmolStr::from("brpoplpush"), Command {
+            name: String::from("BRPOPLPUSH"),
             container: None,
-            group: String::from("list"),
-            since: String::from("2.2.0"),
+            group: Group::List,
             arity: 4,
             function: Some(String::from("brpoplpushCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("BLOCKING"),]),
+            command_flags: 4194328,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -407,14 +378,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("bzmpop"), RedisCmdDescribeEntity {
-            summary: String::from("Removes and returns a member by score from one or more sorted sets. Blocks until a member is available otherwise. Deletes the sorted set if the last element was popped."),
+        (SmolStr::from("bzmpop"), Command {
+            name: String::from("BZMPOP"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("7.0.0"),
+            group: Group::SortedSet,
             arity: -5,
             function: Some(String::from("bzmpopCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("BLOCKING"),]),
+            command_flags: 4194312,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -423,14 +393,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("bzpopmax"), RedisCmdDescribeEntity {
-            summary: String::from("Removes and returns the member with the highest score from one or more sorted sets. Blocks until a member available otherwise.  Deletes the sorted set if the last element was popped."),
+        (SmolStr::from("bzpopmax"), Command {
+            name: String::from("BZPOPMAX"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("5.0.0"),
+            group: Group::SortedSet,
             arity: -3,
             function: Some(String::from("bzpopmaxCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),String::from("BLOCKING"),]),
+            command_flags: 4194344,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -439,14 +408,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("bzpopmin"), RedisCmdDescribeEntity {
-            summary: String::from("Removes and returns the member with the lowest score from one or more sorted sets. Blocks until a member is available otherwise. Deletes the sorted set if the last element was popped."),
+        (SmolStr::from("bzpopmin"), Command {
+            name: String::from("BZPOPMIN"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("5.0.0"),
+            group: Group::SortedSet,
             arity: -3,
             function: Some(String::from("bzpopminCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),String::from("BLOCKING"),]),
+            command_flags: 4194344,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -455,634 +423,571 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("client"), RedisCmdDescribeEntity {
-            summary: String::from("A container for client connection commands."),
+        (SmolStr::from("client"), Command {
+            name: String::from("CLIENT"),
             container: None,
-            group: String::from("connection"),
-            since: String::from("2.4.0"),
+            group: Group::Connection,
             arity: -2,
             function: None,
-            command_flags: Some(vec![String::from("SENTINEL"),]),
+            command_flags: 131072,
             key_specs: None,
         }),
-        (SmolStr::from("client caching"), RedisCmdDescribeEntity {
-            summary: String::from("Instructs the server whether to track the keys in the next request."),
+        (SmolStr::from("client caching"), Command {
+            name: String::from("CACHING"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("6.0.0"),
+            group: Group::Connection,
             arity: 3,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("client getname"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the name of the connection."),
+        (SmolStr::from("client getname"), Command {
+            name: String::from("GETNAME"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("2.6.9"),
+            group: Group::Connection,
             arity: 2,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("client getredir"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the client ID to which the connection's tracking notifications are redirected."),
+        (SmolStr::from("client getredir"), Command {
+            name: String::from("GETREDIR"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("6.0.0"),
+            group: Group::Connection,
             arity: 2,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("client help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("client help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("5.0.0"),
+            group: Group::Connection,
             arity: 2,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179712,
             key_specs: None,
         }),
-        (SmolStr::from("client id"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the unique client ID of the connection."),
+        (SmolStr::from("client id"), Command {
+            name: String::from("ID"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("5.0.0"),
+            group: Group::Connection,
             arity: 2,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("client info"), RedisCmdDescribeEntity {
-            summary: String::from("Returns information about the connection."),
+        (SmolStr::from("client info"), Command {
+            name: String::from("INFO"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("6.2.0"),
+            group: Group::Connection,
             arity: 2,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("client kill"), RedisCmdDescribeEntity {
-            summary: String::from("Terminates open connections."),
+        (SmolStr::from("client kill"), Command {
+            name: String::from("KILL"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("2.4.0"),
+            group: Group::Connection,
             arity: -3,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("client list"), RedisCmdDescribeEntity {
-            summary: String::from("Lists open connections."),
+        (SmolStr::from("client list"), Command {
+            name: String::from("LIST"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("2.4.0"),
+            group: Group::Connection,
             arity: -2,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("client no-evict"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the client eviction mode of the connection."),
+        (SmolStr::from("client no-evict"), Command {
+            name: String::from("NO-EVICT"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("7.0.0"),
+            group: Group::Connection,
             arity: 3,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("client no-touch"), RedisCmdDescribeEntity {
-            summary: String::from("Controls whether commands sent by the client affect the LRU/LFU of accessed keys."),
+        (SmolStr::from("client no-touch"), Command {
+            name: String::from("NO-TOUCH"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("7.2.0"),
+            group: Group::Connection,
             arity: 3,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048896,
             key_specs: None,
         }),
-        (SmolStr::from("client pause"), RedisCmdDescribeEntity {
-            summary: String::from("Suspends commands processing."),
+        (SmolStr::from("client pause"), Command {
+            name: String::from("PAUSE"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("3.0.0"),
+            group: Group::Connection,
             arity: -3,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("client reply"), RedisCmdDescribeEntity {
-            summary: String::from("Instructs the server whether to reply to commands."),
+        (SmolStr::from("client reply"), Command {
+            name: String::from("REPLY"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("3.2.0"),
+            group: Group::Connection,
             arity: 3,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("client setinfo"), RedisCmdDescribeEntity {
-            summary: String::from("Sets information specific to the client or connection."),
+        (SmolStr::from("client setinfo"), Command {
+            name: String::from("SETINFO"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("7.2.0"),
+            group: Group::Connection,
             arity: 4,
             function: Some(String::from("clientSetinfoCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("client setname"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the connection name."),
+        (SmolStr::from("client setname"), Command {
+            name: String::from("SETNAME"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("2.6.9"),
+            group: Group::Connection,
             arity: 3,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("client tracking"), RedisCmdDescribeEntity {
-            summary: String::from("Controls server-assisted client-side caching for the connection."),
+        (SmolStr::from("client tracking"), Command {
+            name: String::from("TRACKING"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("6.0.0"),
+            group: Group::Connection,
             arity: -3,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("client trackinginfo"), RedisCmdDescribeEntity {
-            summary: String::from("Returns information about server-assisted client-side caching for the connection."),
+        (SmolStr::from("client trackinginfo"), Command {
+            name: String::from("TRACKINGINFO"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("6.2.0"),
+            group: Group::Connection,
             arity: 2,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179968,
             key_specs: None,
         }),
-        (SmolStr::from("client unblock"), RedisCmdDescribeEntity {
-            summary: String::from("Unblocks a client blocked by a blocking command from a different connection."),
+        (SmolStr::from("client unblock"), Command {
+            name: String::from("UNBLOCK"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("5.0.0"),
+            group: Group::Connection,
             arity: -3,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("client unpause"), RedisCmdDescribeEntity {
-            summary: String::from("Resumes processing commands from paused clients."),
+        (SmolStr::from("client unpause"), Command {
+            name: String::from("UNPAUSE"),
             container: Some(String::from("CLIENT")),
-            group: String::from("connection"),
-            since: String::from("6.2.0"),
+            group: Group::Connection,
             arity: 2,
             function: Some(String::from("clientCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179969,
             key_specs: None,
         }),
-        (SmolStr::from("cluster"), RedisCmdDescribeEntity {
-            summary: String::from("A container for Redis Cluster commands."),
+        (SmolStr::from("cluster"), Command {
+            name: String::from("CLUSTER"),
             container: None,
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("cluster addslots"), RedisCmdDescribeEntity {
-            summary: String::from("Assigns new hash slots to a node."),
+        (SmolStr::from("cluster addslots"), Command {
+            name: String::from("ADDSLOTS"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: -3,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster addslotsrange"), RedisCmdDescribeEntity {
-            summary: String::from("Assigns new hash slot ranges to a node."),
+        (SmolStr::from("cluster addslotsrange"), Command {
+            name: String::from("ADDSLOTSRANGE"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("7.0.0"),
+            group: Group::Cluster,
             arity: -4,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster bumpepoch"), RedisCmdDescribeEntity {
-            summary: String::from("Advances the cluster config epoch."),
+        (SmolStr::from("cluster bumpepoch"), Command {
+            name: String::from("BUMPEPOCH"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster count-failure-reports"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of active failure reports active for a node."),
+        (SmolStr::from("cluster count-failure-reports"), Command {
+            name: String::from("COUNT-FAILURE-REPORTS"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 3,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1048577,
             key_specs: None,
         }),
-        (SmolStr::from("cluster countkeysinslot"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of keys in a hash slot."),
+        (SmolStr::from("cluster countkeysinslot"), Command {
+            name: String::from("COUNTKEYSINSLOT"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 3,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("STALE"),]),
+            command_flags: 1048576,
             key_specs: None,
         }),
-        (SmolStr::from("cluster delslots"), RedisCmdDescribeEntity {
-            summary: String::from("Sets hash slots as unbound for a node."),
+        (SmolStr::from("cluster delslots"), Command {
+            name: String::from("DELSLOTS"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: -3,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster delslotsrange"), RedisCmdDescribeEntity {
-            summary: String::from("Sets hash slot ranges as unbound for a node."),
+        (SmolStr::from("cluster delslotsrange"), Command {
+            name: String::from("DELSLOTSRANGE"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("7.0.0"),
+            group: Group::Cluster,
             arity: -4,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster failover"), RedisCmdDescribeEntity {
-            summary: String::from("Forces a replica to perform a manual failover of its master."),
+        (SmolStr::from("cluster failover"), Command {
+            name: String::from("FAILOVER"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: -2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster flushslots"), RedisCmdDescribeEntity {
-            summary: String::from("Deletes all slots information from a node."),
+        (SmolStr::from("cluster flushslots"), Command {
+            name: String::from("FLUSHSLOTS"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster forget"), RedisCmdDescribeEntity {
-            summary: String::from("Removes a node from the nodes table."),
+        (SmolStr::from("cluster forget"), Command {
+            name: String::from("FORGET"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 3,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster getkeysinslot"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the key names in a hash slot."),
+        (SmolStr::from("cluster getkeysinslot"), Command {
+            name: String::from("GETKEYSINSLOT"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 4,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("STALE"),]),
+            command_flags: 1048576,
             key_specs: None,
         }),
-        (SmolStr::from("cluster help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("cluster help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("5.0.0"),
+            group: Group::Cluster,
             arity: 2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("cluster info"), RedisCmdDescribeEntity {
-            summary: String::from("Returns information about the state of a node."),
+        (SmolStr::from("cluster info"), Command {
+            name: String::from("INFO"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("STALE"),]),
+            command_flags: 1048576,
             key_specs: None,
         }),
-        (SmolStr::from("cluster keyslot"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the hash slot for a key."),
+        (SmolStr::from("cluster keyslot"), Command {
+            name: String::from("KEYSLOT"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 3,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("STALE"),]),
+            command_flags: 1048576,
             key_specs: None,
         }),
-        (SmolStr::from("cluster links"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a list of all TCP links to and from peer nodes."),
+        (SmolStr::from("cluster links"), Command {
+            name: String::from("LINKS"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("7.0.0"),
+            group: Group::Cluster,
             arity: 2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("STALE"),]),
+            command_flags: 1048576,
             key_specs: None,
         }),
-        (SmolStr::from("cluster meet"), RedisCmdDescribeEntity {
-            summary: String::from("Forces a node to handshake with another node."),
+        (SmolStr::from("cluster meet"), Command {
+            name: String::from("MEET"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: -4,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster myid"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the ID of a node."),
+        (SmolStr::from("cluster myid"), Command {
+            name: String::from("MYID"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("STALE"),]),
+            command_flags: 1048576,
             key_specs: None,
         }),
-        (SmolStr::from("cluster myshardid"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the shard ID of a node."),
+        (SmolStr::from("cluster myshardid"), Command {
+            name: String::from("MYSHARDID"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("7.2.0"),
+            group: Group::Cluster,
             arity: 2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("STALE"),]),
+            command_flags: 1048576,
             key_specs: None,
         }),
-        (SmolStr::from("cluster nodes"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the cluster configuration for a node."),
+        (SmolStr::from("cluster nodes"), Command {
+            name: String::from("NODES"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("STALE"),]),
+            command_flags: 1048576,
             key_specs: None,
         }),
-        (SmolStr::from("cluster replicas"), RedisCmdDescribeEntity {
-            summary: String::from("Lists the replica nodes of a master node."),
+        (SmolStr::from("cluster replicas"), Command {
+            name: String::from("REPLICAS"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("5.0.0"),
+            group: Group::Cluster,
             arity: 3,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1048577,
             key_specs: None,
         }),
-        (SmolStr::from("cluster replicate"), RedisCmdDescribeEntity {
-            summary: String::from("Configure a node as replica of a master node."),
+        (SmolStr::from("cluster replicate"), Command {
+            name: String::from("REPLICATE"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 3,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster reset"), RedisCmdDescribeEntity {
-            summary: String::from("Resets a node."),
+        (SmolStr::from("cluster reset"), Command {
+            name: String::from("RESET"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: -2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("STALE"),String::from("NOSCRIPT"),]),
+            command_flags: 1048833,
             key_specs: None,
         }),
-        (SmolStr::from("cluster saveconfig"), RedisCmdDescribeEntity {
-            summary: String::from("Forces a node to save the cluster configuration to disk."),
+        (SmolStr::from("cluster saveconfig"), Command {
+            name: String::from("SAVECONFIG"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster set-config-epoch"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the configuration epoch for a new node."),
+        (SmolStr::from("cluster set-config-epoch"), Command {
+            name: String::from("SET-CONFIG-EPOCH"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 3,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster setslot"), RedisCmdDescribeEntity {
-            summary: String::from("Binds a hash slot to a node."),
+        (SmolStr::from("cluster setslot"), Command {
+            name: String::from("SETSLOT"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: -4,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1049089,
             key_specs: None,
         }),
-        (SmolStr::from("cluster shards"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the mapping of cluster slots to shards."),
+        (SmolStr::from("cluster shards"), Command {
+            name: String::from("SHARDS"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("7.0.0"),
+            group: Group::Cluster,
             arity: 2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("cluster slaves"), RedisCmdDescribeEntity {
-            summary: String::from("Lists the replica nodes of a master node."),
+        (SmolStr::from("cluster slaves"), Command {
+            name: String::from("SLAVES"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 3,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("STALE"),]),
+            command_flags: 1048577,
             key_specs: None,
         }),
-        (SmolStr::from("cluster slots"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the mapping of cluster slots to nodes."),
+        (SmolStr::from("cluster slots"), Command {
+            name: String::from("SLOTS"),
             container: Some(String::from("CLUSTER")),
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 2,
             function: Some(String::from("clusterCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("command"), RedisCmdDescribeEntity {
-            summary: String::from("Returns detailed information about all commands."),
+        (SmolStr::from("command"), Command {
+            name: String::from("COMMAND"),
             container: None,
-            group: String::from("server"),
-            since: String::from("2.8.13"),
+            group: Group::Server,
             arity: -1,
             function: Some(String::from("commandCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179712,
             key_specs: None,
         }),
-        (SmolStr::from("command count"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a count of commands."),
+        (SmolStr::from("command count"), Command {
+            name: String::from("COUNT"),
             container: Some(String::from("COMMAND")),
-            group: String::from("server"),
-            since: String::from("2.8.13"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("commandCountCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179712,
             key_specs: None,
         }),
-        (SmolStr::from("command docs"), RedisCmdDescribeEntity {
-            summary: String::from("Returns documentary information about one, multiple or all commands."),
+        (SmolStr::from("command docs"), Command {
+            name: String::from("DOCS"),
             container: Some(String::from("COMMAND")),
-            group: String::from("server"),
-            since: String::from("7.0.0"),
+            group: Group::Server,
             arity: -2,
             function: Some(String::from("commandDocsCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179712,
             key_specs: None,
         }),
-        (SmolStr::from("command getkeys"), RedisCmdDescribeEntity {
-            summary: String::from("Extracts the key names from an arbitrary command."),
+        (SmolStr::from("command getkeys"), Command {
+            name: String::from("GETKEYS"),
             container: Some(String::from("COMMAND")),
-            group: String::from("server"),
-            since: String::from("2.8.13"),
+            group: Group::Server,
             arity: -3,
             function: Some(String::from("commandGetKeysCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179712,
             key_specs: None,
         }),
-        (SmolStr::from("command getkeysandflags"), RedisCmdDescribeEntity {
-            summary: String::from("Extracts the key names and access flags for an arbitrary command."),
+        (SmolStr::from("command getkeysandflags"), Command {
+            name: String::from("GETKEYSANDFLAGS"),
             container: Some(String::from("COMMAND")),
-            group: String::from("server"),
-            since: String::from("7.0.0"),
+            group: Group::Server,
             arity: -3,
             function: Some(String::from("commandGetKeysAndFlagsCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179712,
             key_specs: None,
         }),
-        (SmolStr::from("command help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("command help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("COMMAND")),
-            group: String::from("server"),
-            since: String::from("5.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("commandHelpCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179712,
             key_specs: None,
         }),
-        (SmolStr::from("command info"), RedisCmdDescribeEntity {
-            summary: String::from("Returns information about one, multiple or all commands."),
+        (SmolStr::from("command info"), Command {
+            name: String::from("INFO"),
             container: Some(String::from("COMMAND")),
-            group: String::from("server"),
-            since: String::from("2.8.13"),
+            group: Group::Server,
             arity: -2,
             function: Some(String::from("commandInfoCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179712,
             key_specs: None,
         }),
-        (SmolStr::from("command list"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a list of command names."),
+        (SmolStr::from("command list"), Command {
+            name: String::from("LIST"),
             container: Some(String::from("COMMAND")),
-            group: String::from("server"),
-            since: String::from("7.0.0"),
+            group: Group::Server,
             arity: -2,
             function: Some(String::from("commandListCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179712,
             key_specs: None,
         }),
-        (SmolStr::from("config"), RedisCmdDescribeEntity {
-            summary: String::from("A container for server configuration commands."),
+        (SmolStr::from("config"), Command {
+            name: String::from("CONFIG"),
             container: None,
-            group: String::from("server"),
-            since: String::from("2.0.0"),
+            group: Group::Server,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("config get"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the effective values of configuration parameters."),
+        (SmolStr::from("config get"), Command {
+            name: String::from("GET"),
             container: Some(String::from("CONFIG")),
-            group: String::from("server"),
-            since: String::from("2.0.0"),
+            group: Group::Server,
             arity: -3,
             function: Some(String::from("configGetCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048897,
             key_specs: None,
         }),
-        (SmolStr::from("config help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("config help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("CONFIG")),
-            group: String::from("server"),
-            since: String::from("5.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("configHelpCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("config resetstat"), RedisCmdDescribeEntity {
-            summary: String::from("Resets the server's statistics."),
+        (SmolStr::from("config resetstat"), Command {
+            name: String::from("RESETSTAT"),
             container: Some(String::from("CONFIG")),
-            group: String::from("server"),
-            since: String::from("2.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("configResetStatCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048897,
             key_specs: None,
         }),
-        (SmolStr::from("config rewrite"), RedisCmdDescribeEntity {
-            summary: String::from("Persists the effective configuration to file."),
+        (SmolStr::from("config rewrite"), Command {
+            name: String::from("REWRITE"),
             container: Some(String::from("CONFIG")),
-            group: String::from("server"),
-            since: String::from("2.8.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("configRewriteCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048897,
             key_specs: None,
         }),
-        (SmolStr::from("config set"), RedisCmdDescribeEntity {
-            summary: String::from("Sets configuration parameters in-flight."),
+        (SmolStr::from("config set"), Command {
+            name: String::from("SET"),
             container: Some(String::from("CONFIG")),
-            group: String::from("server"),
-            since: String::from("2.0.0"),
+            group: Group::Server,
             arity: -4,
             function: Some(String::from("configSetCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048897,
             key_specs: None,
         }),
-        (SmolStr::from("copy"), RedisCmdDescribeEntity {
-            summary: String::from("Copies the value of a key to a new key."),
+        (SmolStr::from("copy"), Command {
+            name: String::from("COPY"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("6.2.0"),
+            group: Group::Generic,
             arity: -3,
             function: Some(String::from("copyCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1096,34 +1001,31 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("dbsize"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of keys in the database."),
+        (SmolStr::from("dbsize"), Command {
+            name: String::from("DBSIZE"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: 1,
             function: Some(String::from("dbsizeCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: None,
         }),
-        (SmolStr::from("debug"), RedisCmdDescribeEntity {
-            summary: String::from("A container for debugging commands."),
+        (SmolStr::from("debug"), Command {
+            name: String::from("DEBUG"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: -2,
             function: Some(String::from("debugCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("PROTECTED"),]),
+            command_flags: 1065281,
             key_specs: None,
         }),
-        (SmolStr::from("decr"), RedisCmdDescribeEntity {
-            summary: String::from("Decrements the integer value of a key by one. Uses 0 as initial value if the key doesn't exist."),
+        (SmolStr::from("decr"), Command {
+            name: String::from("DECR"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.0"),
+            group: Group::String,
             arity: 2,
             function: Some(String::from("decrCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -1132,14 +1034,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("decrby"), RedisCmdDescribeEntity {
-            summary: String::from("Decrements a number from the integer value of a key. Uses 0 as initial value if the key doesn't exist."),
+        (SmolStr::from("decrby"), Command {
+            name: String::from("DECRBY"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.0"),
+            group: Group::String,
             arity: 3,
             function: Some(String::from("decrbyCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -1148,14 +1049,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("del"), RedisCmdDescribeEntity {
-            summary: String::from("Deletes one or more keys."),
+        (SmolStr::from("del"), Command {
+            name: String::from("DEL"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.0.0"),
+            group: Group::Generic,
             arity: -2,
             function: Some(String::from("delCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RM"),String::from("DELETE"),],
@@ -1164,24 +1064,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("discard"), RedisCmdDescribeEntity {
-            summary: String::from("Discards a transaction."),
+        (SmolStr::from("discard"), Command {
+            name: String::from("DISCARD"),
             container: None,
-            group: String::from("transactions"),
-            since: String::from("2.0.0"),
+            group: Group::Transactions,
             arity: 1,
             function: Some(String::from("discardCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("ALLOW_BUSY"),]),
+            command_flags: 1048930,
             key_specs: None,
         }),
-        (SmolStr::from("dump"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a serialized representation of the value stored at a key."),
+        (SmolStr::from("dump"), Command {
+            name: String::from("DUMP"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("2.6.0"),
+            group: Group::Generic,
             arity: 2,
             function: Some(String::from("dumpCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1190,24 +1088,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("echo"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the given string."),
+        (SmolStr::from("echo"), Command {
+            name: String::from("ECHO"),
             container: None,
-            group: String::from("connection"),
-            since: String::from("1.0.0"),
+            group: Group::Connection,
             arity: 2,
             function: Some(String::from("echoCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("FAST"),]),
+            command_flags: 1048672,
             key_specs: None,
         }),
-        (SmolStr::from("eval"), RedisCmdDescribeEntity {
-            summary: String::from("Executes a server-side Lua script."),
+        (SmolStr::from("eval"), Command {
+            name: String::from("EVAL"),
             container: None,
-            group: String::from("scripting"),
-            since: String::from("2.6.0"),
+            group: Group::Scripting,
             arity: -3,
             function: Some(String::from("evalCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("SKIP_MONITOR"),String::from("MAY_REPLICATE"),String::from("NO_MANDATORY_KEYS"),String::from("STALE"),]),
+            command_flags: 1313152,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -1216,14 +1112,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("evalsha"), RedisCmdDescribeEntity {
-            summary: String::from("Executes a server-side Lua script by SHA1 digest."),
+        (SmolStr::from("evalsha"), Command {
+            name: String::from("EVALSHA"),
             container: None,
-            group: String::from("scripting"),
-            since: String::from("2.6.0"),
+            group: Group::Scripting,
             arity: -3,
             function: Some(String::from("evalShaCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("SKIP_MONITOR"),String::from("MAY_REPLICATE"),String::from("NO_MANDATORY_KEYS"),String::from("STALE"),]),
+            command_flags: 1313152,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -1232,14 +1127,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("evalsha_ro"), RedisCmdDescribeEntity {
-            summary: String::from("Executes a read-only server-side Lua script by SHA1 digest."),
+        (SmolStr::from("evalsha_ro"), Command {
+            name: String::from("EVALSHA_RO"),
             container: None,
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: -3,
             function: Some(String::from("evalShaRoCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("SKIP_MONITOR"),String::from("NO_MANDATORY_KEYS"),String::from("STALE"),String::from("READONLY"),]),
+            command_flags: 1378560,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1248,14 +1142,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("eval_ro"), RedisCmdDescribeEntity {
-            summary: String::from("Executes a read-only server-side Lua script."),
+        (SmolStr::from("eval_ro"), Command {
+            name: String::from("EVAL_RO"),
             container: None,
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: -3,
             function: Some(String::from("evalRoCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("SKIP_MONITOR"),String::from("NO_MANDATORY_KEYS"),String::from("STALE"),String::from("READONLY"),]),
+            command_flags: 1378560,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1264,24 +1157,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("exec"), RedisCmdDescribeEntity {
-            summary: String::from("Executes all commands in a transaction."),
+        (SmolStr::from("exec"), Command {
+            name: String::from("EXEC"),
             container: None,
-            group: String::from("transactions"),
-            since: String::from("1.2.0"),
+            group: Group::Transactions,
             arity: 1,
             function: Some(String::from("execCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SKIP_SLOWLOG"),]),
+            command_flags: 1573184,
             key_specs: None,
         }),
-        (SmolStr::from("exists"), RedisCmdDescribeEntity {
-            summary: String::from("Determines whether one or more keys exist."),
+        (SmolStr::from("exists"), Command {
+            name: String::from("EXISTS"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.0.0"),
+            group: Group::Generic,
             arity: -2,
             function: Some(String::from("existsCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -1290,14 +1181,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("expire"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the expiration time of a key in seconds."),
+        (SmolStr::from("expire"), Command {
+            name: String::from("EXPIRE"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.0.0"),
+            group: Group::Generic,
             arity: -3,
             function: Some(String::from("expireCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -1306,14 +1196,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("expireat"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the expiration time of a key to a Unix timestamp."),
+        (SmolStr::from("expireat"), Command {
+            name: String::from("EXPIREAT"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.2.0"),
+            group: Group::Generic,
             arity: -3,
             function: Some(String::from("expireatCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -1322,14 +1211,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("expiretime"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the expiration time of a key as a Unix timestamp."),
+        (SmolStr::from("expiretime"), Command {
+            name: String::from("EXPIRETIME"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("7.0.0"),
+            group: Group::Generic,
             arity: 2,
             function: Some(String::from("expiretimeCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1338,24 +1226,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("failover"), RedisCmdDescribeEntity {
-            summary: String::from("Starts a coordinated failover from a server to one of its replicas."),
+        (SmolStr::from("failover"), Command {
+            name: String::from("FAILOVER"),
             container: None,
-            group: String::from("server"),
-            since: String::from("6.2.0"),
+            group: Group::Server,
             arity: -1,
             function: Some(String::from("failoverCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("STALE"),]),
+            command_flags: 1048833,
             key_specs: None,
         }),
-        (SmolStr::from("fcall"), RedisCmdDescribeEntity {
-            summary: String::from("Invokes a function."),
+        (SmolStr::from("fcall"), Command {
+            name: String::from("FCALL"),
             container: None,
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: -3,
             function: Some(String::from("fcallCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("SKIP_MONITOR"),String::from("MAY_REPLICATE"),String::from("NO_MANDATORY_KEYS"),String::from("STALE"),]),
+            command_flags: 1313152,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -1364,14 +1250,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("fcall_ro"), RedisCmdDescribeEntity {
-            summary: String::from("Invokes a read-only function."),
+        (SmolStr::from("fcall_ro"), Command {
+            name: String::from("FCALL_RO"),
             container: None,
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: -3,
             function: Some(String::from("fcallroCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("SKIP_MONITOR"),String::from("NO_MANDATORY_KEYS"),String::from("STALE"),String::from("READONLY"),]),
+            command_flags: 1378560,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1380,134 +1265,121 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("flushall"), RedisCmdDescribeEntity {
-            summary: String::from("Removes all keys from all databases."),
+        (SmolStr::from("flushall"), Command {
+            name: String::from("FLUSHALL"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: -1,
             function: Some(String::from("flushallCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: None,
         }),
-        (SmolStr::from("flushdb"), RedisCmdDescribeEntity {
-            summary: String::from("Remove all keys from the current database."),
+        (SmolStr::from("flushdb"), Command {
+            name: String::from("FLUSHDB"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: -1,
             function: Some(String::from("flushdbCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: None,
         }),
-        (SmolStr::from("function"), RedisCmdDescribeEntity {
-            summary: String::from("A container for function commands."),
+        (SmolStr::from("function"), Command {
+            name: String::from("FUNCTION"),
             container: None,
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("function delete"), RedisCmdDescribeEntity {
-            summary: String::from("Deletes a library and its functions."),
+        (SmolStr::from("function delete"), Command {
+            name: String::from("DELETE"),
             container: Some(String::from("FUNCTION")),
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: 3,
             function: Some(String::from("functionDeleteCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("WRITE"),]),
+            command_flags: 4194560,
             key_specs: None,
         }),
-        (SmolStr::from("function dump"), RedisCmdDescribeEntity {
-            summary: String::from("Dumps all libraries into a serialized binary payload."),
+        (SmolStr::from("function dump"), Command {
+            name: String::from("DUMP"),
             container: Some(String::from("FUNCTION")),
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: 2,
             function: Some(String::from("functionDumpCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),]),
+            command_flags: 256,
             key_specs: None,
         }),
-        (SmolStr::from("function flush"), RedisCmdDescribeEntity {
-            summary: String::from("Deletes all libraries and functions."),
+        (SmolStr::from("function flush"), Command {
+            name: String::from("FLUSH"),
             container: Some(String::from("FUNCTION")),
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: -2,
             function: Some(String::from("functionFlushCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("WRITE"),]),
+            command_flags: 4194560,
             key_specs: None,
         }),
-        (SmolStr::from("function help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("function help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("FUNCTION")),
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: 2,
             function: Some(String::from("functionHelpCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("function kill"), RedisCmdDescribeEntity {
-            summary: String::from("Terminates a function during execution."),
+        (SmolStr::from("function kill"), Command {
+            name: String::from("KILL"),
             container: Some(String::from("FUNCTION")),
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: 2,
             function: Some(String::from("functionKillCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("ALLOW_BUSY"),]),
+            command_flags: 258,
             key_specs: None,
         }),
-        (SmolStr::from("function list"), RedisCmdDescribeEntity {
-            summary: String::from("Returns information about all libraries."),
+        (SmolStr::from("function list"), Command {
+            name: String::from("LIST"),
             container: Some(String::from("FUNCTION")),
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: -2,
             function: Some(String::from("functionListCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),]),
+            command_flags: 256,
             key_specs: None,
         }),
-        (SmolStr::from("function load"), RedisCmdDescribeEntity {
-            summary: String::from("Creates a library."),
+        (SmolStr::from("function load"), Command {
+            name: String::from("LOAD"),
             container: Some(String::from("FUNCTION")),
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: -3,
             function: Some(String::from("functionLoadCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194576,
             key_specs: None,
         }),
-        (SmolStr::from("function restore"), RedisCmdDescribeEntity {
-            summary: String::from("Restores all libraries from a payload."),
+        (SmolStr::from("function restore"), Command {
+            name: String::from("RESTORE"),
             container: Some(String::from("FUNCTION")),
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: -3,
             function: Some(String::from("functionRestoreCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194576,
             key_specs: None,
         }),
-        (SmolStr::from("function stats"), RedisCmdDescribeEntity {
-            summary: String::from("Returns information about a function during execution."),
+        (SmolStr::from("function stats"), Command {
+            name: String::from("STATS"),
             container: Some(String::from("FUNCTION")),
-            group: String::from("scripting"),
-            since: String::from("7.0.0"),
+            group: Group::Scripting,
             arity: 2,
             function: Some(String::from("functionStatsCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("ALLOW_BUSY"),]),
+            command_flags: 258,
             key_specs: None,
         }),
-        (SmolStr::from("geoadd"), RedisCmdDescribeEntity {
-            summary: String::from("Adds one or more members to a geospatial index. The key is created if it doesn't exist."),
+        (SmolStr::from("geoadd"), Command {
+            name: String::from("GEOADD"),
             container: None,
-            group: String::from("geo"),
-            since: String::from("3.2.0"),
+            group: Group::Geo,
             arity: -5,
             function: Some(String::from("geoaddCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -1516,14 +1388,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("geodist"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the distance between two members of a geospatial index."),
+        (SmolStr::from("geodist"), Command {
+            name: String::from("GEODIST"),
             container: None,
-            group: String::from("geo"),
-            since: String::from("3.2.0"),
+            group: Group::Geo,
             arity: -4,
             function: Some(String::from("geodistCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1532,14 +1403,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("geohash"), RedisCmdDescribeEntity {
-            summary: String::from("Returns members from a geospatial index as geohash strings."),
+        (SmolStr::from("geohash"), Command {
+            name: String::from("GEOHASH"),
             container: None,
-            group: String::from("geo"),
-            since: String::from("3.2.0"),
+            group: Group::Geo,
             arity: -2,
             function: Some(String::from("geohashCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1548,14 +1418,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("geopos"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the longitude and latitude of members from a geospatial index."),
+        (SmolStr::from("geopos"), Command {
+            name: String::from("GEOPOS"),
             container: None,
-            group: String::from("geo"),
-            since: String::from("3.2.0"),
+            group: Group::Geo,
             arity: -2,
             function: Some(String::from("geoposCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1564,14 +1433,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("georadius"), RedisCmdDescribeEntity {
-            summary: String::from("Queries a geospatial index for members within a distance from a coordinate, optionally stores the result."),
+        (SmolStr::from("georadius"), Command {
+            name: String::from("GEORADIUS"),
             container: None,
-            group: String::from("geo"),
-            since: String::from("3.2.0"),
+            group: Group::Geo,
             arity: -6,
             function: Some(String::from("georadiusCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1590,14 +1458,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("georadiusbymember"), RedisCmdDescribeEntity {
-            summary: String::from("Queries a geospatial index for members within a distance from a member, optionally stores the result."),
+        (SmolStr::from("georadiusbymember"), Command {
+            name: String::from("GEORADIUSBYMEMBER"),
             container: None,
-            group: String::from("geo"),
-            since: String::from("3.2.0"),
+            group: Group::Geo,
             arity: -5,
             function: Some(String::from("georadiusbymemberCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1616,14 +1483,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("georadiusbymember_ro"), RedisCmdDescribeEntity {
-            summary: String::from("Returns members from a geospatial index that are within a distance from a member."),
+        (SmolStr::from("georadiusbymember_ro"), Command {
+            name: String::from("GEORADIUSBYMEMBER_RO"),
             container: None,
-            group: String::from("geo"),
-            since: String::from("3.2.10"),
+            group: Group::Geo,
             arity: -5,
             function: Some(String::from("georadiusbymemberroCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1632,14 +1498,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("georadius_ro"), RedisCmdDescribeEntity {
-            summary: String::from("Returns members from a geospatial index that are within a distance from a coordinate."),
+        (SmolStr::from("georadius_ro"), Command {
+            name: String::from("GEORADIUS_RO"),
             container: None,
-            group: String::from("geo"),
-            since: String::from("3.2.10"),
+            group: Group::Geo,
             arity: -6,
             function: Some(String::from("georadiusroCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1648,14 +1513,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("geosearch"), RedisCmdDescribeEntity {
-            summary: String::from("Queries a geospatial index for members inside an area of a box or a circle."),
+        (SmolStr::from("geosearch"), Command {
+            name: String::from("GEOSEARCH"),
             container: None,
-            group: String::from("geo"),
-            since: String::from("6.2.0"),
+            group: Group::Geo,
             arity: -7,
             function: Some(String::from("geosearchCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1664,14 +1528,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("geosearchstore"), RedisCmdDescribeEntity {
-            summary: String::from("Queries a geospatial index for members inside an area of a box or a circle, optionally stores the result."),
+        (SmolStr::from("geosearchstore"), Command {
+            name: String::from("GEOSEARCHSTORE"),
             container: None,
-            group: String::from("geo"),
-            since: String::from("6.2.0"),
+            group: Group::Geo,
             arity: -8,
             function: Some(String::from("geosearchstoreCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -1685,14 +1548,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("get"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the string value of a key."),
+        (SmolStr::from("get"), Command {
+            name: String::from("GET"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.0"),
+            group: Group::String,
             arity: 2,
             function: Some(String::from("getCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1701,14 +1563,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("getbit"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a bit value by offset."),
+        (SmolStr::from("getbit"), Command {
+            name: String::from("GETBIT"),
             container: None,
-            group: String::from("bitmap"),
-            since: String::from("2.2.0"),
+            group: Group::Bitmap,
             arity: 3,
             function: Some(String::from("getbitCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1717,14 +1578,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("getdel"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the string value of a key after deleting the key."),
+        (SmolStr::from("getdel"), Command {
+            name: String::from("GETDEL"),
             container: None,
-            group: String::from("string"),
-            since: String::from("6.2.0"),
+            group: Group::String,
             arity: 2,
             function: Some(String::from("getdelCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -1733,14 +1593,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("getex"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the string value of a key after setting its expiration time."),
+        (SmolStr::from("getex"), Command {
+            name: String::from("GETEX"),
             container: None,
-            group: String::from("string"),
-            since: String::from("6.2.0"),
+            group: Group::String,
             arity: -2,
             function: Some(String::from("getexCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -1749,14 +1608,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("getrange"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a substring of the string stored at a key."),
+        (SmolStr::from("getrange"), Command {
+            name: String::from("GETRANGE"),
             container: None,
-            group: String::from("string"),
-            since: String::from("2.4.0"),
+            group: Group::String,
             arity: 4,
             function: Some(String::from("getrangeCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1765,14 +1623,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("getset"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the previous string value of a key after setting it to a new value."),
+        (SmolStr::from("getset"), Command {
+            name: String::from("GETSET"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.0"),
+            group: Group::String,
             arity: 3,
             function: Some(String::from("getsetCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -1781,14 +1638,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hdel"), RedisCmdDescribeEntity {
-            summary: String::from("Deletes one or more fields and their values from a hash. Deletes the hash if no fields remain."),
+        (SmolStr::from("hdel"), Command {
+            name: String::from("HDEL"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: -3,
             function: Some(String::from("hdelCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -1797,24 +1653,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hello"), RedisCmdDescribeEntity {
-            summary: String::from("Handshakes with the Redis server."),
+        (SmolStr::from("hello"), Command {
+            name: String::from("HELLO"),
             container: None,
-            group: String::from("connection"),
-            since: String::from("6.0.0"),
+            group: Group::Connection,
             arity: -1,
             function: Some(String::from("helloCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("NO_AUTH"),String::from("SENTINEL"),String::from("ALLOW_BUSY"),]),
+            command_flags: 1181026,
             key_specs: None,
         }),
-        (SmolStr::from("hexists"), RedisCmdDescribeEntity {
-            summary: String::from("Determines whether a field exists in a hash."),
+        (SmolStr::from("hexists"), Command {
+            name: String::from("HEXISTS"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: 3,
             function: Some(String::from("hexistsCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -1823,14 +1677,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hget"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the value of a field in a hash."),
+        (SmolStr::from("hget"), Command {
+            name: String::from("HGET"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: 3,
             function: Some(String::from("hgetCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1839,14 +1692,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hgetall"), RedisCmdDescribeEntity {
-            summary: String::from("Returns all fields and values in a hash."),
+        (SmolStr::from("hgetall"), Command {
+            name: String::from("HGETALL"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: 2,
             function: Some(String::from("hgetallCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1855,14 +1707,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hincrby"), RedisCmdDescribeEntity {
-            summary: String::from("Increments the integer value of a field in a hash by a number. Uses 0 as initial value if the field doesn't exist."),
+        (SmolStr::from("hincrby"), Command {
+            name: String::from("HINCRBY"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: 4,
             function: Some(String::from("hincrbyCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -1871,14 +1722,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hincrbyfloat"), RedisCmdDescribeEntity {
-            summary: String::from("Increments the floating point value of a field by a number. Uses 0 as initial value if the field doesn't exist."),
+        (SmolStr::from("hincrbyfloat"), Command {
+            name: String::from("HINCRBYFLOAT"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.6.0"),
+            group: Group::Hash,
             arity: 4,
             function: Some(String::from("hincrbyfloatCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -1887,14 +1737,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hkeys"), RedisCmdDescribeEntity {
-            summary: String::from("Returns all fields in a hash."),
+        (SmolStr::from("hkeys"), Command {
+            name: String::from("HKEYS"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: 2,
             function: Some(String::from("hkeysCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1903,14 +1752,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hlen"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of fields in a hash."),
+        (SmolStr::from("hlen"), Command {
+            name: String::from("HLEN"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: 2,
             function: Some(String::from("hlenCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -1919,14 +1767,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hmget"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the values of all fields in a hash."),
+        (SmolStr::from("hmget"), Command {
+            name: String::from("HMGET"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: -3,
             function: Some(String::from("hmgetCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1935,14 +1782,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hmset"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the values of multiple fields."),
+        (SmolStr::from("hmset"), Command {
+            name: String::from("HMSET"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: -4,
             function: Some(String::from("hsetCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -1951,14 +1797,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hrandfield"), RedisCmdDescribeEntity {
-            summary: String::from("Returns one or more random fields from a hash."),
+        (SmolStr::from("hrandfield"), Command {
+            name: String::from("HRANDFIELD"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("6.2.0"),
+            group: Group::Hash,
             arity: -2,
             function: Some(String::from("hrandfieldCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1967,14 +1812,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hscan"), RedisCmdDescribeEntity {
-            summary: String::from("Iterates over fields and values of a hash."),
+        (SmolStr::from("hscan"), Command {
+            name: String::from("HSCAN"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.8.0"),
+            group: Group::Hash,
             arity: -3,
             function: Some(String::from("hscanCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -1983,14 +1827,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hset"), RedisCmdDescribeEntity {
-            summary: String::from("Creates or modifies the value of a field in a hash."),
+        (SmolStr::from("hset"), Command {
+            name: String::from("HSET"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: -4,
             function: Some(String::from("hsetCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -1999,14 +1842,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hsetnx"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the value of a field in a hash only when the field doesn't exist."),
+        (SmolStr::from("hsetnx"), Command {
+            name: String::from("HSETNX"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: 4,
             function: Some(String::from("hsetnxCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("INSERT"),],
@@ -2015,14 +1857,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hstrlen"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the length of the value of a field."),
+        (SmolStr::from("hstrlen"), Command {
+            name: String::from("HSTRLEN"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("3.2.0"),
+            group: Group::Hash,
             arity: 3,
             function: Some(String::from("hstrlenCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -2031,14 +1872,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("hvals"), RedisCmdDescribeEntity {
-            summary: String::from("Returns all values in a hash."),
+        (SmolStr::from("hvals"), Command {
+            name: String::from("HVALS"),
             container: None,
-            group: String::from("hash"),
-            since: String::from("2.0.0"),
+            group: Group::Hash,
             arity: 2,
             function: Some(String::from("hvalsCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -2047,14 +1887,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("incr"), RedisCmdDescribeEntity {
-            summary: String::from("Increments the integer value of a key by one. Uses 0 as initial value if the key doesn't exist."),
+        (SmolStr::from("incr"), Command {
+            name: String::from("INCR"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.0"),
+            group: Group::String,
             arity: 2,
             function: Some(String::from("incrCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -2063,14 +1902,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("incrby"), RedisCmdDescribeEntity {
-            summary: String::from("Increments the integer value of a key by a number. Uses 0 as initial value if the key doesn't exist."),
+        (SmolStr::from("incrby"), Command {
+            name: String::from("INCRBY"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.0"),
+            group: Group::String,
             arity: 3,
             function: Some(String::from("incrbyCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -2079,14 +1917,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("incrbyfloat"), RedisCmdDescribeEntity {
-            summary: String::from("Increment the floating point value of a key by a number. Uses 0 as initial value if the key doesn't exist."),
+        (SmolStr::from("incrbyfloat"), Command {
+            name: String::from("INCRBYFLOAT"),
             container: None,
-            group: String::from("string"),
-            since: String::from("2.6.0"),
+            group: Group::String,
             arity: 3,
             function: Some(String::from("incrbyfloatCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -2095,124 +1932,112 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("info"), RedisCmdDescribeEntity {
-            summary: String::from("Returns information and statistics about the server."),
+        (SmolStr::from("info"), Command {
+            name: String::from("INFO"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: -1,
             function: Some(String::from("infoCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1179712,
             key_specs: None,
         }),
-        (SmolStr::from("keys"), RedisCmdDescribeEntity {
-            summary: String::from("Returns all key names that match a pattern."),
+        (SmolStr::from("keys"), Command {
+            name: String::from("KEYS"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.0.0"),
+            group: Group::Generic,
             arity: 2,
             function: Some(String::from("keysCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: None,
         }),
-        (SmolStr::from("lastsave"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the Unix timestamp of the last successful save to disk."),
+        (SmolStr::from("lastsave"), Command {
+            name: String::from("LASTSAVE"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: 1,
             function: Some(String::from("lastsaveCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("FAST"),]),
+            command_flags: 1048672,
             key_specs: None,
         }),
-        (SmolStr::from("latency"), RedisCmdDescribeEntity {
-            summary: String::from("A container for latency diagnostics commands."),
+        (SmolStr::from("latency"), Command {
+            name: String::from("LATENCY"),
             container: None,
-            group: String::from("server"),
-            since: String::from("2.8.13"),
+            group: Group::Server,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("latency doctor"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a human-readable latency analysis report."),
+        (SmolStr::from("latency doctor"), Command {
+            name: String::from("DOCTOR"),
             container: Some(String::from("LATENCY")),
-            group: String::from("server"),
-            since: String::from("2.8.13"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("latencyCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048897,
             key_specs: None,
         }),
-        (SmolStr::from("latency graph"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a latency graph for an event."),
+        (SmolStr::from("latency graph"), Command {
+            name: String::from("GRAPH"),
             container: Some(String::from("LATENCY")),
-            group: String::from("server"),
-            since: String::from("2.8.13"),
+            group: Group::Server,
             arity: 3,
             function: Some(String::from("latencyCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048897,
             key_specs: None,
         }),
-        (SmolStr::from("latency help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("latency help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("LATENCY")),
-            group: String::from("server"),
-            since: String::from("2.8.13"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("latencyCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("latency histogram"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the cumulative distribution of latencies of a subset or all commands."),
+        (SmolStr::from("latency histogram"), Command {
+            name: String::from("HISTOGRAM"),
             container: Some(String::from("LATENCY")),
-            group: String::from("server"),
-            since: String::from("7.0.0"),
+            group: Group::Server,
             arity: -2,
             function: Some(String::from("latencyCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048897,
             key_specs: None,
         }),
-        (SmolStr::from("latency history"), RedisCmdDescribeEntity {
-            summary: String::from("Returns timestamp-latency samples for an event."),
+        (SmolStr::from("latency history"), Command {
+            name: String::from("HISTORY"),
             container: Some(String::from("LATENCY")),
-            group: String::from("server"),
-            since: String::from("2.8.13"),
+            group: Group::Server,
             arity: 3,
             function: Some(String::from("latencyCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048897,
             key_specs: None,
         }),
-        (SmolStr::from("latency latest"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the latest latency samples for all events."),
+        (SmolStr::from("latency latest"), Command {
+            name: String::from("LATEST"),
             container: Some(String::from("LATENCY")),
-            group: String::from("server"),
-            since: String::from("2.8.13"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("latencyCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048897,
             key_specs: None,
         }),
-        (SmolStr::from("latency reset"), RedisCmdDescribeEntity {
-            summary: String::from("Resets the latency data for one or more events."),
+        (SmolStr::from("latency reset"), Command {
+            name: String::from("RESET"),
             container: Some(String::from("LATENCY")),
-            group: String::from("server"),
-            since: String::from("2.8.13"),
+            group: Group::Server,
             arity: -2,
             function: Some(String::from("latencyCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048897,
             key_specs: None,
         }),
-        (SmolStr::from("lcs"), RedisCmdDescribeEntity {
-            summary: String::from("Finds the longest common substring."),
+        (SmolStr::from("lcs"), Command {
+            name: String::from("LCS"),
             container: None,
-            group: String::from("string"),
-            since: String::from("7.0.0"),
+            group: Group::String,
             arity: -3,
             function: Some(String::from("lcsCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -2221,14 +2046,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("lindex"), RedisCmdDescribeEntity {
-            summary: String::from("Returns an element from a list by its index."),
+        (SmolStr::from("lindex"), Command {
+            name: String::from("LINDEX"),
             container: None,
-            group: String::from("list"),
-            since: String::from("1.0.0"),
+            group: Group::List,
             arity: 3,
             function: Some(String::from("lindexCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -2237,14 +2061,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("linsert"), RedisCmdDescribeEntity {
-            summary: String::from("Inserts an element before or after another element in a list."),
+        (SmolStr::from("linsert"), Command {
+            name: String::from("LINSERT"),
             container: None,
-            group: String::from("list"),
-            since: String::from("2.2.0"),
+            group: Group::List,
             arity: 5,
             function: Some(String::from("linsertCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("INSERT"),],
@@ -2253,14 +2076,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("llen"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the length of a list."),
+        (SmolStr::from("llen"), Command {
+            name: String::from("LLEN"),
             container: None,
-            group: String::from("list"),
-            since: String::from("1.0.0"),
+            group: Group::List,
             arity: 2,
             function: Some(String::from("llenCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -2269,14 +2091,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("lmove"), RedisCmdDescribeEntity {
-            summary: String::from("Returns an element after popping it from one list and pushing it to another. Deletes the list if the last element was moved."),
+        (SmolStr::from("lmove"), Command {
+            name: String::from("LMOVE"),
             container: None,
-            group: String::from("list"),
-            since: String::from("6.2.0"),
+            group: Group::List,
             arity: 5,
             function: Some(String::from("lmoveCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -2290,14 +2111,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("lmpop"), RedisCmdDescribeEntity {
-            summary: String::from("Returns multiple elements from a list after removing them. Deletes the list if the last element was popped."),
+        (SmolStr::from("lmpop"), Command {
+            name: String::from("LMPOP"),
             container: None,
-            group: String::from("list"),
-            since: String::from("7.0.0"),
+            group: Group::List,
             arity: -4,
             function: Some(String::from("lmpopCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -2306,24 +2126,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("lolwut"), RedisCmdDescribeEntity {
-            summary: String::from("Displays computer art and the Redis version"),
+        (SmolStr::from("lolwut"), Command {
+            name: String::from("LOLWUT"),
             container: None,
-            group: String::from("server"),
-            since: String::from("5.0.0"),
+            group: Group::Server,
             arity: -1,
             function: Some(String::from("lolwutCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: None,
         }),
-        (SmolStr::from("lpop"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the first elements in a list after removing it. Deletes the list if the last element was popped."),
+        (SmolStr::from("lpop"), Command {
+            name: String::from("LPOP"),
             container: None,
-            group: String::from("list"),
-            since: String::from("1.0.0"),
+            group: Group::List,
             arity: -2,
             function: Some(String::from("lpopCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -2332,14 +2150,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("lpos"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the index of matching elements in a list."),
+        (SmolStr::from("lpos"), Command {
+            name: String::from("LPOS"),
             container: None,
-            group: String::from("list"),
-            since: String::from("6.0.6"),
+            group: Group::List,
             arity: -3,
             function: Some(String::from("lposCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -2348,14 +2165,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("lpush"), RedisCmdDescribeEntity {
-            summary: String::from("Prepends one or more elements to a list. Creates the key if it doesn't exist."),
+        (SmolStr::from("lpush"), Command {
+            name: String::from("LPUSH"),
             container: None,
-            group: String::from("list"),
-            since: String::from("1.0.0"),
+            group: Group::List,
             arity: -3,
             function: Some(String::from("lpushCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("INSERT"),],
@@ -2364,14 +2180,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("lpushx"), RedisCmdDescribeEntity {
-            summary: String::from("Prepends one or more elements to a list only when the list exists."),
+        (SmolStr::from("lpushx"), Command {
+            name: String::from("LPUSHX"),
             container: None,
-            group: String::from("list"),
-            since: String::from("2.2.0"),
+            group: Group::List,
             arity: -3,
             function: Some(String::from("lpushxCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("INSERT"),],
@@ -2380,14 +2195,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("lrange"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a range of elements from a list."),
+        (SmolStr::from("lrange"), Command {
+            name: String::from("LRANGE"),
             container: None,
-            group: String::from("list"),
-            since: String::from("1.0.0"),
+            group: Group::List,
             arity: 4,
             function: Some(String::from("lrangeCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -2396,14 +2210,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("lrem"), RedisCmdDescribeEntity {
-            summary: String::from("Removes elements from a list. Deletes the list if the last element was removed."),
+        (SmolStr::from("lrem"), Command {
+            name: String::from("LREM"),
             container: None,
-            group: String::from("list"),
-            since: String::from("1.0.0"),
+            group: Group::List,
             arity: 4,
             function: Some(String::from("lremCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -2412,14 +2225,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("lset"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the value of an element in a list by its index."),
+        (SmolStr::from("lset"), Command {
+            name: String::from("LSET"),
             container: None,
-            group: String::from("list"),
-            since: String::from("1.0.0"),
+            group: Group::List,
             arity: 4,
             function: Some(String::from("lsetCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -2428,14 +2240,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("ltrim"), RedisCmdDescribeEntity {
-            summary: String::from("Removes elements from both ends a list. Deletes the list if all elements were trimmed."),
+        (SmolStr::from("ltrim"), Command {
+            name: String::from("LTRIM"),
             container: None,
-            group: String::from("list"),
-            since: String::from("1.0.0"),
+            group: Group::List,
             arity: 4,
             function: Some(String::from("ltrimCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -2444,74 +2255,67 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("memory"), RedisCmdDescribeEntity {
-            summary: String::from("A container for memory diagnostics commands."),
+        (SmolStr::from("memory"), Command {
+            name: String::from("MEMORY"),
             container: None,
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("memory doctor"), RedisCmdDescribeEntity {
-            summary: String::from("Outputs a memory problems report."),
+        (SmolStr::from("memory doctor"), Command {
+            name: String::from("DOCTOR"),
             container: Some(String::from("MEMORY")),
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("memoryCommand")),
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("memory help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("memory help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("MEMORY")),
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("memoryCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("memory malloc-stats"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the allocator statistics."),
+        (SmolStr::from("memory malloc-stats"), Command {
+            name: String::from("MALLOC-STATS"),
             container: Some(String::from("MEMORY")),
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("memoryCommand")),
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("memory purge"), RedisCmdDescribeEntity {
-            summary: String::from("Asks the allocator to release memory."),
+        (SmolStr::from("memory purge"), Command {
+            name: String::from("PURGE"),
             container: Some(String::from("MEMORY")),
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("memoryCommand")),
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("memory stats"), RedisCmdDescribeEntity {
-            summary: String::from("Returns details about memory usage."),
+        (SmolStr::from("memory stats"), Command {
+            name: String::from("STATS"),
             container: Some(String::from("MEMORY")),
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("memoryCommand")),
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("memory usage"), RedisCmdDescribeEntity {
-            summary: String::from("Estimates the memory usage of a key."),
+        (SmolStr::from("memory usage"), Command {
+            name: String::from("USAGE"),
             container: Some(String::from("MEMORY")),
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: -3,
             function: Some(String::from("memoryCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -2520,14 +2324,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("mget"), RedisCmdDescribeEntity {
-            summary: String::from("Atomically returns the string values of one or more keys."),
+        (SmolStr::from("mget"), Command {
+            name: String::from("MGET"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.0"),
+            group: Group::String,
             arity: -2,
             function: Some(String::from("mgetCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -2536,14 +2339,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("migrate"), RedisCmdDescribeEntity {
-            summary: String::from("Atomically transfers a key from one Redis instance to another."),
+        (SmolStr::from("migrate"), Command {
+            name: String::from("MIGRATE"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("2.6.0"),
+            group: Group::Generic,
             arity: -6,
             function: Some(String::from("migrateCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -2557,84 +2359,76 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("module"), RedisCmdDescribeEntity {
-            summary: String::from("A container for module commands."),
+        (SmolStr::from("module"), Command {
+            name: String::from("MODULE"),
             container: None,
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("module help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("module help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("MODULE")),
-            group: String::from("server"),
-            since: String::from("5.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("moduleCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("module list"), RedisCmdDescribeEntity {
-            summary: String::from("Returns all loaded modules."),
+        (SmolStr::from("module list"), Command {
+            name: String::from("LIST"),
             container: Some(String::from("MODULE")),
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("moduleCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),]),
+            command_flags: 257,
             key_specs: None,
         }),
-        (SmolStr::from("module load"), RedisCmdDescribeEntity {
-            summary: String::from("Loads a module."),
+        (SmolStr::from("module load"), Command {
+            name: String::from("LOAD"),
             container: Some(String::from("MODULE")),
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: -3,
             function: Some(String::from("moduleCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("PROTECTED"),]),
+            command_flags: 17153,
             key_specs: None,
         }),
-        (SmolStr::from("module loadex"), RedisCmdDescribeEntity {
-            summary: String::from("Loads a module using extended parameters."),
+        (SmolStr::from("module loadex"), Command {
+            name: String::from("LOADEX"),
             container: Some(String::from("MODULE")),
-            group: String::from("server"),
-            since: String::from("7.0.0"),
+            group: Group::Server,
             arity: -3,
             function: Some(String::from("moduleCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("PROTECTED"),]),
+            command_flags: 17153,
             key_specs: None,
         }),
-        (SmolStr::from("module unload"), RedisCmdDescribeEntity {
-            summary: String::from("Unloads a module."),
+        (SmolStr::from("module unload"), Command {
+            name: String::from("UNLOAD"),
             container: Some(String::from("MODULE")),
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: 3,
             function: Some(String::from("moduleCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("PROTECTED"),]),
+            command_flags: 17153,
             key_specs: None,
         }),
-        (SmolStr::from("monitor"), RedisCmdDescribeEntity {
-            summary: String::from("Listens for all requests received by the server in real-time."),
+        (SmolStr::from("monitor"), Command {
+            name: String::from("MONITOR"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: 1,
             function: Some(String::from("monitorCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048897,
             key_specs: None,
         }),
-        (SmolStr::from("move"), RedisCmdDescribeEntity {
-            summary: String::from("Moves a key to another database."),
+        (SmolStr::from("move"), Command {
+            name: String::from("MOVE"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.0.0"),
+            group: Group::Generic,
             arity: 3,
             function: Some(String::from("moveCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -2643,14 +2437,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("mset"), RedisCmdDescribeEntity {
-            summary: String::from("Atomically creates or modifies the string values of one or more keys."),
+        (SmolStr::from("mset"), Command {
+            name: String::from("MSET"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.1"),
+            group: Group::String,
             arity: -3,
             function: Some(String::from("msetCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -2659,14 +2452,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("msetnx"), RedisCmdDescribeEntity {
-            summary: String::from("Atomically modifies the string values of one or more keys only when all keys don't exist."),
+        (SmolStr::from("msetnx"), Command {
+            name: String::from("MSETNX"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.1"),
+            group: Group::String,
             arity: -3,
             function: Some(String::from("msetnxCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("INSERT"),],
@@ -2675,34 +2467,31 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("multi"), RedisCmdDescribeEntity {
-            summary: String::from("Starts a transaction."),
+        (SmolStr::from("multi"), Command {
+            name: String::from("MULTI"),
             container: None,
-            group: String::from("transactions"),
-            since: String::from("1.2.0"),
+            group: Group::Transactions,
             arity: 1,
             function: Some(String::from("multiCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("ALLOW_BUSY"),]),
+            command_flags: 1048930,
             key_specs: None,
         }),
-        (SmolStr::from("object"), RedisCmdDescribeEntity {
-            summary: String::from("A container for object introspection commands."),
+        (SmolStr::from("object"), Command {
+            name: String::from("OBJECT"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("2.2.3"),
+            group: Group::Generic,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("object encoding"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the internal encoding of a Redis object."),
+        (SmolStr::from("object encoding"), Command {
+            name: String::from("ENCODING"),
             container: Some(String::from("OBJECT")),
-            group: String::from("generic"),
-            since: String::from("2.2.3"),
+            group: Group::Generic,
             arity: 3,
             function: Some(String::from("objectCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -2711,14 +2500,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("object freq"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the logarithmic access frequency counter of a Redis object."),
+        (SmolStr::from("object freq"), Command {
+            name: String::from("FREQ"),
             container: Some(String::from("OBJECT")),
-            group: String::from("generic"),
-            since: String::from("4.0.0"),
+            group: Group::Generic,
             arity: 3,
             function: Some(String::from("objectCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -2727,24 +2515,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("object help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("object help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("OBJECT")),
-            group: String::from("generic"),
-            since: String::from("6.2.0"),
+            group: Group::Generic,
             arity: 2,
             function: Some(String::from("objectCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("object idletime"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the time since the last access to a Redis object."),
+        (SmolStr::from("object idletime"), Command {
+            name: String::from("IDLETIME"),
             container: Some(String::from("OBJECT")),
-            group: String::from("generic"),
-            since: String::from("2.2.3"),
+            group: Group::Generic,
             arity: 3,
             function: Some(String::from("objectCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -2753,14 +2539,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("object refcount"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the reference count of a value of a key."),
+        (SmolStr::from("object refcount"), Command {
+            name: String::from("REFCOUNT"),
             container: Some(String::from("OBJECT")),
-            group: String::from("generic"),
-            since: String::from("2.2.3"),
+            group: Group::Generic,
             arity: 3,
             function: Some(String::from("objectCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -2769,14 +2554,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("persist"), RedisCmdDescribeEntity {
-            summary: String::from("Removes the expiration time of a key."),
+        (SmolStr::from("persist"), Command {
+            name: String::from("PERSIST"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("2.2.0"),
+            group: Group::Generic,
             arity: 2,
             function: Some(String::from("persistCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -2785,14 +2569,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("pexpire"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the expiration time of a key in milliseconds."),
+        (SmolStr::from("pexpire"), Command {
+            name: String::from("PEXPIRE"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("2.6.0"),
+            group: Group::Generic,
             arity: -3,
             function: Some(String::from("pexpireCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -2801,14 +2584,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("pexpireat"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the expiration time of a key to a Unix milliseconds timestamp."),
+        (SmolStr::from("pexpireat"), Command {
+            name: String::from("PEXPIREAT"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("2.6.0"),
+            group: Group::Generic,
             arity: -3,
             function: Some(String::from("pexpireatCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -2817,14 +2599,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("pexpiretime"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the expiration time of a key as a Unix milliseconds timestamp."),
+        (SmolStr::from("pexpiretime"), Command {
+            name: String::from("PEXPIRETIME"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("7.0.0"),
+            group: Group::Generic,
             arity: 2,
             function: Some(String::from("pexpiretimeCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -2833,14 +2614,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("pfadd"), RedisCmdDescribeEntity {
-            summary: String::from("Adds elements to a HyperLogLog key. Creates the key if it doesn't exist."),
+        (SmolStr::from("pfadd"), Command {
+            name: String::from("PFADD"),
             container: None,
-            group: String::from("hyperloglog"),
-            since: String::from("2.8.9"),
+            group: Group::Hyperloglog,
             arity: -2,
             function: Some(String::from("pfaddCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("INSERT"),],
@@ -2849,14 +2629,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("pfcount"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the approximated cardinality of the set(s) observed by the HyperLogLog key(s)."),
+        (SmolStr::from("pfcount"), Command {
+            name: String::from("PFCOUNT"),
             container: None,
-            group: String::from("hyperloglog"),
-            since: String::from("2.8.9"),
+            group: Group::Hyperloglog,
             arity: -2,
             function: Some(String::from("pfcountCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("MAY_REPLICATE"),]),
+            command_flags: 65664,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),],
@@ -2865,14 +2644,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("pfdebug"), RedisCmdDescribeEntity {
-            summary: String::from("Internal commands for debugging HyperLogLog values."),
+        (SmolStr::from("pfdebug"), Command {
+            name: String::from("PFDEBUG"),
             container: None,
-            group: String::from("hyperloglog"),
-            since: String::from("2.8.9"),
+            group: Group::Hyperloglog,
             arity: 3,
             function: Some(String::from("pfdebugCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("ADMIN"),]),
+            command_flags: 4194321,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),],
@@ -2881,14 +2659,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("pfmerge"), RedisCmdDescribeEntity {
-            summary: String::from("Merges one or more HyperLogLog values into a single key."),
+        (SmolStr::from("pfmerge"), Command {
+            name: String::from("PFMERGE"),
             container: None,
-            group: String::from("hyperloglog"),
-            since: String::from("2.8.9"),
+            group: Group::Hyperloglog,
             arity: -2,
             function: Some(String::from("pfmergeCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("INSERT"),],
@@ -2902,34 +2679,31 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("pfselftest"), RedisCmdDescribeEntity {
-            summary: String::from("An internal command for testing HyperLogLog values."),
+        (SmolStr::from("pfselftest"), Command {
+            name: String::from("PFSELFTEST"),
             container: None,
-            group: String::from("hyperloglog"),
-            since: String::from("2.8.9"),
+            group: Group::Hyperloglog,
             arity: 1,
             function: Some(String::from("pfselftestCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),]),
+            command_flags: 1,
             key_specs: None,
         }),
-        (SmolStr::from("ping"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the server's liveliness response."),
+        (SmolStr::from("ping"), Command {
+            name: String::from("PING"),
             container: None,
-            group: String::from("connection"),
-            since: String::from("1.0.0"),
+            group: Group::Connection,
             arity: -1,
             function: Some(String::from("pingCommand")),
-            command_flags: Some(vec![String::from("FAST"),String::from("SENTINEL"),]),
+            command_flags: 131104,
             key_specs: None,
         }),
-        (SmolStr::from("psetex"), RedisCmdDescribeEntity {
-            summary: String::from("Sets both string value and expiration time in milliseconds of a key. The key is created if it doesn't exist."),
+        (SmolStr::from("psetex"), Command {
+            name: String::from("PSETEX"),
             container: None,
-            group: String::from("string"),
-            since: String::from("2.6.0"),
+            group: Group::String,
             arity: 4,
             function: Some(String::from("psetexCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -2938,34 +2712,31 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("psubscribe"), RedisCmdDescribeEntity {
-            summary: String::from("Listens for messages published to channels that match one or more patterns."),
+        (SmolStr::from("psubscribe"), Command {
+            name: String::from("PSUBSCRIBE"),
             container: None,
-            group: String::from("pubsub"),
-            since: String::from("2.0.0"),
+            group: Group::PubSub,
             arity: -2,
             function: Some(String::from("psubscribeCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1212736,
             key_specs: None,
         }),
-        (SmolStr::from("psync"), RedisCmdDescribeEntity {
-            summary: String::from("An internal command used in replication."),
+        (SmolStr::from("psync"), Command {
+            name: String::from("PSYNC"),
             container: None,
-            group: String::from("server"),
-            since: String::from("2.8.0"),
+            group: Group::Server,
             arity: -3,
             function: Some(String::from("syncCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NO_MULTI"),String::from("NOSCRIPT"),]),
+            command_flags: 4865,
             key_specs: None,
         }),
-        (SmolStr::from("pttl"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the expiration time in milliseconds of a key."),
+        (SmolStr::from("pttl"), Command {
+            name: String::from("PTTL"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("2.6.0"),
+            group: Group::Generic,
             arity: 2,
             function: Some(String::from("pttlCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -2974,144 +2745,130 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("publish"), RedisCmdDescribeEntity {
-            summary: String::from("Posts a message to a channel."),
+        (SmolStr::from("publish"), Command {
+            name: String::from("PUBLISH"),
             container: None,
-            group: String::from("pubsub"),
-            since: String::from("2.0.0"),
+            group: Group::PubSub,
             arity: 3,
             function: Some(String::from("publishCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("MAY_REPLICATE"),String::from("SENTINEL"),]),
+            command_flags: 1212640,
             key_specs: None,
         }),
-        (SmolStr::from("pubsub"), RedisCmdDescribeEntity {
-            summary: String::from("A container for Pub/Sub commands."),
+        (SmolStr::from("pubsub"), Command {
+            name: String::from("PUBSUB"),
             container: None,
-            group: String::from("pubsub"),
-            since: String::from("2.8.0"),
+            group: Group::PubSub,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("pubsub channels"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the active channels."),
+        (SmolStr::from("pubsub channels"), Command {
+            name: String::from("CHANNELS"),
             container: Some(String::from("PUBSUB")),
-            group: String::from("pubsub"),
-            since: String::from("2.8.0"),
+            group: Group::PubSub,
             arity: -2,
             function: Some(String::from("pubsubCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1081408,
             key_specs: None,
         }),
-        (SmolStr::from("pubsub help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("pubsub help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("PUBSUB")),
-            group: String::from("pubsub"),
-            since: String::from("6.2.0"),
+            group: Group::PubSub,
             arity: 2,
             function: Some(String::from("pubsubCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("pubsub numpat"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a count of unique pattern subscriptions."),
+        (SmolStr::from("pubsub numpat"), Command {
+            name: String::from("NUMPAT"),
             container: Some(String::from("PUBSUB")),
-            group: String::from("pubsub"),
-            since: String::from("2.8.0"),
+            group: Group::PubSub,
             arity: 2,
             function: Some(String::from("pubsubCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1081408,
             key_specs: None,
         }),
-        (SmolStr::from("pubsub numsub"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a count of subscribers to channels."),
+        (SmolStr::from("pubsub numsub"), Command {
+            name: String::from("NUMSUB"),
             container: Some(String::from("PUBSUB")),
-            group: String::from("pubsub"),
-            since: String::from("2.8.0"),
+            group: Group::PubSub,
             arity: -2,
             function: Some(String::from("pubsubCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1081408,
             key_specs: None,
         }),
-        (SmolStr::from("pubsub shardchannels"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the active shard channels."),
+        (SmolStr::from("pubsub shardchannels"), Command {
+            name: String::from("SHARDCHANNELS"),
             container: Some(String::from("PUBSUB")),
-            group: String::from("pubsub"),
-            since: String::from("7.0.0"),
+            group: Group::PubSub,
             arity: -2,
             function: Some(String::from("pubsubCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1081408,
             key_specs: None,
         }),
-        (SmolStr::from("pubsub shardnumsub"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the count of subscribers of shard channels."),
+        (SmolStr::from("pubsub shardnumsub"), Command {
+            name: String::from("SHARDNUMSUB"),
             container: Some(String::from("PUBSUB")),
-            group: String::from("pubsub"),
-            since: String::from("7.0.0"),
+            group: Group::PubSub,
             arity: -2,
             function: Some(String::from("pubsubCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1081408,
             key_specs: None,
         }),
-        (SmolStr::from("punsubscribe"), RedisCmdDescribeEntity {
-            summary: String::from("Stops listening to messages published to channels that match one or more patterns."),
+        (SmolStr::from("punsubscribe"), Command {
+            name: String::from("PUNSUBSCRIBE"),
             container: None,
-            group: String::from("pubsub"),
-            since: String::from("2.0.0"),
+            group: Group::PubSub,
             arity: -1,
             function: Some(String::from("punsubscribeCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1212736,
             key_specs: None,
         }),
-        (SmolStr::from("quit"), RedisCmdDescribeEntity {
-            summary: String::from("Closes the connection."),
+        (SmolStr::from("quit"), Command {
+            name: String::from("QUIT"),
             container: None,
-            group: String::from("connection"),
-            since: String::from("1.0.0"),
+            group: Group::Connection,
             arity: -1,
             function: Some(String::from("quitCommand")),
-            command_flags: Some(vec![String::from("ALLOW_BUSY"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("NO_AUTH"),]),
+            command_flags: 1049954,
             key_specs: None,
         }),
-        (SmolStr::from("randomkey"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a random key name from the database."),
+        (SmolStr::from("randomkey"), Command {
+            name: String::from("RANDOMKEY"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.0.0"),
+            group: Group::Generic,
             arity: 1,
             function: Some(String::from("randomkeyCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("TOUCHES_ARBITRARY_KEYS"),]),
+            command_flags: 2162688,
             key_specs: None,
         }),
-        (SmolStr::from("readonly"), RedisCmdDescribeEntity {
-            summary: String::from("Enables read-only queries for a connection to a Redis Cluster replica node."),
+        (SmolStr::from("readonly"), Command {
+            name: String::from("READONLY"),
             container: None,
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 1,
             function: Some(String::from("readonlyCommand")),
-            command_flags: Some(vec![String::from("FAST"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048672,
             key_specs: None,
         }),
-        (SmolStr::from("readwrite"), RedisCmdDescribeEntity {
-            summary: String::from("Enables read-write queries for a connection to a Reids Cluster replica node."),
+        (SmolStr::from("readwrite"), Command {
+            name: String::from("READWRITE"),
             container: None,
-            group: String::from("cluster"),
-            since: String::from("3.0.0"),
+            group: Group::Cluster,
             arity: 1,
             function: Some(String::from("readwriteCommand")),
-            command_flags: Some(vec![String::from("FAST"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048672,
             key_specs: None,
         }),
-        (SmolStr::from("rename"), RedisCmdDescribeEntity {
-            summary: String::from("Renames a key and overwrites the destination."),
+        (SmolStr::from("rename"), Command {
+            name: String::from("RENAME"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.0.0"),
+            group: Group::Generic,
             arity: 3,
             function: Some(String::from("renameCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -3125,14 +2882,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("renamenx"), RedisCmdDescribeEntity {
-            summary: String::from("Renames a key only when the target key name doesn't exist."),
+        (SmolStr::from("renamenx"), Command {
+            name: String::from("RENAMENX"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.0.0"),
+            group: Group::Generic,
             arity: 3,
             function: Some(String::from("renamenxCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -3146,44 +2902,40 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("replconf"), RedisCmdDescribeEntity {
-            summary: String::from("An internal command for configuring the replication stream."),
+        (SmolStr::from("replconf"), Command {
+            name: String::from("REPLCONF"),
             container: None,
-            group: String::from("server"),
-            since: String::from("3.0.0"),
+            group: Group::Server,
             arity: -1,
             function: Some(String::from("replconfCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("ALLOW_BUSY"),]),
+            command_flags: 1048899,
             key_specs: None,
         }),
-        (SmolStr::from("replicaof"), RedisCmdDescribeEntity {
-            summary: String::from("Configures a server as replica of another, or promotes it to a master."),
+        (SmolStr::from("replicaof"), Command {
+            name: String::from("REPLICAOF"),
             container: None,
-            group: String::from("server"),
-            since: String::from("5.0.0"),
+            group: Group::Server,
             arity: 3,
             function: Some(String::from("replicaofCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("STALE"),]),
+            command_flags: 1049345,
             key_specs: None,
         }),
-        (SmolStr::from("reset"), RedisCmdDescribeEntity {
-            summary: String::from("Resets the connection."),
+        (SmolStr::from("reset"), Command {
+            name: String::from("RESET"),
             container: None,
-            group: String::from("connection"),
-            since: String::from("6.2.0"),
+            group: Group::Connection,
             arity: 1,
             function: Some(String::from("resetCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("NO_AUTH"),String::from("ALLOW_BUSY"),]),
+            command_flags: 1049954,
             key_specs: None,
         }),
-        (SmolStr::from("restore"), RedisCmdDescribeEntity {
-            summary: String::from("Creates a key from the serialized representation of a value."),
+        (SmolStr::from("restore"), Command {
+            name: String::from("RESTORE"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("2.6.0"),
+            group: Group::Generic,
             arity: -4,
             function: Some(String::from("restoreCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -3192,14 +2944,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("restore-asking"), RedisCmdDescribeEntity {
-            summary: String::from("An internal command for migrating keys in a cluster."),
+        (SmolStr::from("restore-asking"), Command {
+            name: String::from("RESTORE-ASKING"),
             container: None,
-            group: String::from("server"),
-            since: String::from("3.0.0"),
+            group: Group::Server,
             arity: -4,
             function: Some(String::from("restoreCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("ASKING"),]),
+            command_flags: 4194324,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -3208,24 +2959,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("role"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the replication role."),
+        (SmolStr::from("role"), Command {
+            name: String::from("ROLE"),
             container: None,
-            group: String::from("server"),
-            since: String::from("2.8.12"),
+            group: Group::Server,
             arity: 1,
             function: Some(String::from("roleCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("SENTINEL"),]),
+            command_flags: 1180000,
             key_specs: None,
         }),
-        (SmolStr::from("rpop"), RedisCmdDescribeEntity {
-            summary: String::from("Returns and removes the last elements of a list. Deletes the list if the last element was popped."),
+        (SmolStr::from("rpop"), Command {
+            name: String::from("RPOP"),
             container: None,
-            group: String::from("list"),
-            since: String::from("1.0.0"),
+            group: Group::List,
             arity: -2,
             function: Some(String::from("rpopCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -3234,14 +2983,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("rpoplpush"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the last element of a list after removing and pushing it to another list. Deletes the list if the last element was popped."),
+        (SmolStr::from("rpoplpush"), Command {
+            name: String::from("RPOPLPUSH"),
             container: None,
-            group: String::from("list"),
-            since: String::from("1.2.0"),
+            group: Group::List,
             arity: 3,
             function: Some(String::from("rpoplpushCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -3255,14 +3003,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("rpush"), RedisCmdDescribeEntity {
-            summary: String::from("Appends one or more elements to a list. Creates the key if it doesn't exist."),
+        (SmolStr::from("rpush"), Command {
+            name: String::from("RPUSH"),
             container: None,
-            group: String::from("list"),
-            since: String::from("1.0.0"),
+            group: Group::List,
             arity: -3,
             function: Some(String::from("rpushCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("INSERT"),],
@@ -3271,14 +3018,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("rpushx"), RedisCmdDescribeEntity {
-            summary: String::from("Appends an element to a list only when the list exists."),
+        (SmolStr::from("rpushx"), Command {
+            name: String::from("RPUSHX"),
             container: None,
-            group: String::from("list"),
-            since: String::from("2.2.0"),
+            group: Group::List,
             arity: -3,
             function: Some(String::from("rpushxCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("INSERT"),],
@@ -3287,14 +3033,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("sadd"), RedisCmdDescribeEntity {
-            summary: String::from("Adds one or more members to a set. Creates the key if it doesn't exist."),
+        (SmolStr::from("sadd"), Command {
+            name: String::from("SADD"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: -3,
             function: Some(String::from("saddCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("INSERT"),],
@@ -3303,34 +3048,31 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("save"), RedisCmdDescribeEntity {
-            summary: String::from("Synchronously saves the database(s) to disk."),
+        (SmolStr::from("save"), Command {
+            name: String::from("SAVE"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: 1,
             function: Some(String::from("saveCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("NO_MULTI"),]),
+            command_flags: 4865,
             key_specs: None,
         }),
-        (SmolStr::from("scan"), RedisCmdDescribeEntity {
-            summary: String::from("Iterates over the key names in the database."),
+        (SmolStr::from("scan"), Command {
+            name: String::from("SCAN"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("2.8.0"),
+            group: Group::Generic,
             arity: -2,
             function: Some(String::from("scanCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("TOUCHES_ARBITRARY_KEYS"),]),
+            command_flags: 2162688,
             key_specs: None,
         }),
-        (SmolStr::from("scard"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of members in a set."),
+        (SmolStr::from("scard"), Command {
+            name: String::from("SCARD"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: 2,
             function: Some(String::from("scardCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -3339,84 +3081,76 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("script"), RedisCmdDescribeEntity {
-            summary: String::from("A container for Lua scripts management commands."),
+        (SmolStr::from("script"), Command {
+            name: String::from("SCRIPT"),
             container: None,
-            group: String::from("scripting"),
-            since: String::from("2.6.0"),
+            group: Group::Scripting,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("script debug"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the debug mode of server-side Lua scripts."),
+        (SmolStr::from("script debug"), Command {
+            name: String::from("DEBUG"),
             container: Some(String::from("SCRIPT")),
-            group: String::from("scripting"),
-            since: String::from("3.2.0"),
+            group: Group::Scripting,
             arity: 3,
             function: Some(String::from("scriptCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),]),
+            command_flags: 256,
             key_specs: None,
         }),
-        (SmolStr::from("script exists"), RedisCmdDescribeEntity {
-            summary: String::from("Determines whether server-side Lua scripts exist in the script cache."),
+        (SmolStr::from("script exists"), Command {
+            name: String::from("EXISTS"),
             container: Some(String::from("SCRIPT")),
-            group: String::from("scripting"),
-            since: String::from("2.6.0"),
+            group: Group::Scripting,
             arity: -3,
             function: Some(String::from("scriptCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),]),
+            command_flags: 256,
             key_specs: None,
         }),
-        (SmolStr::from("script flush"), RedisCmdDescribeEntity {
-            summary: String::from("Removes all server-side Lua scripts from the script cache."),
+        (SmolStr::from("script flush"), Command {
+            name: String::from("FLUSH"),
             container: Some(String::from("SCRIPT")),
-            group: String::from("scripting"),
-            since: String::from("2.6.0"),
+            group: Group::Scripting,
             arity: -2,
             function: Some(String::from("scriptCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),]),
+            command_flags: 256,
             key_specs: None,
         }),
-        (SmolStr::from("script help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("script help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("SCRIPT")),
-            group: String::from("scripting"),
-            since: String::from("5.0.0"),
+            group: Group::Scripting,
             arity: 2,
             function: Some(String::from("scriptCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("script kill"), RedisCmdDescribeEntity {
-            summary: String::from("Terminates a server-side Lua script during execution."),
+        (SmolStr::from("script kill"), Command {
+            name: String::from("KILL"),
             container: Some(String::from("SCRIPT")),
-            group: String::from("scripting"),
-            since: String::from("2.6.0"),
+            group: Group::Scripting,
             arity: 2,
             function: Some(String::from("scriptCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("ALLOW_BUSY"),]),
+            command_flags: 258,
             key_specs: None,
         }),
-        (SmolStr::from("script load"), RedisCmdDescribeEntity {
-            summary: String::from("Loads a server-side Lua script to the script cache."),
+        (SmolStr::from("script load"), Command {
+            name: String::from("LOAD"),
             container: Some(String::from("SCRIPT")),
-            group: String::from("scripting"),
-            since: String::from("2.6.0"),
+            group: Group::Scripting,
             arity: 3,
             function: Some(String::from("scriptCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("STALE"),]),
+            command_flags: 1048832,
             key_specs: None,
         }),
-        (SmolStr::from("sdiff"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the difference of multiple sets."),
+        (SmolStr::from("sdiff"), Command {
+            name: String::from("SDIFF"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: -2,
             function: Some(String::from("sdiffCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -3425,14 +3159,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("sdiffstore"), RedisCmdDescribeEntity {
-            summary: String::from("Stores the difference of multiple sets in a key."),
+        (SmolStr::from("sdiffstore"), Command {
+            name: String::from("SDIFFSTORE"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: -3,
             function: Some(String::from("sdiffstoreCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -3446,244 +3179,220 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("select"), RedisCmdDescribeEntity {
-            summary: String::from("Changes the selected database."),
+        (SmolStr::from("select"), Command {
+            name: String::from("SELECT"),
             container: None,
-            group: String::from("connection"),
-            since: String::from("1.0.0"),
+            group: Group::Connection,
             arity: 2,
             function: Some(String::from("selectCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("FAST"),]),
+            command_flags: 1048672,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel"), RedisCmdDescribeEntity {
-            summary: String::from("A container for Redis Sentinel commands."),
+        (SmolStr::from("sentinel"), Command {
+            name: String::from("SENTINEL"),
             container: None,
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: -2,
             function: None,
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel ckquorum"), RedisCmdDescribeEntity {
-            summary: String::from("Checks for a Redis Sentinel quorum."),
+        (SmolStr::from("sentinel ckquorum"), Command {
+            name: String::from("CKQUORUM"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 3,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel config"), RedisCmdDescribeEntity {
-            summary: String::from("Configures Redis Sentinel."),
+        (SmolStr::from("sentinel config"), Command {
+            name: String::from("CONFIG"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("6.2.0"),
+            group: Group::Sentinel,
             arity: -4,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel debug"), RedisCmdDescribeEntity {
-            summary: String::from("Lists or updates the current configurable parameters of Redis Sentinel."),
+        (SmolStr::from("sentinel debug"), Command {
+            name: String::from("DEBUG"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("7.0.0"),
+            group: Group::Sentinel,
             arity: -2,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel failover"), RedisCmdDescribeEntity {
-            summary: String::from("Forces a Redis Sentinel failover."),
+        (SmolStr::from("sentinel failover"), Command {
+            name: String::from("FAILOVER"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 3,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel flushconfig"), RedisCmdDescribeEntity {
-            summary: String::from("Rewrites the Redis Sentinel configuration file."),
+        (SmolStr::from("sentinel flushconfig"), Command {
+            name: String::from("FLUSHCONFIG"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 2,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel get-master-addr-by-name"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the port and address of a master Redis instance."),
+        (SmolStr::from("sentinel get-master-addr-by-name"), Command {
+            name: String::from("GET-MASTER-ADDR-BY-NAME"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 3,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("sentinel help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("6.2.0"),
+            group: Group::Sentinel,
             arity: 2,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 1187904,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel info-cache"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the cached `INFO` replies from the deployment's instances."),
+        (SmolStr::from("sentinel info-cache"), Command {
+            name: String::from("INFO-CACHE"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("3.2.0"),
+            group: Group::Sentinel,
             arity: -3,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel is-master-down-by-addr"), RedisCmdDescribeEntity {
-            summary: String::from("Determines whether a master Redis instance is down."),
+        (SmolStr::from("sentinel is-master-down-by-addr"), Command {
+            name: String::from("IS-MASTER-DOWN-BY-ADDR"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 6,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel master"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the state of a master Redis instance."),
+        (SmolStr::from("sentinel master"), Command {
+            name: String::from("MASTER"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 3,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel masters"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a list of monitored Redis masters."),
+        (SmolStr::from("sentinel masters"), Command {
+            name: String::from("MASTERS"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 2,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel monitor"), RedisCmdDescribeEntity {
-            summary: String::from("Starts monitoring."),
+        (SmolStr::from("sentinel monitor"), Command {
+            name: String::from("MONITOR"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 6,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel myid"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the Redis Sentinel instance ID."),
+        (SmolStr::from("sentinel myid"), Command {
+            name: String::from("MYID"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("6.2.0"),
+            group: Group::Sentinel,
             arity: 2,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel pending-scripts"), RedisCmdDescribeEntity {
-            summary: String::from("Returns information about pending scripts for Redis Sentinel."),
+        (SmolStr::from("sentinel pending-scripts"), Command {
+            name: String::from("PENDING-SCRIPTS"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 2,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel remove"), RedisCmdDescribeEntity {
-            summary: String::from("Stops monitoring."),
+        (SmolStr::from("sentinel remove"), Command {
+            name: String::from("REMOVE"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 3,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel replicas"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a list of the monitored Redis replicas."),
+        (SmolStr::from("sentinel replicas"), Command {
+            name: String::from("REPLICAS"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("5.0.0"),
+            group: Group::Sentinel,
             arity: 3,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel reset"), RedisCmdDescribeEntity {
-            summary: String::from("Resets Redis masters by name matching a pattern."),
+        (SmolStr::from("sentinel reset"), Command {
+            name: String::from("RESET"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 3,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel sentinels"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a list of Sentinel instances."),
+        (SmolStr::from("sentinel sentinels"), Command {
+            name: String::from("SENTINELS"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: 3,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel set"), RedisCmdDescribeEntity {
-            summary: String::from("Changes the configuration of a monitored Redis master."),
+        (SmolStr::from("sentinel set"), Command {
+            name: String::from("SET"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.4"),
+            group: Group::Sentinel,
             arity: -5,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel simulate-failure"), RedisCmdDescribeEntity {
-            summary: String::from("Simulates failover scenarios."),
+        (SmolStr::from("sentinel simulate-failure"), Command {
+            name: String::from("SIMULATE-FAILURE"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("3.2.0"),
+            group: Group::Sentinel,
             arity: -3,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("sentinel slaves"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a list of the monitored replicas."),
+        (SmolStr::from("sentinel slaves"), Command {
+            name: String::from("SLAVES"),
             container: Some(String::from("SENTINEL")),
-            group: String::from("sentinel"),
-            since: String::from("2.8.0"),
+            group: Group::Sentinel,
             arity: 3,
             function: Some(String::from("sentinelCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("SENTINEL"),String::from("ONLY_SENTINEL"),]),
+            command_flags: 139265,
             key_specs: None,
         }),
-        (SmolStr::from("set"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the string value of a key, ignoring its type. The key is created if it doesn't exist."),
+        (SmolStr::from("set"), Command {
+            name: String::from("SET"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.0"),
+            group: Group::String,
             arity: -3,
             function: Some(String::from("setCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),String::from("VARIABLE_FLAGS"),],
@@ -3692,14 +3401,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("setbit"), RedisCmdDescribeEntity {
-            summary: String::from("Sets or clears the bit at offset of the string value. Creates the key if it doesn't exist."),
+        (SmolStr::from("setbit"), Command {
+            name: String::from("SETBIT"),
             container: None,
-            group: String::from("bitmap"),
-            since: String::from("2.2.0"),
+            group: Group::Bitmap,
             arity: 4,
             function: Some(String::from("setbitCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -3708,14 +3416,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("setex"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the string value and expiration time of a key. Creates the key if it doesn't exist."),
+        (SmolStr::from("setex"), Command {
+            name: String::from("SETEX"),
             container: None,
-            group: String::from("string"),
-            since: String::from("2.0.0"),
+            group: Group::String,
             arity: 4,
             function: Some(String::from("setexCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -3724,14 +3431,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("setnx"), RedisCmdDescribeEntity {
-            summary: String::from("Set the string value of a key only when the key doesn't exist."),
+        (SmolStr::from("setnx"), Command {
+            name: String::from("SETNX"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.0"),
+            group: Group::String,
             arity: 3,
             function: Some(String::from("setnxCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("INSERT"),],
@@ -3740,14 +3446,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("setrange"), RedisCmdDescribeEntity {
-            summary: String::from("Overwrites a part of a string value with another by an offset. Creates the key if it doesn't exist."),
+        (SmolStr::from("setrange"), Command {
+            name: String::from("SETRANGE"),
             container: None,
-            group: String::from("string"),
-            since: String::from("2.2.0"),
+            group: Group::String,
             arity: 4,
             function: Some(String::from("setrangeCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -3756,24 +3461,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("shutdown"), RedisCmdDescribeEntity {
-            summary: String::from("Synchronously saves the database(s) to disk and shuts down the Redis server."),
+        (SmolStr::from("shutdown"), Command {
+            name: String::from("SHUTDOWN"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: -1,
             function: Some(String::from("shutdownCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("NO_MULTI"),String::from("SENTINEL"),String::from("ALLOW_BUSY"),]),
+            command_flags: 1184067,
             key_specs: None,
         }),
-        (SmolStr::from("sinter"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the intersect of multiple sets."),
+        (SmolStr::from("sinter"), Command {
+            name: String::from("SINTER"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: -2,
             function: Some(String::from("sinterCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -3782,14 +3485,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("sintercard"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of members of the intersect of multiple sets."),
+        (SmolStr::from("sintercard"), Command {
+            name: String::from("SINTERCARD"),
             container: None,
-            group: String::from("set"),
-            since: String::from("7.0.0"),
+            group: Group::Set,
             arity: -3,
             function: Some(String::from("sinterCardCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -3798,14 +3500,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("sinterstore"), RedisCmdDescribeEntity {
-            summary: String::from("Stores the intersect of multiple sets in a key."),
+        (SmolStr::from("sinterstore"), Command {
+            name: String::from("SINTERSTORE"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: -3,
             function: Some(String::from("sinterstoreCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -3819,14 +3520,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("sismember"), RedisCmdDescribeEntity {
-            summary: String::from("Determines whether a member belongs to a set."),
+        (SmolStr::from("sismember"), Command {
+            name: String::from("SISMEMBER"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: 3,
             function: Some(String::from("sismemberCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -3835,74 +3535,67 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("slaveof"), RedisCmdDescribeEntity {
-            summary: String::from("Sets a Redis server as a replica of another, or promotes it to being a master."),
+        (SmolStr::from("slaveof"), Command {
+            name: String::from("SLAVEOF"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: 3,
             function: Some(String::from("replicaofCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NOSCRIPT"),String::from("STALE"),]),
+            command_flags: 1049345,
             key_specs: None,
         }),
-        (SmolStr::from("slowlog"), RedisCmdDescribeEntity {
-            summary: String::from("A container for slow log commands."),
+        (SmolStr::from("slowlog"), Command {
+            name: String::from("SLOWLOG"),
             container: None,
-            group: String::from("server"),
-            since: String::from("2.2.12"),
+            group: Group::Server,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("slowlog get"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the slow log's entries."),
+        (SmolStr::from("slowlog get"), Command {
+            name: String::from("GET"),
             container: Some(String::from("SLOWLOG")),
-            group: String::from("server"),
-            since: String::from("2.2.12"),
+            group: Group::Server,
             arity: -2,
             function: Some(String::from("slowlogCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048641,
             key_specs: None,
         }),
-        (SmolStr::from("slowlog help"), RedisCmdDescribeEntity {
-            summary: String::from("Show helpful text about the different subcommands"),
+        (SmolStr::from("slowlog help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("SLOWLOG")),
-            group: String::from("server"),
-            since: String::from("6.2.0"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("slowlogCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("slowlog len"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of entries in the slow log."),
+        (SmolStr::from("slowlog len"), Command {
+            name: String::from("LEN"),
             container: Some(String::from("SLOWLOG")),
-            group: String::from("server"),
-            since: String::from("2.2.12"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("slowlogCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048641,
             key_specs: None,
         }),
-        (SmolStr::from("slowlog reset"), RedisCmdDescribeEntity {
-            summary: String::from("Clears all entries from the slow log."),
+        (SmolStr::from("slowlog reset"), Command {
+            name: String::from("RESET"),
             container: Some(String::from("SLOWLOG")),
-            group: String::from("server"),
-            since: String::from("2.2.12"),
+            group: Group::Server,
             arity: 2,
             function: Some(String::from("slowlogCommand")),
-            command_flags: Some(vec![String::from("ADMIN"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048641,
             key_specs: None,
         }),
-        (SmolStr::from("smembers"), RedisCmdDescribeEntity {
-            summary: String::from("Returns all members of a set."),
+        (SmolStr::from("smembers"), Command {
+            name: String::from("SMEMBERS"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: 2,
             function: Some(String::from("sinterCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -3911,14 +3604,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("smismember"), RedisCmdDescribeEntity {
-            summary: String::from("Determines whether multiple members belong to a set."),
+        (SmolStr::from("smismember"), Command {
+            name: String::from("SMISMEMBER"),
             container: None,
-            group: String::from("set"),
-            since: String::from("6.2.0"),
+            group: Group::Set,
             arity: -3,
             function: Some(String::from("smismemberCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -3927,14 +3619,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("smove"), RedisCmdDescribeEntity {
-            summary: String::from("Moves a member from one set to another."),
+        (SmolStr::from("smove"), Command {
+            name: String::from("SMOVE"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: 4,
             function: Some(String::from("smoveCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -3948,14 +3639,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("sort"), RedisCmdDescribeEntity {
-            summary: String::from("Sorts the elements in a list, a set, or a sorted set, optionally storing the result."),
+        (SmolStr::from("sort"), Command {
+            name: String::from("SORT"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.0.0"),
+            group: Group::Generic,
             arity: -2,
             function: Some(String::from("sortCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -3974,14 +3664,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("sort_ro"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the sorted elements of a list, a set, or a sorted set."),
+        (SmolStr::from("sort_ro"), Command {
+            name: String::from("SORT_RO"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("7.0.0"),
+            group: Group::Generic,
             arity: -2,
             function: Some(String::from("sortroCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -3995,14 +3684,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("spop"), RedisCmdDescribeEntity {
-            summary: String::from("Returns one or more random members from a set after removing them. Deletes the set if the last member was popped."),
+        (SmolStr::from("spop"), Command {
+            name: String::from("SPOP"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: -2,
             function: Some(String::from("spopCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -4011,14 +3699,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("spublish"), RedisCmdDescribeEntity {
-            summary: String::from("Post a message to a shard channel"),
+        (SmolStr::from("spublish"), Command {
+            name: String::from("SPUBLISH"),
             container: None,
-            group: String::from("pubsub"),
-            since: String::from("7.0.0"),
+            group: Group::PubSub,
             arity: 3,
             function: Some(String::from("spublishCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("MAY_REPLICATE"),]),
+            command_flags: 1081568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("NOT_KEY"),],
@@ -4027,14 +3714,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("srandmember"), RedisCmdDescribeEntity {
-            summary: String::from("Get one or multiple random members from a set"),
+        (SmolStr::from("srandmember"), Command {
+            name: String::from("SRANDMEMBER"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: -2,
             function: Some(String::from("srandmemberCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4043,14 +3729,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("srem"), RedisCmdDescribeEntity {
-            summary: String::from("Removes one or more members from a set. Deletes the set if the last member was removed."),
+        (SmolStr::from("srem"), Command {
+            name: String::from("SREM"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: -3,
             function: Some(String::from("sremCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -4059,14 +3744,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("sscan"), RedisCmdDescribeEntity {
-            summary: String::from("Iterates over members of a set."),
+        (SmolStr::from("sscan"), Command {
+            name: String::from("SSCAN"),
             container: None,
-            group: String::from("set"),
-            since: String::from("2.8.0"),
+            group: Group::Set,
             arity: -3,
             function: Some(String::from("sscanCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4075,14 +3759,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("ssubscribe"), RedisCmdDescribeEntity {
-            summary: String::from("Listens for messages published to shard channels."),
+        (SmolStr::from("ssubscribe"), Command {
+            name: String::from("SSUBSCRIBE"),
             container: None,
-            group: String::from("pubsub"),
-            since: String::from("7.0.0"),
+            group: Group::PubSub,
             arity: -2,
             function: Some(String::from("ssubscribeCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1081664,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("NOT_KEY"),],
@@ -4091,14 +3774,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("strlen"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the length of a string value."),
+        (SmolStr::from("strlen"), Command {
+            name: String::from("STRLEN"),
             container: None,
-            group: String::from("string"),
-            since: String::from("2.2.0"),
+            group: Group::String,
             arity: 2,
             function: Some(String::from("strlenCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -4107,24 +3789,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("subscribe"), RedisCmdDescribeEntity {
-            summary: String::from("Listens for messages published to channels."),
+        (SmolStr::from("subscribe"), Command {
+            name: String::from("SUBSCRIBE"),
             container: None,
-            group: String::from("pubsub"),
-            since: String::from("2.0.0"),
+            group: Group::PubSub,
             arity: -2,
             function: Some(String::from("subscribeCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1212736,
             key_specs: None,
         }),
-        (SmolStr::from("substr"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a substring from a string value."),
+        (SmolStr::from("substr"), Command {
+            name: String::from("SUBSTR"),
             container: None,
-            group: String::from("string"),
-            since: String::from("1.0.0"),
+            group: Group::String,
             arity: 4,
             function: Some(String::from("getrangeCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4133,14 +3813,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("sunion"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the union of multiple sets."),
+        (SmolStr::from("sunion"), Command {
+            name: String::from("SUNION"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: -2,
             function: Some(String::from("sunionCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4149,14 +3828,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("sunionstore"), RedisCmdDescribeEntity {
-            summary: String::from("Stores the union of multiple sets in a key."),
+        (SmolStr::from("sunionstore"), Command {
+            name: String::from("SUNIONSTORE"),
             container: None,
-            group: String::from("set"),
-            since: String::from("1.0.0"),
+            group: Group::Set,
             arity: -3,
             function: Some(String::from("sunionstoreCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -4170,14 +3848,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("sunsubscribe"), RedisCmdDescribeEntity {
-            summary: String::from("Stops listening to messages posted to shard channels."),
+        (SmolStr::from("sunsubscribe"), Command {
+            name: String::from("SUNSUBSCRIBE"),
             container: None,
-            group: String::from("pubsub"),
-            since: String::from("7.0.0"),
+            group: Group::PubSub,
             arity: -1,
             function: Some(String::from("sunsubscribeCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1081664,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("NOT_KEY"),],
@@ -4186,44 +3863,40 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("swapdb"), RedisCmdDescribeEntity {
-            summary: String::from("Swaps two Redis databases."),
+        (SmolStr::from("swapdb"), Command {
+            name: String::from("SWAPDB"),
             container: None,
-            group: String::from("server"),
-            since: String::from("4.0.0"),
+            group: Group::Server,
             arity: 3,
             function: Some(String::from("swapdbCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: None,
         }),
-        (SmolStr::from("sync"), RedisCmdDescribeEntity {
-            summary: String::from("An internal command used in replication."),
+        (SmolStr::from("sync"), Command {
+            name: String::from("SYNC"),
             container: None,
-            group: String::from("server"),
-            since: String::from("1.0.0"),
+            group: Group::Server,
             arity: 1,
             function: Some(String::from("syncCommand")),
-            command_flags: Some(vec![String::from("NO_ASYNC_LOADING"),String::from("ADMIN"),String::from("NO_MULTI"),String::from("NOSCRIPT"),]),
+            command_flags: 4865,
             key_specs: None,
         }),
-        (SmolStr::from("time"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the server time."),
+        (SmolStr::from("time"), Command {
+            name: String::from("TIME"),
             container: None,
-            group: String::from("server"),
-            since: String::from("2.6.0"),
+            group: Group::Server,
             arity: 1,
             function: Some(String::from("timeCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),String::from("FAST"),]),
+            command_flags: 1048672,
             key_specs: None,
         }),
-        (SmolStr::from("touch"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of existing keys out of those specified after updating the time they were last accessed."),
+        (SmolStr::from("touch"), Command {
+            name: String::from("TOUCH"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("3.2.1"),
+            group: Group::Generic,
             arity: -2,
             function: Some(String::from("touchCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -4232,14 +3905,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("ttl"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the expiration time in seconds of a key."),
+        (SmolStr::from("ttl"), Command {
+            name: String::from("TTL"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.0.0"),
+            group: Group::Generic,
             arity: 2,
             function: Some(String::from("ttlCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4248,14 +3920,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("type"), RedisCmdDescribeEntity {
-            summary: String::from("Determines the type of value stored at a key."),
+        (SmolStr::from("type"), Command {
+            name: String::from("TYPE"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("1.0.0"),
+            group: Group::Generic,
             arity: 2,
             function: Some(String::from("typeCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -4264,14 +3935,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("unlink"), RedisCmdDescribeEntity {
-            summary: String::from("Asynchronously deletes one or more keys."),
+        (SmolStr::from("unlink"), Command {
+            name: String::from("UNLINK"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("4.0.0"),
+            group: Group::Generic,
             arity: -2,
             function: Some(String::from("unlinkCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RM"),String::from("DELETE"),],
@@ -4280,54 +3950,49 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("unsubscribe"), RedisCmdDescribeEntity {
-            summary: String::from("Stops listening to messages posted to channels."),
+        (SmolStr::from("unsubscribe"), Command {
+            name: String::from("UNSUBSCRIBE"),
             container: None,
-            group: String::from("pubsub"),
-            since: String::from("2.0.0"),
+            group: Group::PubSub,
             arity: -1,
             function: Some(String::from("unsubscribeCommand")),
-            command_flags: Some(vec![String::from("PUBSUB"),String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("SENTINEL"),]),
+            command_flags: 1212736,
             key_specs: None,
         }),
-        (SmolStr::from("unwatch"), RedisCmdDescribeEntity {
-            summary: String::from("Forgets about watched keys of a transaction."),
+        (SmolStr::from("unwatch"), Command {
+            name: String::from("UNWATCH"),
             container: None,
-            group: String::from("transactions"),
-            since: String::from("2.2.0"),
+            group: Group::Transactions,
             arity: 1,
             function: Some(String::from("unwatchCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("ALLOW_BUSY"),]),
+            command_flags: 1048930,
             key_specs: None,
         }),
-        (SmolStr::from("wait"), RedisCmdDescribeEntity {
-            summary: String::from("Blocks until the asynchronous replication of all preceding write commands sent by the connection is completed."),
+        (SmolStr::from("wait"), Command {
+            name: String::from("WAIT"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("3.0.0"),
+            group: Group::Generic,
             arity: 3,
             function: Some(String::from("waitCommand")),
-            command_flags: Some(vec![]),
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("waitaof"), RedisCmdDescribeEntity {
-            summary: String::from("Blocks until all of the preceding write commands sent by the connection are written to the append-only file of the master and/or replicas."),
+        (SmolStr::from("waitaof"), Command {
+            name: String::from("WAITAOF"),
             container: None,
-            group: String::from("generic"),
-            since: String::from("7.2.0"),
+            group: Group::Generic,
             arity: 4,
             function: Some(String::from("waitaofCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),]),
+            command_flags: 256,
             key_specs: None,
         }),
-        (SmolStr::from("watch"), RedisCmdDescribeEntity {
-            summary: String::from("Monitors changes to keys to determine the execution of a transaction."),
+        (SmolStr::from("watch"), Command {
+            name: String::from("WATCH"),
             container: None,
-            group: String::from("transactions"),
-            since: String::from("2.2.0"),
+            group: Group::Transactions,
             arity: -2,
             function: Some(String::from("watchCommand")),
-            command_flags: Some(vec![String::from("NOSCRIPT"),String::from("LOADING"),String::from("STALE"),String::from("FAST"),String::from("ALLOW_BUSY"),]),
+            command_flags: 1048930,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -4336,14 +4001,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xack"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of messages that were successfully acknowledged by the consumer group member of a stream."),
+        (SmolStr::from("xack"), Command {
+            name: String::from("XACK"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -4,
             function: Some(String::from("xackCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -4352,14 +4016,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xadd"), RedisCmdDescribeEntity {
-            summary: String::from("Appends a new message to a stream. Creates the key if it doesn't exist."),
+        (SmolStr::from("xadd"), Command {
+            name: String::from("XADD"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -5,
             function: Some(String::from("xaddCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -4368,14 +4031,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xautoclaim"), RedisCmdDescribeEntity {
-            summary: String::from("Changes, or acquires, ownership of messages in a consumer group, as if the messages were delivered to as consumer group member."),
+        (SmolStr::from("xautoclaim"), Command {
+            name: String::from("XAUTOCLAIM"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("6.2.0"),
+            group: Group::Stream,
             arity: -6,
             function: Some(String::from("xautoclaimCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -4384,14 +4046,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xclaim"), RedisCmdDescribeEntity {
-            summary: String::from("Changes, or acquires, ownership of a message in a consumer group, as if the message was delivered a consumer group member."),
+        (SmolStr::from("xclaim"), Command {
+            name: String::from("XCLAIM"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -6,
             function: Some(String::from("xclaimCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -4400,14 +4061,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xdel"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of messages after removing them from a stream."),
+        (SmolStr::from("xdel"), Command {
+            name: String::from("XDEL"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -3,
             function: Some(String::from("xdelCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -4416,24 +4076,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xgroup"), RedisCmdDescribeEntity {
-            summary: String::from("A container for consumer groups commands."),
+        (SmolStr::from("xgroup"), Command {
+            name: String::from("XGROUP"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("xgroup create"), RedisCmdDescribeEntity {
-            summary: String::from("Creates a consumer group."),
+        (SmolStr::from("xgroup create"), Command {
+            name: String::from("CREATE"),
             container: Some(String::from("XGROUP")),
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -5,
             function: Some(String::from("xgroupCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("INSERT"),],
@@ -4442,14 +4100,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xgroup createconsumer"), RedisCmdDescribeEntity {
-            summary: String::from("Creates a consumer in a consumer group."),
+        (SmolStr::from("xgroup createconsumer"), Command {
+            name: String::from("CREATECONSUMER"),
             container: Some(String::from("XGROUP")),
-            group: String::from("stream"),
-            since: String::from("6.2.0"),
+            group: Group::Stream,
             arity: 5,
             function: Some(String::from("xgroupCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("INSERT"),],
@@ -4458,14 +4115,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xgroup delconsumer"), RedisCmdDescribeEntity {
-            summary: String::from("Deletes a consumer from a consumer group."),
+        (SmolStr::from("xgroup delconsumer"), Command {
+            name: String::from("DELCONSUMER"),
             container: Some(String::from("XGROUP")),
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: 5,
             function: Some(String::from("xgroupCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -4474,14 +4130,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xgroup destroy"), RedisCmdDescribeEntity {
-            summary: String::from("Destroys a consumer group."),
+        (SmolStr::from("xgroup destroy"), Command {
+            name: String::from("DESTROY"),
             container: Some(String::from("XGROUP")),
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: 4,
             function: Some(String::from("xgroupCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -4490,24 +4145,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xgroup help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("xgroup help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("XGROUP")),
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: 2,
             function: Some(String::from("xgroupCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("xgroup setid"), RedisCmdDescribeEntity {
-            summary: String::from("Sets the last-delivered ID of a consumer group."),
+        (SmolStr::from("xgroup setid"), Command {
+            name: String::from("SETID"),
             container: Some(String::from("XGROUP")),
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -5,
             function: Some(String::from("xgroupCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -4516,24 +4169,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xinfo"), RedisCmdDescribeEntity {
-            summary: String::from("A container for stream introspection commands."),
+        (SmolStr::from("xinfo"), Command {
+            name: String::from("XINFO"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -2,
             function: None,
-            command_flags: None,
+            command_flags: 0,
             key_specs: None,
         }),
-        (SmolStr::from("xinfo consumers"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a list of the consumers in a consumer group."),
+        (SmolStr::from("xinfo consumers"), Command {
+            name: String::from("CONSUMERS"),
             container: Some(String::from("XINFO")),
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: 4,
             function: Some(String::from("xinfoCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4542,14 +4193,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xinfo groups"), RedisCmdDescribeEntity {
-            summary: String::from("Returns a list of the consumer groups of a stream."),
+        (SmolStr::from("xinfo groups"), Command {
+            name: String::from("GROUPS"),
             container: Some(String::from("XINFO")),
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: 3,
             function: Some(String::from("xinfoCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4558,24 +4208,22 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xinfo help"), RedisCmdDescribeEntity {
-            summary: String::from("Returns helpful text about the different subcommands."),
+        (SmolStr::from("xinfo help"), Command {
+            name: String::from("HELP"),
             container: Some(String::from("XINFO")),
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: 2,
             function: Some(String::from("xinfoCommand")),
-            command_flags: Some(vec![String::from("LOADING"),String::from("STALE"),]),
+            command_flags: 1048640,
             key_specs: None,
         }),
-        (SmolStr::from("xinfo stream"), RedisCmdDescribeEntity {
-            summary: String::from("Returns information about a stream."),
+        (SmolStr::from("xinfo stream"), Command {
+            name: String::from("STREAM"),
             container: Some(String::from("XINFO")),
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -3,
             function: Some(String::from("xinfoCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4584,14 +4232,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xlen"), RedisCmdDescribeEntity {
-            summary: String::from("Return the number of messages in a stream."),
+        (SmolStr::from("xlen"), Command {
+            name: String::from("XLEN"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: 2,
             function: Some(String::from("xlenCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -4600,14 +4247,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xpending"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the information and entries from a stream consumer group's pending entries list."),
+        (SmolStr::from("xpending"), Command {
+            name: String::from("XPENDING"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -3,
             function: Some(String::from("xpendingCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4616,14 +4262,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xrange"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the messages from a stream within a range of IDs."),
+        (SmolStr::from("xrange"), Command {
+            name: String::from("XRANGE"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -4,
             function: Some(String::from("xrangeCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4632,14 +4277,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xread"), RedisCmdDescribeEntity {
-            summary: String::from("Returns messages from multiple streams with IDs greater than the ones requested. Blocks until a message is available otherwise."),
+        (SmolStr::from("xread"), Command {
+            name: String::from("XREAD"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -4,
             function: Some(String::from("xreadCommand")),
-            command_flags: Some(vec![String::from("BLOCKING"),String::from("READONLY"),String::from("BLOCKING"),]),
+            command_flags: 65544,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4648,14 +4292,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xreadgroup"), RedisCmdDescribeEntity {
-            summary: String::from("Returns new or historical messages from a stream for a consumer in a group. Blocks until a message is available otherwise."),
+        (SmolStr::from("xreadgroup"), Command {
+            name: String::from("XREADGROUP"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -7,
             function: Some(String::from("xreadCommand")),
-            command_flags: Some(vec![String::from("BLOCKING"),String::from("WRITE"),]),
+            command_flags: 4194312,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4664,14 +4307,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xrevrange"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the messages from a stream within a range of IDs in reverse order."),
+        (SmolStr::from("xrevrange"), Command {
+            name: String::from("XREVRANGE"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -4,
             function: Some(String::from("xrevrangeCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4680,14 +4322,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xsetid"), RedisCmdDescribeEntity {
-            summary: String::from("An internal command for replicating stream values."),
+        (SmolStr::from("xsetid"), Command {
+            name: String::from("XSETID"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -3,
             function: Some(String::from("xsetidCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -4696,14 +4337,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("xtrim"), RedisCmdDescribeEntity {
-            summary: String::from("Deletes messages from the beginning of a stream."),
+        (SmolStr::from("xtrim"), Command {
+            name: String::from("XTRIM"),
             container: None,
-            group: String::from("stream"),
-            since: String::from("5.0.0"),
+            group: Group::Stream,
             arity: -4,
             function: Some(String::from("xtrimCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -4712,14 +4352,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zadd"), RedisCmdDescribeEntity {
-            summary: String::from("Adds one or more members to a sorted set, or updates their scores. Creates the key if it doesn't exist."),
+        (SmolStr::from("zadd"), Command {
+            name: String::from("ZADD"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("1.2.0"),
+            group: Group::SortedSet,
             arity: -4,
             function: Some(String::from("zaddCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("UPDATE"),],
@@ -4728,14 +4367,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zcard"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of members in a sorted set."),
+        (SmolStr::from("zcard"), Command {
+            name: String::from("ZCARD"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("1.2.0"),
+            group: Group::SortedSet,
             arity: 2,
             function: Some(String::from("zcardCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),],
@@ -4744,14 +4382,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zcount"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the count of members in a sorted set that have scores within a range."),
+        (SmolStr::from("zcount"), Command {
+            name: String::from("ZCOUNT"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.0.0"),
+            group: Group::SortedSet,
             arity: 4,
             function: Some(String::from("zcountCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4760,14 +4397,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zdiff"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the difference between multiple sorted sets."),
+        (SmolStr::from("zdiff"), Command {
+            name: String::from("ZDIFF"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("6.2.0"),
+            group: Group::SortedSet,
             arity: -3,
             function: Some(String::from("zdiffCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4776,14 +4412,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zdiffstore"), RedisCmdDescribeEntity {
-            summary: String::from("Stores the difference of multiple sorted sets in a key."),
+        (SmolStr::from("zdiffstore"), Command {
+            name: String::from("ZDIFFSTORE"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("6.2.0"),
+            group: Group::SortedSet,
             arity: -4,
             function: Some(String::from("zdiffstoreCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -4797,14 +4432,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zincrby"), RedisCmdDescribeEntity {
-            summary: String::from("Increments the score of a member in a sorted set."),
+        (SmolStr::from("zincrby"), Command {
+            name: String::from("ZINCRBY"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("1.2.0"),
+            group: Group::SortedSet,
             arity: 4,
             function: Some(String::from("zincrbyCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),String::from("FAST"),]),
+            command_flags: 4194352,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("UPDATE"),],
@@ -4813,14 +4447,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zinter"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the intersect of multiple sorted sets."),
+        (SmolStr::from("zinter"), Command {
+            name: String::from("ZINTER"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("6.2.0"),
+            group: Group::SortedSet,
             arity: -3,
             function: Some(String::from("zinterCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4829,14 +4462,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zintercard"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of members of the intersect of multiple sorted sets."),
+        (SmolStr::from("zintercard"), Command {
+            name: String::from("ZINTERCARD"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("7.0.0"),
+            group: Group::SortedSet,
             arity: -3,
             function: Some(String::from("zinterCardCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4845,14 +4477,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zinterstore"), RedisCmdDescribeEntity {
-            summary: String::from("Stores the intersect of multiple sorted sets in a key."),
+        (SmolStr::from("zinterstore"), Command {
+            name: String::from("ZINTERSTORE"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.0.0"),
+            group: Group::SortedSet,
             arity: -4,
             function: Some(String::from("zinterstoreCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -4866,14 +4497,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zlexcount"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the number of members in a sorted set within a lexicographical range."),
+        (SmolStr::from("zlexcount"), Command {
+            name: String::from("ZLEXCOUNT"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.8.9"),
+            group: Group::SortedSet,
             arity: 4,
             function: Some(String::from("zlexcountCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4882,14 +4512,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zmpop"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the highest- or lowest-scoring members from one or more sorted sets after removing them. Deletes the sorted set if the last member was popped."),
+        (SmolStr::from("zmpop"), Command {
+            name: String::from("ZMPOP"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("7.0.0"),
+            group: Group::SortedSet,
             arity: -4,
             function: Some(String::from("zmpopCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -4898,14 +4527,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zmscore"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the score of one or more members in a sorted set."),
+        (SmolStr::from("zmscore"), Command {
+            name: String::from("ZMSCORE"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("6.2.0"),
+            group: Group::SortedSet,
             arity: -3,
             function: Some(String::from("zmscoreCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4914,14 +4542,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zpopmax"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the highest-scoring members from a sorted set after removing them. Deletes the sorted set if the last member was popped."),
+        (SmolStr::from("zpopmax"), Command {
+            name: String::from("ZPOPMAX"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("5.0.0"),
+            group: Group::SortedSet,
             arity: -2,
             function: Some(String::from("zpopmaxCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -4930,14 +4557,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zpopmin"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the lowest-scoring members from a sorted set after removing them. Deletes the sorted set if the last member was popped."),
+        (SmolStr::from("zpopmin"), Command {
+            name: String::from("ZPOPMIN"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("5.0.0"),
+            group: Group::SortedSet,
             arity: -2,
             function: Some(String::from("zpopminCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("ACCESS"),String::from("DELETE"),],
@@ -4946,14 +4572,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zrandmember"), RedisCmdDescribeEntity {
-            summary: String::from("Returns one or more random members from a sorted set."),
+        (SmolStr::from("zrandmember"), Command {
+            name: String::from("ZRANDMEMBER"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("6.2.0"),
+            group: Group::SortedSet,
             arity: -2,
             function: Some(String::from("zrandmemberCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4962,14 +4587,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zrange"), RedisCmdDescribeEntity {
-            summary: String::from("Returns members in a sorted set within a range of indexes."),
+        (SmolStr::from("zrange"), Command {
+            name: String::from("ZRANGE"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("1.2.0"),
+            group: Group::SortedSet,
             arity: -4,
             function: Some(String::from("zrangeCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4978,14 +4602,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zrangebylex"), RedisCmdDescribeEntity {
-            summary: String::from("Returns members in a sorted set within a lexicographical range."),
+        (SmolStr::from("zrangebylex"), Command {
+            name: String::from("ZRANGEBYLEX"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.8.9"),
+            group: Group::SortedSet,
             arity: -4,
             function: Some(String::from("zrangebylexCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -4994,14 +4617,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zrangebyscore"), RedisCmdDescribeEntity {
-            summary: String::from("Returns members in a sorted set within a range of scores."),
+        (SmolStr::from("zrangebyscore"), Command {
+            name: String::from("ZRANGEBYSCORE"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("1.0.5"),
+            group: Group::SortedSet,
             arity: -4,
             function: Some(String::from("zrangebyscoreCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -5010,14 +4632,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zrangestore"), RedisCmdDescribeEntity {
-            summary: String::from("Stores a range of members from sorted set in a key."),
+        (SmolStr::from("zrangestore"), Command {
+            name: String::from("ZRANGESTORE"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("6.2.0"),
+            group: Group::SortedSet,
             arity: -5,
             function: Some(String::from("zrangestoreCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],
@@ -5031,14 +4652,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zrank"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the index of a member in a sorted set ordered by ascending scores."),
+        (SmolStr::from("zrank"), Command {
+            name: String::from("ZRANK"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.0.0"),
+            group: Group::SortedSet,
             arity: -3,
             function: Some(String::from("zrankCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -5047,14 +4667,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zrem"), RedisCmdDescribeEntity {
-            summary: String::from("Removes one or more members from a sorted set. Deletes the sorted set if all members were removed."),
+        (SmolStr::from("zrem"), Command {
+            name: String::from("ZREM"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("1.2.0"),
+            group: Group::SortedSet,
             arity: -3,
             function: Some(String::from("zremCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("FAST"),]),
+            command_flags: 4194336,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -5063,14 +4682,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zremrangebylex"), RedisCmdDescribeEntity {
-            summary: String::from("Removes members in a sorted set within a lexicographical range. Deletes the sorted set if all members were removed."),
+        (SmolStr::from("zremrangebylex"), Command {
+            name: String::from("ZREMRANGEBYLEX"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.8.9"),
+            group: Group::SortedSet,
             arity: 4,
             function: Some(String::from("zremrangebylexCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -5079,14 +4697,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zremrangebyrank"), RedisCmdDescribeEntity {
-            summary: String::from("Removes members in a sorted set within a range of indexes. Deletes the sorted set if all members were removed."),
+        (SmolStr::from("zremrangebyrank"), Command {
+            name: String::from("ZREMRANGEBYRANK"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.0.0"),
+            group: Group::SortedSet,
             arity: 4,
             function: Some(String::from("zremrangebyrankCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -5095,14 +4712,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zremrangebyscore"), RedisCmdDescribeEntity {
-            summary: String::from("Removes members in a sorted set within a range of scores. Deletes the sorted set if all members were removed."),
+        (SmolStr::from("zremrangebyscore"), Command {
+            name: String::from("ZREMRANGEBYSCORE"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("1.2.0"),
+            group: Group::SortedSet,
             arity: 4,
             function: Some(String::from("zremrangebyscoreCommand")),
-            command_flags: Some(vec![String::from("WRITE"),]),
+            command_flags: 4194304,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RW"),String::from("DELETE"),],
@@ -5111,14 +4727,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zrevrange"), RedisCmdDescribeEntity {
-            summary: String::from("Returns members in a sorted set within a range of indexes in reverse order."),
+        (SmolStr::from("zrevrange"), Command {
+            name: String::from("ZREVRANGE"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("1.2.0"),
+            group: Group::SortedSet,
             arity: -4,
             function: Some(String::from("zrevrangeCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -5127,14 +4742,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zrevrangebylex"), RedisCmdDescribeEntity {
-            summary: String::from("Returns members in a sorted set within a lexicographical range in reverse order."),
+        (SmolStr::from("zrevrangebylex"), Command {
+            name: String::from("ZREVRANGEBYLEX"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.8.9"),
+            group: Group::SortedSet,
             arity: -4,
             function: Some(String::from("zrevrangebylexCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -5143,14 +4757,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zrevrangebyscore"), RedisCmdDescribeEntity {
-            summary: String::from("Returns members in a sorted set within a range of scores in reverse order."),
+        (SmolStr::from("zrevrangebyscore"), Command {
+            name: String::from("ZREVRANGEBYSCORE"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.2.0"),
+            group: Group::SortedSet,
             arity: -4,
             function: Some(String::from("zrevrangebyscoreCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -5159,14 +4772,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zrevrank"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the index of a member in a sorted set ordered by descending scores."),
+        (SmolStr::from("zrevrank"), Command {
+            name: String::from("ZREVRANK"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.0.0"),
+            group: Group::SortedSet,
             arity: -3,
             function: Some(String::from("zrevrankCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -5175,14 +4787,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zscan"), RedisCmdDescribeEntity {
-            summary: String::from("Iterates over members and scores of a sorted set."),
+        (SmolStr::from("zscan"), Command {
+            name: String::from("ZSCAN"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.8.0"),
+            group: Group::SortedSet,
             arity: -3,
             function: Some(String::from("zscanCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -5191,14 +4802,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zscore"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the score of a member in a sorted set."),
+        (SmolStr::from("zscore"), Command {
+            name: String::from("ZSCORE"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("1.2.0"),
+            group: Group::SortedSet,
             arity: 3,
             function: Some(String::from("zscoreCommand")),
-            command_flags: Some(vec![String::from("READONLY"),String::from("FAST"),]),
+            command_flags: 65568,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -5207,14 +4817,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zunion"), RedisCmdDescribeEntity {
-            summary: String::from("Returns the union of multiple sorted sets."),
+        (SmolStr::from("zunion"), Command {
+            name: String::from("ZUNION"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("6.2.0"),
+            group: Group::SortedSet,
             arity: -3,
             function: Some(String::from("zunionCommand")),
-            command_flags: Some(vec![String::from("READONLY"),]),
+            command_flags: 65536,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("RO"),String::from("ACCESS"),],
@@ -5223,14 +4832,13 @@ lazy_static! {
                 },
             ]),
         }),
-        (SmolStr::from("zunionstore"), RedisCmdDescribeEntity {
-            summary: String::from("Stores the union of multiple sorted sets in a key."),
+        (SmolStr::from("zunionstore"), Command {
+            name: String::from("ZUNIONSTORE"),
             container: None,
-            group: String::from("sorted_set"),
-            since: String::from("2.0.0"),
+            group: Group::SortedSet,
             arity: -4,
             function: Some(String::from("zunionstoreCommand")),
-            command_flags: Some(vec![String::from("WRITE"),String::from("DENYOOM"),]),
+            command_flags: 4194320,
             key_specs: Some(vec![
                 KeySpecs{
                     flags: vec![String::from("OW"),String::from("UPDATE"),],

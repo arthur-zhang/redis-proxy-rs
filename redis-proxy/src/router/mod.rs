@@ -4,8 +4,8 @@ use std::sync::Arc;
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
+use redis_proxy_common::command::holder::COMMAND_ATTRIBUTES;
 
-use redis_proxy_common::command::holder::COMMANDS_INFO;
 use redis_proxy_common::command::utils::CMD_TYPE_ALL;
 
 use crate::config::{ConfigCenter, LocalRoute};
@@ -52,7 +52,7 @@ impl Route {
         }
         for cmd in &self.commands {
             let cmd = &SmolStr::from(cmd);
-            let cmd = COMMANDS_INFO.get(cmd);
+            let cmd = COMMAND_ATTRIBUTES.get(cmd);
             if cmd.is_none() {
                 error!("unknown command type: {:?}, route id: {:?}", cmd, self.id);
                 return Err(anyhow::anyhow!("unknown command type: {:?}, route id: {:?}", cmd, self.id));

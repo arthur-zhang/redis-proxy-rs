@@ -1,14 +1,12 @@
 use std::ops::Range;
+
 use lazy_static::lazy_static;
 use smol_str::SmolStr;
 
-use crate::command::holder::{COMMANDS_INFO, MULTIPART_COMMANDS};
-
-const CONNECTION_GROUP: &str = "connection";
+use crate::command::{CommandFlags, Group};
+use crate::command::holder::{COMMAND_ATTRIBUTES, MULTIPART_COMMANDS};
 
 lazy_static!{
-    pub static ref WRITE_FLAGS: String = String::from("WRITE");
-
     // some special command types
     pub static ref CMD_TYPE_ALL: SmolStr = SmolStr::from("*");
     pub static ref CMD_TYPE_UNKNOWN: SmolStr = SmolStr::from("unknown");
@@ -27,17 +25,15 @@ pub fn to_lower_effective(origin: &[u8]) -> Vec<u8> {
 }
 
 pub fn is_write_cmd(cmd: &SmolStr) -> bool {
-    if let Some(cmd) = COMMANDS_INFO.get(cmd) {
-        if let Some(command_flags) = &cmd.command_flags {
-            return command_flags.contains(&WRITE_FLAGS)
-        }
+    if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
+        return cmd.command_flags & (CommandFlags::Write as u32) > 0
     }
     return false
 }
 
 pub fn is_connection_cmd(cmd: &SmolStr) -> bool {
-    if let Some(cmd) = COMMANDS_INFO.get(cmd) {
-        return cmd.group == CONNECTION_GROUP
+    if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
+        return cmd.group == Group::Connection
     }
     return false
 }
@@ -47,7 +43,7 @@ pub fn is_multipart_cmd(cmd: &SmolStr, bulk_size: u64) -> bool {
 }
 
 pub fn get_cmd_key_bulk_index(cmd: &SmolStr, bulk_size: u64, bulks: &Option<Vec<Range<usize>>>) -> Vec<u64> {
-    if let Some(cmd) = COMMANDS_INFO.get(cmd) {
+    if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
         if let Some(key_specs) = &cmd.key_specs {
             //todo
         }
