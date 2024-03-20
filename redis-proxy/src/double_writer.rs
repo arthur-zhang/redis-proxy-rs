@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use poolx::{Error, PoolConnection};
 
-use redis_proxy_common::ReqFrameData;
+use redis_proxy_common::ReqPkt;
 
 use crate::config::GenericUpstream;
 use crate::etcd_client::EtcdClient;
@@ -33,7 +33,7 @@ impl DoubleWriter {
 
         Ok(Self { router, pool })
     }
-    pub fn should_double_write(&self, req_frame_data: &ReqFrameData) -> bool {
+    pub fn should_double_write(&self, req_frame_data: &ReqPkt) -> bool {
         let keys = req_frame_data.keys();
         if let Some(key) = keys {
             for key in key {

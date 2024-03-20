@@ -8,7 +8,7 @@ use redis_proxy::config::Config;
 use redis_proxy::prometheus::{METRICS, RESP_FAILED, RESP_SUCCESS, TRAFFIC_TYPE_EGRESS, TRAFFIC_TYPE_INGRESS};
 use redis_proxy::proxy::Proxy;
 use redis_proxy::session::Session;
-use redis_proxy_common::{ReqFrameData, ReqPkt};
+use redis_proxy_common::ReqPkt;
 
 use crate::filter_trait::{FilterContext, REQ_SIZE, RES_IS_OK, RES_SIZE, START_INSTANT, Value};
 
@@ -57,7 +57,7 @@ impl Proxy for RedisProxyImpl {
         }
         Ok(false)
     }
-    async fn upstream_request_filter(&self, _session: &mut Session, _upstream_request: &ReqFrameData, _ctx: &mut Self::CTX) -> anyhow::Result<()> {
+    async fn upstream_request_filter(&self, _session: &mut Session, _upstream_request: &ReqPkt, _ctx: &mut Self::CTX) -> anyhow::Result<()> {
         for filter in &self.filters {
             filter.upstream_request_filter(_session, _upstream_request, _ctx).await?;
         }

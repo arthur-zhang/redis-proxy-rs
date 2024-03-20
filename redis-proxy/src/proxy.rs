@@ -1,24 +1,18 @@
-use std::io::IoSlice;
-use std::sync::Arc;
-
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use futures::StreamExt;
-use log::{debug, error, info};
+use log::debug;
 use poolx::PoolConnection;
 use smol_str::SmolStr;
-use tokio::io::AsyncWriteExt;
-use tokio::net::unix::pipe::pipe;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use redis_codec_core::resp_decoder::ResFramedData;
-use redis_proxy_common::{ReqFrameData, ReqPkt};
-use redis_proxy_common::command::utils::{CMD_TYPE_ALL, CMD_TYPE_AUTH, is_connection_cmd, is_write_cmd};
+use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, is_connection_cmd, is_write_cmd};
+use redis_proxy_common::ReqPkt;
 
 use crate::double_writer::DoubleWriter;
 use crate::peer;
-use crate::server::ProxyChanData;
 use crate::session::Session;
 use crate::upstream_conn_pool::{AuthStatus, Pool, RedisConnection};
 
@@ -32,15 +26,13 @@ pub struct RedisProxy<P> {
 
 impl<P> RedisProxy<P> {
     fn should_double_write(&self, header_frame: &ReqPkt) -> bool {
-        // return if is_connection_cmd(&header_frame.cmd_type) {
-        //     true
-        // } else if is_write_cmd(&header_frame.cmd_type) {
-        //     self.double_writer.should_double_write(header_frame)
-        // } else {
-        //     false
-        // };
-        // todo!()
-        true
+        return if is_connection_cmd(&header_frame.cmd_type) {
+            true
+        } else if is_write_cmd(&header_frame.cmd_type) {
+            self.double_writer.should_double_write(header_frame)
+        } else {
+            false
+        };
     }
 }
 
@@ -253,7 +245,7 @@ pub trait Proxy {
     /// Unlike [Self::request_filter()], this filter allows to change the request data to send
     /// to the upstream.
     async fn upstream_request_filter(&self, _session: &mut Session,
-                                     _upstream_request: &ReqFrameData,
+                                     _upstream_request: &ReqPkt,
                                      _ctx: &mut Self::CTX) -> anyhow::Result<()> { Ok(()) }
 
     /// Modify the response header from the upstream

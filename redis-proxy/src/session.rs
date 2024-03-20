@@ -8,7 +8,7 @@ use tokio::net::TcpStream;
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 
-use redis_codec_core::req_decoder_v2::ReqDecoder;
+use redis_codec_core::req_decoder::ReqDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, CMD_TYPE_SELECT, CMD_TYPE_UNKNOWN};
 use redis_proxy_common::ReqPkt;

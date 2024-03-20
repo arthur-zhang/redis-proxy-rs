@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
-use log::{debug};
+use log::debug;
 use tokio::net::TcpListener;
-
-use redis_codec_core::resp_decoder::ResFramedData;
-use redis_proxy_common::ReqFrameData;
 
 use crate::config::{Config, TConfig};
 use crate::double_writer::DoubleWriter;
@@ -72,11 +69,3 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
         };
     }
 }
-
-
-#[derive(Debug)]
-pub enum ProxyChanData {
-    None,
-    ResFrameData(ResFramedData),
-}
-
