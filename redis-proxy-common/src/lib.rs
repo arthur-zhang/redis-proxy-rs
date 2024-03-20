@@ -15,27 +15,36 @@ pub struct ReqPkt {
 
 impl ReqPkt {
     pub fn new(bulk_args: Vec<Bytes>, bytes_total: usize) -> Self {
-        let cmd = unsafe { 
-            std::str::from_utf8_unchecked(&bulk_args[0]) 
-        };
-        let mut cmd_type: SmolStr = cmd.into();
+        let mut cmd_type = bulk_args[0].iter().map(|it| it.to_ascii_lowercase() as char).collect::<SmolStr>();
         if MULTIPART_COMMANDS.contains_key(&cmd_type) && bulk_args.len() > 1 {
-            let sub_cmd = unsafe {
-                std::str::from_utf8_unchecked(&bulk_args[1])
-            };
-            let sub_cmd: SmolStr = sub_cmd.into();
-
-            cmd_type = format!("{} {}", cmd, sub_cmd).into();
-            
+            cmd_type = cmd_type.chars()
+                .chain([' ' as char])
+                .chain(bulk_args[1].iter().map(|it| it.to_ascii_lowercase() as char))
+                .collect();
         }
         return ReqPkt {
             cmd_type,
             bulk_args,
-            bytes_total
-        }
+            bytes_total,
+        };
     }
 
     pub fn keys(&self)-> Option<Vec<&[u8]>> {
         get_cmd_key_bulks(&self.cmd_type, &self.bulk_args)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_smol_concat() {
+        let a: SmolStr = "HELLO".chars().map(|it| (it as u8).to_ascii_lowercase() as char).collect();
+        let b = "WORLD";
+        let c = format!("{} {}", a, b.to_ascii_lowercase());
+        assert_eq!(c, "hello world");
+        let c: SmolStr = a.chars().chain([' ' as char]).chain(b.chars().map(|it| (it as u8).to_ascii_lowercase() as char)).collect();
+        assert_eq!(c, "hello world");
     }
 }
