@@ -8,6 +8,7 @@ use redis_proxy::etcd_client::EtcdClient;
 use redis_proxy::proxy::Proxy;
 use redis_proxy::router::{create_router, Router};
 use redis_proxy::session::Session;
+use redis_proxy_common::ReqPkt;
 
 use crate::filter_trait::FilterContext;
 
@@ -33,13 +34,12 @@ impl BlackListFilter {
 impl Proxy for BlackListFilter {
     type CTX = FilterContext;
 
-    async fn request_filter(&self, session: &mut Session, _ctx: &mut Self::CTX) -> anyhow::Result<bool> {
-        let req_frame = session.header_frame.as_ref().unwrap();
-        let keys = req_frame.keys();
+    async fn request_filter(&self, _session: &mut Session, req_pkt: &ReqPkt, _ctx: &mut Self::CTX) -> anyhow::Result<bool> {
+        let keys = req_pkt.keys();
         if let Some(keys) = keys {
             for key in keys {
-                if self.router.match_route(key, &req_frame.cmd_type) {
-                    session.send_resp_to_downstream(Bytes::from_static(b"-ERR black list\r\n")).await?;
+                if self.router.match_route(key, req_pkt.cmd_type()) {
+                    _session.send_resp_to_downstream(Bytes::from_static(b"-ERR black list\r\n")).await?;
                     return Ok(true);
                 }
             }
