@@ -55,14 +55,14 @@ pub fn get_cmd_key_bulks<'a>(cmd: &SmolStr, bulk_args: &'a Vec<Bytes>) -> Option
             if let Some(begin_search_index) = &key_spec.begin_search.index {
                 if let Some(find_keys_range) = &key_spec.find_keys.range {
                     let bulks_length = bulk_args.len();
-                    if bulks_length < (begin_search_index.pos + 1) as usize {
+                    if bulks_length < begin_search_index.pos + 1 {
                         continue;
                     }
                     
                     let find_last_index = if find_keys_range.lastkey >= 0 {
-                        begin_search_index.pos + find_keys_range.lastkey
+                        begin_search_index.pos + find_keys_range.lastkey as usize
                     } else {
-                        let mut find_last_index = bulks_length as i32 + find_keys_range.lastkey;
+                        let mut find_last_index = bulks_length - find_keys_range.lastkey.abs() as usize;
                         if find_keys_range.lastkey == -1 && find_keys_range.limit > 1 {
                             find_last_index = begin_search_index.pos + (find_last_index - begin_search_index.pos) / find_keys_range.limit;
                         }
@@ -70,67 +70,75 @@ pub fn get_cmd_key_bulks<'a>(cmd: &SmolStr, bulk_args: &'a Vec<Bytes>) -> Option
                     };
 
                     let mut i = begin_search_index.pos;
-                    while i <= find_last_index && i < bulks_length as i32 {
-                        key_bulks.push(bulk_args[i as usize].as_ref());
+                    while i <= find_last_index && i < bulks_length {
+                        key_bulks.push(bulk_args[i].as_ref());
                         i += find_keys_range.step;
                     }
                 } else if let Some(keynum) = &key_spec.find_keys.keynum {
                     let bulks_length = bulk_args.len();
-                    if bulks_length < (begin_search_index.pos + keynum.keynumidx + 1) as usize {
+                    if bulks_length < (begin_search_index.pos + keynum.keynumidx + 1) {
                         continue;
                     }
                     
-                    let key_num_bytes = &bulk_args[(begin_search_index.pos + keynum.keynumidx) as usize];
-                    //todo fix unwrap
-                    let key_nums = u64::from_str(std::str::from_utf8(key_num_bytes.as_ref()).unwrap()).unwrap();
+                    let key_num_bytes = &bulk_args[begin_search_index.pos + keynum.keynumidx];
+                    let key_nums = unsafe {std::str::from_utf8_unchecked(key_num_bytes.as_ref())};
+                    let key_nums = u64::from_str(key_nums);
+                    if key_nums.is_err() { 
+                        continue;
+                    }
+                    let key_nums = key_nums.unwrap();
                     let first_index = begin_search_index.pos + keynum.keynumidx + keynum.firstkey;
 
                     let mut nums = 0;
-                    let mut i = first_index as usize;
+                    let mut i = first_index;
                     while nums < key_nums && i < bulks_length {
                         key_bulks.push(bulk_args[i].as_ref());
                         nums += 1;
-                        i += keynum.step as usize;
+                        i += keynum.step;
                     }
                 }
             } else if let Some(keyword) = &key_spec.begin_search.keyword {
                 if let Some(find_keys_range) = &key_spec.find_keys.range {
                     let bulks_length = bulk_args.len();
-                    if bulks_length < (keyword.startfrom + 1 + 1) as usize {
+                    if keyword.startfrom >= 0 && bulks_length < (keyword.startfrom + 1 + 1) as usize {
                         continue;
                     }
 
-                    let mut keyword_index = keyword.startfrom;
-                    if keyword_index < 0 {
-                        keyword_index = bulks_length as i32 + keyword_index;
-                    }
-                    let mut keyword_bytes = &bulk_args[keyword_index as usize];
-                    let mut keyword_str = std::str::from_utf8(keyword_bytes.as_ref()).unwrap();
-                    while !keyword_str.eq_ignore_ascii_case(&keyword.keyword) && keyword_index < (bulks_length - 1) as i32 {
+                    let mut keyword_index = if keyword.startfrom >= 0 {
+                        keyword.startfrom as usize
+                    } else {
+                        bulks_length - keyword.startfrom.abs() as usize
+                    };
+                    
+                    let mut keyword_bytes = &bulk_args[keyword_index];
+                    let mut keyword_str = unsafe {std::str::from_utf8_unchecked(keyword_bytes.as_ref())};
+                    while !keyword_str.eq_ignore_ascii_case(&keyword.keyword) && keyword_index < (bulks_length - 1) {
                         keyword_index += 1;
-                        keyword_bytes = &bulk_args[keyword_index as usize];
-                        keyword_str = std::str::from_utf8(keyword_bytes.as_ref()).unwrap();
+                        keyword_bytes = &bulk_args[keyword_index];
+                        keyword_str = unsafe {std::str::from_utf8_unchecked(keyword_bytes.as_ref())};
                     }
-                    if keyword_index >= (bulks_length - 1) as i32 {
+                    if keyword_index >= (bulks_length - 1) {
                         continue;
                     }
 
                     let find_last_index = if find_keys_range.lastkey >= 0 {
-                        keyword_index + 1 + find_keys_range.lastkey
+                        keyword_index + 1 + find_keys_range.lastkey as usize
                     } else {
-                        let mut find_last_index = bulks_length as i32 + find_keys_range.lastkey;
+                        let mut find_last_index = bulks_length - find_keys_range.lastkey.abs() as usize;
                         if find_keys_range.lastkey == -1 && find_keys_range.limit > 1 {
-                            find_last_index = keyword_index + 1 + (find_last_index - keyword_index + 1) / find_keys_range.limit;
+                            find_last_index = keyword_index + (find_last_index - keyword_index) / find_keys_range.limit;
                         }
                         find_last_index
                     };
 
                     let mut i = keyword_index + 1;
-                    while i <= find_last_index && i < bulks_length as i32 {
+                    while i <= find_last_index && i < bulks_length {
                         key_bulks.push(bulk_args[i as usize].as_ref());
                         i += find_keys_range.step;
                     }
                 }
+            } else if let Some(_) = &key_spec.begin_search.index {
+                //there is not such command yet.
             }
         }
         if key_bulks.is_empty() {
