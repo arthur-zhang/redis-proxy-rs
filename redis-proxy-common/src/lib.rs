@@ -1,7 +1,10 @@
 use std::fmt::{Debug, Formatter};
 use std::ops::Range;
 
+use bytes::Bytes;
 use smol_str::SmolStr;
+
+use crate::command::utils::CMD_TYPE_UNKNOWN;
 
 pub mod tools;
 pub mod command;
@@ -80,5 +83,19 @@ impl PartialEq for ReqFrameData {
             && self.bulks == other.bulks
             && self.raw_bytes == other.raw_bytes
             && self.end_of_body == other.end_of_body
+    }
+}
+
+pub struct ReqPkt {
+    pub bulk_args: Vec<Bytes>,
+    pub bytes_total: usize,
+}
+
+impl ReqPkt {
+    pub fn cmd_type(&self) -> &SmolStr {
+        &CMD_TYPE_UNKNOWN
+    }
+    pub fn keys(&self)-> Option<Vec<&[u8]>> {
+        None
     }
 }

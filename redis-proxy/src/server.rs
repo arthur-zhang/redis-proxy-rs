@@ -77,7 +77,6 @@ impl<P> ProxyServer<P> where P: Proxy + Send + Sync + 'static, <P as Proxy>::CTX
 #[derive(Debug)]
 pub enum ProxyChanData {
     None,
-    ReqFrameData(ReqFrameData),
     ResFrameData(ResFramedData),
 }
 

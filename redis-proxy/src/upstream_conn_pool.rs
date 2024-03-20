@@ -18,6 +18,7 @@ use tokio_util::codec::FramedRead;
 
 use redis_codec_core::resp_decoder::{ResFramedData, RespPktDecoder};
 use redis_proxy_common::command::utils::CMD_TYPE_AUTH;
+use redis_proxy_common::ReqPkt;
 
 use crate::prometheus::{CONN_UPSTREAM, METRICS};
 
@@ -135,9 +136,29 @@ impl RedisConnection {
         };
     }
 
-    pub async fn query_vectored(&mut self, iov: &[IoSlice<'_>]) -> anyhow::Result<(bool, Vec<ResFramedData>, usize)> {
-        self.w.write_vectored(&iov).await?;
+    pub async fn send_bytes_vectored(&mut self, pkt: &ReqPkt) -> anyhow::Result<()> {
+        let bytes_vec = &pkt.bulk_args;
+        let mut iov: Vec<IoSlice> = Vec::with_capacity(bytes_vec.len());
 
+        iov.push(IoSlice::new(b"*"));
+        let cmd_len = bytes_vec.len().to_string();
+        iov.push(IoSlice::new(cmd_len.as_bytes()));
+        iov.push(IoSlice::new(b"\r\n"));
+        let tmp_len_arr = bytes_vec.iter().map(|it| SmolStr::from(it.len().to_string())).collect::<Vec<SmolStr>>();
+        for (i, bytes) in bytes_vec.iter().enumerate() {
+            iov.push(IoSlice::new(b"$"));
+            iov.push(IoSlice::new(tmp_len_arr[i].as_bytes()));
+            iov.push(IoSlice::new(b"\r\n"));
+            iov.push(IoSlice::new(&bytes));
+            iov.push(IoSlice::new(b"\r\n"));
+        }
+
+        self.w.write_vectored(&iov).await?;
+        Ok(())
+    }
+
+    pub async fn send_bytes_vectored_and_wait_resp(&mut self, pkt: &ReqPkt) -> anyhow::Result<(bool, Vec<ResFramedData>, usize)> {
+        self.send_bytes_vectored(pkt).await?;
         let mut result: Vec<ResFramedData> = Vec::with_capacity(1);
         let mut total_size = 0;
 
@@ -159,6 +180,7 @@ impl RedisConnection {
         }
         bail!("read eof");
     }
+
     pub async fn query_with_resp(&mut self, data: &[u8]) -> anyhow::Result<(bool, Bytes)> {
         self.w.write_all(data).await?;
         let mut bytes: Vec<Bytes> = Vec::with_capacity(1);
@@ -186,7 +208,7 @@ impl RedisConnection {
 }
 
 impl Display for RedisConnection {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "RedisConnection[{}]: is_authed:{}, attrs: {:?}", self.id, self.is_authed, self.session_attr)
     }
 }

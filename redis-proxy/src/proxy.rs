@@ -8,12 +8,13 @@ use log::{debug, error, info};
 use poolx::PoolConnection;
 use smol_str::SmolStr;
 use tokio::io::AsyncWriteExt;
+use tokio::net::unix::pipe::pipe;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use redis_codec_core::resp_decoder::ResFramedData;
+use redis_proxy_common::{ReqFrameData, ReqPkt};
 use redis_proxy_common::command::utils::{CMD_TYPE_ALL, CMD_TYPE_AUTH, is_connection_cmd, is_write_cmd};
-use redis_proxy_common::ReqFrameData;
 
 use crate::double_writer::DoubleWriter;
 use crate::peer;
@@ -30,14 +31,16 @@ pub struct RedisProxy<P> {
 }
 
 impl<P> RedisProxy<P> {
-    fn should_double_write(&self, header_frame: &ReqFrameData) -> bool {
-        return if is_connection_cmd(&header_frame.cmd_type) {
-            true
-        } else if is_write_cmd(&header_frame.cmd_type) {
-            self.double_writer.should_double_write(header_frame)
-        } else {
-            false
-        };
+    fn should_double_write(&self, header_frame: &ReqPkt) -> bool {
+        // return if is_connection_cmd(&header_frame.cmd_type) {
+        //     true
+        // } else if is_write_cmd(&header_frame.cmd_type) {
+        //     self.double_writer.should_double_write(header_frame)
+        // } else {
+        //     false
+        // };
+        // todo!()
+        true
     }
 }
 
@@ -46,21 +49,18 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         debug!("handle new request");
 
         self.inner.on_session_create().await.ok()?;
-        let header_frame = session.read_downstream().await?.ok()?;
-        let header_frame = Arc::new(header_frame);
-        //let cmd_type = header_frame.cmd_type;
-        session.init_from_header_frame(header_frame.clone());
+        let req_pkt = session.read_downstream().await?.ok()?;
+        session.init_from_req(&req_pkt);
 
         let mut ctx = self.inner.new_ctx();
 
         let response_sent =
-            self.inner.request_filter(&mut session, &mut ctx).await.ok()?;
+            self.inner.request_filter(&mut session, &req_pkt, &mut ctx).await.ok()?;
         if response_sent {
-            session.drain_req_until_done().await.ok()?;
             return Some(session);
         }
 
-        match self.handle_request_half(&mut session, header_frame.clone(), &header_frame.cmd_type, &mut ctx).await {
+        match self.handle_request_half(&mut session, &req_pkt, &req_pkt.cmd_type(), &mut ctx).await {
             Ok(_) => {
                 self.inner.request_done(&mut session, None, &mut ctx).await;
             }
@@ -71,47 +71,48 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         }
         Some(session)
     }
-    pub async fn handle_request_half(&self, session: &mut Session, header_frame: Arc<ReqFrameData>,
+    pub async fn handle_request_half(&self, session: &mut Session, req_pkt: &ReqPkt,
                                      cmd_type: &SmolStr,
                                      ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let conn =
             self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
 
-        if self.should_double_write(&header_frame) {
+        if self.should_double_write(&req_pkt) {
             let dw_conn = self.double_writer.acquire_conn().await.map_err(|e| anyhow!("get double write connection from pool error: {:?}", e))?;
-            self.handle_double_write(session, dw_conn, conn, cmd_type, ctx).await
+            self.handle_double_write(session, &req_pkt, dw_conn, conn, cmd_type, ctx).await
         } else {
-            self.handle_normal_request(session, &header_frame, cmd_type, ctx, conn).await
+            self.handle_normal_request(session, &req_pkt, cmd_type, ctx, conn).await
         }
     }
 
-    async fn handle_normal_request(&self, session: &mut Session, header_frame: &Arc<ReqFrameData>,
+    async fn handle_normal_request(&self, session: &mut Session, req_pkt: &ReqPkt,
                                    cmd_type: &SmolStr, ctx: &mut <P as Proxy>::CTX,
                                    mut conn: PoolConnection<RedisConnection>) -> anyhow::Result<()> {
         let auth_status =
             conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db).await?;
 
         if auth_status != AuthStatus::Authed {
-            session.send_response_and_drain_req(b"-NOAUTH Authentication required.\r\n").await?;
+            session.write_downstream(b"-NOAUTH Authentication required.\r\n").await?;
             return Ok(());
         }
 
-        self.inner.proxy_upstream_filter(session, ctx).await?;
-        self.inner.upstream_request_filter(session, &header_frame, ctx).await?;
+        // self.inner.proxy_upstream_filter(session, ctx).await?;
+        // self.inner.upstream_request_filter(session, req_pkt, ctx).await?;
 
-        let (tx_upstream, rx_upstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
-        let (tx_downstream, rx_downstream) = mpsc::channel::<ProxyChanData>(TASK_BUFFER_SIZE);
+        let (tx_upstream, rx_upstream) = mpsc::channel::<ResFramedData>(TASK_BUFFER_SIZE);
 
-        conn.w.write_all(&header_frame.raw_bytes).await.map_err(|e| anyhow!("send error :{:?}", e))?;
+        conn.send_bytes_vectored(req_pkt).await?;
+
 
         // bi-directional proxy
         tokio::try_join!(
-            self.proxy_handle_downstream(session, tx_downstream, rx_upstream, ctx),
-            self.proxy_handle_upstream(conn, tx_upstream, rx_downstream, cmd_type)
+            self.proxy_handle_downstream(session, rx_upstream),
+            self.proxy_handle_upstream(conn, tx_upstream, cmd_type)
         )?;
         Ok(())
     }
     async fn handle_double_write(&self, session: &mut Session,
+                                 req_pkt: &ReqPkt,
                                  mut dw_conn: PoolConnection<RedisConnection>,
                                  mut conn: PoolConnection<RedisConnection>,
                                  cmd_type: &SmolStr, ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
@@ -121,25 +122,13 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         match (auth_status_upstream, auth_status_dw) {
             (AuthStatus::Authed, AuthStatus::Authed) => {}
             (_, _) => {
-                session.send_response_and_drain_req(b"-NOAUTH Authentication required.\r\n").await?;
+                session.write_downstream(b"-NOAUTH Authentication required.\r\n").await?;
                 return Ok(());
             }
         }
 
-        let header_data = session.header_frame_unchecked().raw_bytes.clone();
-        let mut iov = vec![IoSlice::new(&header_data)];
 
-        let req_body_resp = session.drain_req_until_done().await?;
-
-        if let Some((req_body_parts, size)) = &req_body_resp {
-            session.req_size += size;
-            for req_frame_data in req_body_parts {
-                self.inner.upstream_request_filter(session, req_frame_data, ctx).await?;
-                iov.push(IoSlice::new(&req_frame_data.raw_bytes));
-            }
-        }
-
-        let join_result = tokio::join!(conn.query_vectored(&iov),  dw_conn.query_vectored(&iov));
+        let join_result = tokio::join!(conn.send_bytes_vectored_and_wait_resp(&req_pkt),  dw_conn.send_bytes_vectored_and_wait_resp(&req_pkt));
 
         return match join_result {
             (Ok((upstream_resp_ok, upstream_pkts, upstream_resp_size)),
@@ -168,67 +157,22 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             }
         };
     }
-    async fn proxy_handle_downstream(&self,
-                                     session: &mut Session,
-                                     tx_downstream: Sender<ProxyChanData>,
-                                     mut rx_upstream: Receiver<ProxyChanData>,
-                                     ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
-        let mut end_of_body = session.request_done();
-        let mut response_done = false;
-        while !end_of_body || !response_done {
-            let tx_downstream_send_permit = tx_downstream.try_reserve();
-            tokio::select! {
-                data = session.read_downstream(), if !end_of_body && tx_downstream_send_permit.is_ok() => {
-                    match data {
-                        Some(Ok(mut data)) => {
-                            let is_done = data.end_of_body;
-                            self.inner.upstream_request_filter(session, &mut data, ctx).await?;
-                            session.req_size += data.raw_bytes.len();
-                            tx_downstream_send_permit?.send(ProxyChanData::ReqFrameData(data));
-                            end_of_body = is_done;
-                        }
-                        Some(Err(e)) => {
-                            bail!("proxy_handle_downstream, framed next error: {:?}", e)
-                        }
-                        None => {
-                            info!("proxy_handle_downstream, downstream eof");
-                            // send_permit.unwrap().send(ProxyChanData::None);
-                            return Ok(())
-                        }
-                    }
-                }
-                _ = tx_downstream.reserve(), if tx_downstream_send_permit.is_err() => {
-                    debug!("waiting for permit: {:?}", tx_downstream_send_permit);
-                }
-                task = rx_upstream.recv(), if !response_done => {
-                    match task {
-                        Some(ProxyChanData::ResFrameData(res_framed_data)) => {
-                            if res_framed_data.is_done {
-                                session.res_is_ok = res_framed_data.res_is_ok;
-                            }
-                            session.res_size += res_framed_data.data.len();
-                            session.write_downstream(&res_framed_data.data).await?;
 
-                            response_done = res_framed_data.is_done;
+    async fn proxy_handle_downstream(&self, session: &mut Session, mut rx_upstream: Receiver<ResFramedData>) -> anyhow::Result<()> {
+        while let Some(res_framed_data) = rx_upstream.recv().await {
+            if res_framed_data.is_done {
+                session.res_is_ok = res_framed_data.res_is_ok;
+            }
+            session.res_size += res_framed_data.data.len();
+            session.write_downstream(&res_framed_data.data).await?;
 
-                            let cmd_type = session.cmd_type();
-                            if CMD_TYPE_ALL.eq(cmd_type) && res_framed_data.is_done {
-                                session.is_authed = res_framed_data.res_is_ok;
-                            }
-                        }
-                        Some(_) => {
-                            unimplemented!("unexpected data")
-                        }
 
-                        None => {
-                            response_done = true;
-                        }
-                    }
-                }
-
-                else => {
-                    break;
-                }
+            let cmd_type = session.cmd_type();
+            if CMD_TYPE_ALL.eq(cmd_type) && res_framed_data.is_done {
+                session.is_authed = res_framed_data.res_is_ok;
+            }
+            if res_framed_data.is_done {
+                break;
             }
         }
         Ok(())
@@ -236,54 +180,17 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
     async fn proxy_handle_upstream(&self,
                                    mut conn: PoolConnection<RedisConnection>,
-                                   tx_upstream: Sender<ProxyChanData>,
-                                   mut rx_downstream: Receiver<ProxyChanData>,
+                                   tx_upstream: Sender<ResFramedData>,
                                    cmd_type: &SmolStr)
                                    -> anyhow::Result<()> {
-        let mut request_done = false;
-        let mut response_done = false;
-        while !request_done || !response_done {
-            tokio::select! {
-                // get response data from upstream, send to downstream
-                data = conn.r.next(), if !response_done => {
-                    match data {
-                        Some(Ok(data)) => {
-                            let is_done = data.is_done;
-                            if CMD_TYPE_AUTH.eq(cmd_type) {
-                                conn.is_authed = data.res_is_ok;
-                            }
-                            tx_upstream.send(ProxyChanData::ResFrameData(data)).await?;
-                            if is_done {
-                                response_done = true;
-                            }
-                        }
-                        Some(Err(err)) => {
-                            bail!("read response from upstream failed: {:?}", err)
-                        }
-                        None => {
-                            response_done = true;
-                        }
-                    }
-                }
-                task = rx_downstream.recv(), if !request_done => {
-                    match task {
-                        Some(ProxyChanData::ReqFrameData(frame_data)) => {
-                            conn.w.write_all(&frame_data.raw_bytes).await?;
-                            request_done = frame_data.end_of_body;
-                        }
-
-                        Some(a) =>{
-                            error!("unexpected data: {:?}", a);
-                            unimplemented!("unexpected data")
-                        }
-                        _ => {
-                            request_done = true;
-                        }
-                    }
-                }
-                else => {
-                    break;
-                }
+        while let Some(Ok(data)) = conn.r.next().await {
+            let is_done = data.is_done;
+            if CMD_TYPE_AUTH.eq(cmd_type) {
+                conn.is_authed = data.res_is_ok;
+            }
+            tx_upstream.send(data).await?;
+            if is_done {
+                break;
             }
         }
         Ok(())
@@ -320,7 +227,7 @@ pub trait Proxy {
     /// the proxy would exit. The proxy continues to the next phases when `Ok(false)` is returned.
     ///
     /// By default, this filter does nothing and returns `Ok(false)`.
-    async fn request_filter(&self, _session: &mut Session, _ctx: &mut Self::CTX) -> anyhow::Result<bool> {
+    async fn request_filter(&self, _session: &mut Session, _req_pkt: &ReqPkt, _ctx: &mut Self::CTX) -> anyhow::Result<bool> {
         Ok(false)
     }
 
