@@ -52,7 +52,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             return Some(session);
         }
 
-        match self.handle_request_inner(&mut session, &req_pkt, &req_pkt.cmd_type(), &mut ctx).await {
+        match self.handle_request_inner(&mut session, &req_pkt, &req_pkt.cmd_type, &mut ctx).await {
             Ok(_) => {
                 self.inner.request_done(&mut session, None, &mut ctx).await;
             }

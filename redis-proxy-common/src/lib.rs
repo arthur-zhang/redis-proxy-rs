@@ -2,6 +2,7 @@ use bytes::Bytes;
 use smol_str::SmolStr;
 
 use crate::command::holder::MULTIPART_COMMANDS;
+use crate::command::utils::get_cmd_key_bulks;
 
 pub mod tools;
 pub mod command;
@@ -33,13 +34,8 @@ impl ReqPkt {
             bytes_total
         }
     }
-    
-    pub fn cmd_type(&self) -> &SmolStr {
-        &self.cmd_type
-    }
-    
+
     pub fn keys(&self)-> Option<Vec<&[u8]>> {
-        
-        None
+        get_cmd_key_bulks(&self.cmd_type, &self.bulk_args)
     }
 }

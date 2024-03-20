@@ -47,7 +47,7 @@ impl Session {
         self.req_size = req_pkt.bytes_total;
         self.res_size = 0;
         self.req_start = self.downstream_reader.decoder().req_start();
-        let cmd_type = req_pkt.cmd_type();
+        let cmd_type = & req_pkt.cmd_type;
 
         if CMD_TYPE_SELECT.eq(cmd_type) {
             self.on_select_db(req_pkt);
