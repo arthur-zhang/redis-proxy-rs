@@ -22,10 +22,7 @@ impl ReqPkt {
             let sub_cmd = unsafe {
                 std::str::from_utf8_unchecked(&bulk_args[1])
             };
-            let sub_cmd: SmolStr = sub_cmd.into();
-
-            cmd_type = format!("{} {}", cmd, sub_cmd).into();
-            
+            cmd_type = SmolStr::from_iter(cmd_type.chars().chain([' ' as char]).chain(sub_cmd.chars()));
         }
         return ReqPkt {
             cmd_type,
@@ -41,5 +38,20 @@ impl ReqPkt {
     pub fn keys(&self)-> Option<Vec<&[u8]>> {
         
         None
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_smol_concat() {
+        let a: SmolStr = "hello".into();
+        let b= "world";
+        let c = format!("{} {}", a, b);
+        assert_eq!(c, "hello world");
+        let c = a.chars().chain([' ' as char]).chain(b.chars());
+        let d  = SmolStr::from_iter(c);
+        assert_eq!(d, "hello world");
     }
 }
