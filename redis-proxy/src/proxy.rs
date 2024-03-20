@@ -49,7 +49,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         debug!("handle new request");
 
         self.inner.on_session_create().await.ok()?;
-        let req_pkt = session.read_downstream().await?.ok()?;
+        let req_pkt = session.read_req_pkt().await?.ok()?;
         session.init_from_req(&req_pkt);
 
         let mut ctx = self.inner.new_ctx();

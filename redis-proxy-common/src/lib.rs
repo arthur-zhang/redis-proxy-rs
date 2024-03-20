@@ -93,9 +93,11 @@ pub struct ReqPkt {
 
 impl ReqPkt {
     pub fn cmd_type(&self) -> &SmolStr {
+        // todo!()
         &CMD_TYPE_UNKNOWN
     }
     pub fn keys(&self)-> Option<Vec<&[u8]>> {
+        // todo!()
         None
     }
 }

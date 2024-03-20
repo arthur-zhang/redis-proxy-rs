@@ -70,7 +70,7 @@ impl Session {
     }
 
     #[inline]
-    pub async fn read_downstream(&mut self) -> Option<anyhow::Result<ReqPkt>> {
+    pub async fn read_req_pkt(&mut self) -> Option<anyhow::Result<ReqPkt>> {
         self.downstream_reader.next().await
     }
 
