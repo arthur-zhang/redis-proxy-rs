@@ -15,7 +15,7 @@ use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 
-use redis_codec_core::resp_decoder::RespPktDecoder;
+use redis_codec_core::resp_decoder::{ResFramedData, RespPktDecoder};
 use redis_proxy_common::cmd::CmdType;
 
 use crate::prometheus::{CONN_UPSTREAM, METRICS};
@@ -134,20 +134,21 @@ impl RedisConnection {
         };
     }
 
-    pub async fn query_vectored(&mut self, iov: &[IoSlice<'_>]) -> anyhow::Result<(bool, Vec<Bytes>, usize)> {
+    pub async fn query_vectored(&mut self, iov: &[IoSlice<'_>]) -> anyhow::Result<(bool, Vec<ResFramedData>, usize)> {
         self.w.write_vectored(&iov).await?;
 
-        let mut result: Vec<Bytes> = Vec::with_capacity(1);
+        let mut result: Vec<ResFramedData> = Vec::with_capacity(1);
         let mut total_size = 0;
 
         while let Some(it) = self.r.next().await {
             match it {
                 Ok(it) => {
                     let is_done = it.is_done;
+                    let res_is_ok = it.res_is_ok;
                     total_size += it.data.len();
-                    result.push(it.data);
+                    result.push(it);
                     if is_done {
-                        return Ok((it.res_is_ok, result, total_size));
+                        return Ok((res_is_ok, result, total_size));
                     }
                 }
                 Err(e) => {

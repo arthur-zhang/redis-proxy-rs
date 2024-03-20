@@ -114,7 +114,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     async fn handle_double_write(&self, session: &mut Session,
                                  mut dw_conn: PoolConnection<RedisConnection>,
                                  mut conn: PoolConnection<RedisConnection>,
-                                 cmd_type: CmdType, _: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
+                                 cmd_type: CmdType, ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let (auth_status_upstream, auth_status_dw) = tokio::try_join!(
                 conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db),
                 dw_conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db))?;
@@ -131,29 +131,35 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
         let req_body_resp = session.drain_req_until_done().await?;
 
+
         if let Some((req_body_parts, size)) = &req_body_resp {
             session.req_size += size;
-            for resp_bytes in req_body_parts {
-                iov.push(IoSlice::new(&resp_bytes));
+            for req_frame_data in req_body_parts {
+                self.inner.upstream_request_filter(session, req_frame_data, ctx).await?;
+                iov.push(IoSlice::new(&req_frame_data.raw_bytes));
             }
         }
 
         let join_result = tokio::join!(conn.query_vectored(&iov),  dw_conn.query_vectored(&iov));
 
         return match join_result {
-            (Ok((upstream_resp_ok, upstream_bytes, upstream_resp_size)),
-                Ok((dw_resp_ok, dw_bytes, _))) => {
+            (Ok((upstream_resp_ok, upstream_pkts, upstream_resp_size)),
+                Ok((dw_resp_ok, dw_pkts, _))) => {
                 if cmd_type == CmdType::AUTH {
                     session.is_authed = upstream_resp_ok;
                 }
                 session.res_size += upstream_resp_size;
                 session.res_is_ok = upstream_resp_ok && dw_resp_ok;
 
+                for pkt in &upstream_pkts {
+                    self.inner.upstream_response_filter(session, &pkt, ctx);
+                }
+
                 if dw_resp_ok {
-                    session.write_downstream_batch(upstream_bytes).await?;
+                    session.write_downstream_batch(upstream_pkts).await?;
                 } else {
                     // if double write is not ok, send upstream response to downstream
-                    session.write_downstream_batch(dw_bytes).await?;
+                    session.write_downstream_batch(dw_pkts).await?;
                 }
                 Ok(())
             }
@@ -351,19 +357,7 @@ pub trait Proxy {
     fn upstream_response_filter(
         &self,
         _session: &mut Session,
-        _upstream_response: &mut ResFramedData,
-        _ctx: &mut Self::CTX,
-    ) {}
-
-    /// Similar to [Self::upstream_response_filter()] but for response body
-    ///
-    /// This function will be called every time a piece of response body is received. The `body` is
-    /// **not the entire response body**.
-    fn upstream_response_body_filter(
-        &self,
-        _session: &mut Session,
-        _body: &Option<Bytes>,
-        _end_of_stream: bool,
+        _upstream_response: &ResFramedData,
         _ctx: &mut Self::CTX,
     ) {}
 

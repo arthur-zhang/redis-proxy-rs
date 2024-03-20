@@ -11,6 +11,7 @@ use tokio_util::codec::FramedRead;
 
 use redis_codec_core::error::DecodeError;
 use redis_codec_core::req_decoder::ReqPktDecoder;
+use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::cmd::CmdType;
 use redis_proxy_common::ReqFrameData;
 
@@ -87,9 +88,9 @@ impl Session {
     }
 
     #[inline]
-    pub async fn write_downstream_batch(&mut self, bytes: Vec<Bytes>) -> anyhow::Result<()> {
+    pub async fn write_downstream_batch(&mut self, bytes: Vec<ResFramedData>) -> anyhow::Result<()> {
         for data in bytes {
-            self.downstream_writer.write(&data).await?;
+            self.downstream_writer.write(&data.data).await?;
         }
         self.downstream_writer.flush().await?;
         Ok(())
@@ -110,7 +111,7 @@ impl Session {
 }
 
 impl Session {
-    pub async fn drain_req_until_done(&mut self) -> anyhow::Result<Option<(Vec<Bytes>, usize)>> {
+    pub async fn drain_req_until_done(&mut self) -> anyhow::Result<Option<(Vec<ReqFrameData>, usize)>> {
         if let Some(ref header_frame) = self.header_frame {
             if header_frame.end_of_body {
                 return Ok(None);
@@ -121,7 +122,7 @@ impl Session {
         while let Some(Ok(req_frame_data)) = self.downstream_reader.next().await {
             let end_of_body = req_frame_data.end_of_body;
             total_size += req_frame_data.raw_bytes.len();
-            resp.push(req_frame_data.raw_bytes);
+            resp.push(req_frame_data);
             if end_of_body {
                 return Ok(Some((resp, total_size)));
             }
