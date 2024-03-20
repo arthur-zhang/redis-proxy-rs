@@ -60,7 +60,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             return Some(session);
         }
 
-        match self.handle_request_half(&mut session, &req_pkt, &req_pkt.cmd_type(), &mut ctx).await {
+        match self.handle_request_inner(&mut session, &req_pkt, &req_pkt.cmd_type(), &mut ctx).await {
             Ok(_) => {
                 self.inner.request_done(&mut session, None, &mut ctx).await;
             }
@@ -71,9 +71,10 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         }
         Some(session)
     }
-    pub async fn handle_request_half(&self, session: &mut Session, req_pkt: &ReqPkt,
-                                     cmd_type: &SmolStr,
-                                     ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
+    pub async fn handle_request_inner(&self, session: &mut Session,
+                                      req_pkt: &ReqPkt,
+                                      cmd_type: &SmolStr,
+                                      ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let conn =
             self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
 
@@ -102,7 +103,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         let (tx_upstream, rx_upstream) = mpsc::channel::<ResFramedData>(TASK_BUFFER_SIZE);
 
         conn.send_bytes_vectored(req_pkt).await?;
-
 
         // bi-directional proxy
         tokio::try_join!(
@@ -168,7 +168,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
 
 
             let cmd_type = session.cmd_type();
-            if CMD_TYPE_ALL.eq(cmd_type) && res_framed_data.is_done {
+            if CMD_TYPE_AUTH.eq(cmd_type) && res_framed_data.is_done {
                 session.is_authed = res_framed_data.res_is_ok;
             }
             if res_framed_data.is_done {
