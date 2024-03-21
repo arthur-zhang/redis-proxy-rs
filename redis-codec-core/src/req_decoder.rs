@@ -1,15 +1,12 @@
 use std::mem;
 use std::time::Instant;
-use anyhow::bail;
 
+use anyhow::bail;
 use bytes::{Buf, Bytes, BytesMut};
 use tokio_util::codec::Decoder;
 
 use redis_proxy_common::ReqPkt;
-use redis_proxy_common::tools::is_digit;
-
-pub const CR: u8 = b'\r';
-pub const LF: u8 = b'\n';
+use redis_proxy_common::tools::{CR, is_digit, LF};
 
 enum State {
     ValueRoot,
@@ -54,11 +51,13 @@ impl Decoder for ReqDecoder {
         if src.is_empty() {
             return Ok(None);
         }
+        let start_len = src.len();
         while src.has_remaining() {
+            let ch = src[0];
             match self.state {
                 State::ValueRoot => {
-                    if src[0] != b'*' {
-                        return Err(anyhow::anyhow!("Invalid request"));
+                    if ch != b'*' {
+                        bail!("Invalid request")
                     }
                     self.req_start = Instant::now();
                     self.bulk_size = u64::MAX;
@@ -70,10 +69,10 @@ impl Decoder for ReqDecoder {
                 }
 
                 State::NArgInteger => {
-                    if src[0] == CR {
+                    if ch == CR {
                         self.state = State::NArgIntegerLF;
-                    } else if is_digit(src[0]) {
-                        self.pending_integer = self.pending_integer * 10 + (src[0] - b'0') as u64;
+                    } else if is_digit(ch) {
+                        self.pending_integer = self.pending_integer * 10 + (ch - b'0') as u64;
                     } else {
                         return Err(anyhow::anyhow!("Invalid request"));
                     }
@@ -81,7 +80,7 @@ impl Decoder for ReqDecoder {
                 }
 
                 State::NArgIntegerLF => {
-                    if src[0] != LF {
+                    if ch != LF {
                         return Err(anyhow::anyhow!("Invalid request"));
                     }
                     self.bulk_size = self.pending_integer;
@@ -90,7 +89,7 @@ impl Decoder for ReqDecoder {
                     src.advance(1);
                 }
                 State::BulkLenStart => {
-                    if src[0] != b'$' {
+                    if ch != b'$' {
                         return Err(anyhow::anyhow!("Invalid request"));
                     }
                     self.pending_integer = 0;
@@ -98,24 +97,23 @@ impl Decoder for ReqDecoder {
                     src.advance(1);
                 }
                 State::BulkLen => {
-                    if src[0] == CR {
+                    if ch == CR {
                         self.state = State::BulkLenLF;
-                    } else if is_digit(src[0]) {
-                        self.pending_integer = self.pending_integer * 10 + (src[0] - b'0') as u64;
+                    } else if is_digit(ch) {
+                        self.pending_integer = self.pending_integer * 10 + (ch - b'0') as u64;
                     } else {
                         return Err(anyhow::anyhow!("Invalid request"));
                     }
                     src.advance(1);
                 }
                 State::BulkLenLF => {
-                    if src[0] != LF {
+                    if ch != LF {
                         return Err(anyhow::anyhow!("Invalid request"));
                     }
                     src.advance(1);
                     self.state = State::BulkData;
                 }
                 State::BulkData => {
-                    // println!("pending_integer: {}, src: {:?}", self.pending_integer, src);
                     src.reserve(self.pending_integer as usize + 2);
                     if src.len() < self.pending_integer as usize + 2 {
                         return Ok(None);
@@ -132,17 +130,16 @@ impl Decoder for ReqDecoder {
                 }
             }
         }
-        return if self.bulk_read_index >= self.bulk_size {
-            if self.bulk_args_data.is_empty() {
-                bail!("Invalid request");
-            }
-            let bulk_args = mem::replace(&mut self.bulk_args_data, Vec::new());
-            // todo
-            let bytes_total = bulk_args.iter().fold(0, |acc, it| acc + it.len());
-            Ok(Some(ReqPkt::new(bulk_args, bytes_total)))
-        } else {
-            Ok(None)
+        if self.bulk_read_index < self.bulk_size {
+            return Ok(None);
         }
+        if self.bulk_args_data.is_empty() {
+            bail!("Invalid request");
+        }
+
+        let bulk_args = mem::take(&mut self.bulk_args_data);
+        let bytes_total = start_len.saturating_sub(src.len());
+        Ok(Some(ReqPkt::new(bulk_args, bytes_total)))
     }
 }
 
@@ -174,5 +171,15 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_bytes_mut() {
+        let mut a = BytesMut::from("hello");
+        let len1 = a.len();
+        // a.advance(1);
+        let _ = a.split_to(1);
+        let len2 = a.len();
+        println!("len1: {}, len2: {}", len1, len2);
     }
 }
