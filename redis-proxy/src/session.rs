@@ -106,8 +106,7 @@ fn convert_to_u64(vec: &[u8]) -> Option<u64> {
 
 impl Session {
     fn on_select_db(&mut self, req_pkt: &ReqPkt) {
-        if req_pkt.bulk_args.len() < 2 {
-            // todo maybe throw error is better
+        if req_pkt.bulk_args.len() <= 1 {
             return;
         }
         let db = &req_pkt.bulk_args[1];
@@ -115,7 +114,7 @@ impl Session {
         self.db = db;
     }
     pub fn on_auth(&mut self, req_pkt: &ReqPkt) {
-        if req_pkt.bulk_args.len() <= 2 {
+        if req_pkt.bulk_args.len() <= 1 {
             return;
         }
         let auth_password = req_pkt.bulk_args[1].as_ref().to_vec();

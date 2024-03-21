@@ -7,6 +7,7 @@ use crate::command::utils::get_cmd_key_bulks;
 pub mod tools;
 pub mod command;
 
+#[derive(Debug)]
 pub struct ReqPkt {
     pub cmd_type: SmolStr,
     pub bulk_args: Vec<Bytes>,
