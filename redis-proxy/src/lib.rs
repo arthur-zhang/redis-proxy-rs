@@ -1,3 +1,5 @@
+#![feature(io_slice_advance)]
+
 pub mod proxy;
 pub mod server;
 pub mod upstream_conn_pool;
