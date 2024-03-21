@@ -8,7 +8,7 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use redis_codec_core::resp_decoder::ResFramedData;
-use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, is_connection_cmd, is_write_cmd};
+use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, has_key, is_connection_cmd, is_readonly_cmd, is_write_cmd};
 use redis_proxy_common::ReqPkt;
 
 use crate::double_writer::DoubleWriter;
@@ -26,13 +26,13 @@ pub struct RedisProxy<P> {
 
 impl<P> RedisProxy<P> {
     fn should_double_write(&self, header_frame: &ReqPkt) -> bool {
-        return if is_connection_cmd(&header_frame.cmd_type) {
-            true
-        } else if is_write_cmd(&header_frame.cmd_type) {
-            self.double_writer.should_double_write(header_frame)
-        } else {
-            false
-        };
+        if is_readonly_cmd(&header_frame.cmd_type) {
+            return false;
+        }
+        if !has_key(&header_frame.cmd_type) {
+            return true
+        }
+        self.double_writer.should_double_write(header_frame)
     }
 }
 
@@ -82,7 +82,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                                    cmd_type: &SmolStr, ctx: &mut <P as Proxy>::CTX,
                                    mut conn: PoolConnection<RedisConnection>) -> anyhow::Result<()> {
         let auth_status =
-            conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db).await?;
+            conn.init_from_session(cmd_type, session.is_authed, &session.username, &session.password, session.db).await?;
 
         if auth_status != AuthStatus::Authed {
             session.write_downstream(b"-NOAUTH Authentication required.\r\n").await?;
@@ -109,8 +109,8 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                                  mut conn: PoolConnection<RedisConnection>,
                                  cmd_type: &SmolStr, ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
         let (auth_status_upstream, auth_status_dw) = tokio::try_join!(
-                conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db),
-                dw_conn.init_from_session(cmd_type, session.is_authed, &session.password, session.db))?;
+                conn.init_from_session(cmd_type, session.is_authed, &session.username, &session.password, session.db),
+                dw_conn.init_from_session(cmd_type, session.is_authed, &session.username, &session.password, session.db))?;
         match (auth_status_upstream, auth_status_dw) {
             (AuthStatus::Authed, AuthStatus::Authed) => {}
             (_, _) => {

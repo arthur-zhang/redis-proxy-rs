@@ -27,6 +27,7 @@ pub type Pool = poolx::Pool<RedisConnection>;
 #[derive(Debug, Default)]
 pub struct SessionAttr {
     pub db: u64,
+    pub username: Option<Vec<u8>>,
     pub password: Option<Vec<u8>>,
 }
 
@@ -75,28 +76,35 @@ impl RedisConnection {
     }
 
     // get password and db from session, auth connection if needed
-    pub async fn init_from_session(&mut self, cmd_type: &SmolStr, session_authed: bool,
+    pub async fn init_from_session(&mut self, cmd_type: &SmolStr, session_authed: bool, username: &Option<Vec<u8>>,
                                    password: &Option<Vec<u8>>, session_db: u64) -> anyhow::Result<AuthStatus> {
         if !CMD_TYPE_AUTH.eq(cmd_type) {
-            let auth_status = self.auth_connection_if_needed(session_authed, password).await?;
+            let auth_status = self.auth_connection_if_needed(session_authed, username, password).await?;
             if matches!(auth_status, AuthStatus::AuthFailed) {
                 return Ok(AuthStatus::AuthFailed);
             }
         }
         self.session_attr.password = password.clone();
+        self.session_attr.username = username.clone();
         if self.session_attr.db != session_db {
             info!("rebuild session from {} to {}", self.session_attr.db,  session_db);
             self.select_db(session_db).await?;
         }
         Ok(AuthStatus::Authed)
     }
-    async fn auth_connection(&mut self, pass: &[u8]) -> anyhow::Result<bool> {
-        let pass_len = pass.len().to_string();
-        let mut cmd = BytesMut::with_capacity(b"*2\r\n$4\r\nAUTH\r\n$".len() + pass_len.len() + 2 + pass.len() + 2);
+    async fn auth_connection(&mut self, username: &Option<Vec<u8>>, password: &Option<Vec<u8>>) -> anyhow::Result<bool> {
+        if username.is_some() {
+            return self.auth_connection_with_username(username, password).await
+        }
+        
+        let password = password.as_ref().unwrap();
+        let pass_len = password.len().to_string();
+        
+        let mut cmd = BytesMut::with_capacity(b"*2\r\n$4\r\nAUTH\r\n$".len() + pass_len.len() + 2 + password.len() + 2);
         cmd.extend_from_slice(b"*2\r\n$4\r\nAUTH\r\n$");
         cmd.extend_from_slice(pass_len.as_bytes());
         cmd.extend_from_slice(b"\r\n");
-        cmd.extend_from_slice(pass);
+        cmd.extend_from_slice(password);
         cmd.extend_from_slice(b"\r\n");
         let (query_ok, resp_data) = self.query_with_resp(cmd.as_ref()).await?;
 
@@ -107,10 +115,40 @@ impl RedisConnection {
         return Ok(resp_data.as_ref() == b"+OK\r\n");
     }
 
+    async fn auth_connection_with_username(&mut self, username: &Option<Vec<u8>>, password: &Option<Vec<u8>>) -> anyhow::Result<bool> {
+        let password = password.as_ref().unwrap();
+        let pass_len = password.len().to_string();
+        
+        let username = username.as_ref().unwrap();
+        let username_len = username.len().to_string();
+
+        let mut cmd = BytesMut::with_capacity(
+            b"*3\r\n$4\r\nAUTH\r\n$".len() 
+                + username_len.len() + 2 + username.len() + 2
+                + 1 + pass_len.len() + 2 + password.len() + 2);
+        cmd.extend_from_slice(b"*3\r\n$4\r\nAUTH\r\n$");
+        cmd.extend_from_slice(username_len.as_bytes());
+        cmd.extend_from_slice(b"\r\n");
+        cmd.extend_from_slice(username);
+        cmd.extend_from_slice(b"\r\n");
+        cmd.extend_from_slice(b"$");
+        cmd.extend_from_slice(pass_len.as_bytes());
+        cmd.extend_from_slice(b"\r\n");
+        cmd.extend_from_slice(password);
+        cmd.extend_from_slice(b"\r\n");
+        let (query_ok, resp_data) = self.query_with_resp(cmd.as_ref()).await?;
+
+        if !query_ok || resp_data.len() == 0 {
+            return Ok(false);
+        }
+
+        return Ok(resp_data.as_ref() == b"+OK\r\n");
+    }
 
     async fn auth_connection_if_needed(
         &mut self,
         session_authed: bool,
+        username: &Option<Vec<u8>>,
         password: &Option<Vec<u8>>,
     ) -> anyhow::Result<AuthStatus> {
         debug!("auth connection if needed: conn authed: {}, session authed: {}", self.is_authed, session_authed);
@@ -120,8 +158,7 @@ impl RedisConnection {
             }
             (false, true) => {
                 // auth connection
-                let password = password.as_ref().unwrap();
-                let authed = self.auth_connection(&password).await?;
+                let authed = self.auth_connection(username, password).await?;
                 if authed {
                     self.is_authed = true;
                     Ok(AuthStatus::Authed)
