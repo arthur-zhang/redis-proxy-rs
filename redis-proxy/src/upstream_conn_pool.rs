@@ -11,7 +11,7 @@ use log::{debug, info};
 use poolx::{Connection, ConnectOptions, Error};
 use poolx::url::Url;
 use smol_str::SmolStr;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
@@ -149,11 +149,12 @@ impl RedisConnection {
             iov.push(IoSlice::new(b"$"));
             iov.push(IoSlice::new(tmp_len_arr[i].as_bytes()));
             iov.push(IoSlice::new(b"\r\n"));
-            iov.push(IoSlice::new(&bytes));
+            iov.push(IoSlice::new(bytes.as_ref()));
             iov.push(IoSlice::new(b"\r\n"));
         }
 
-        self.w.write_vectored(&iov).await?;
+        write_all_vectored(&mut self.w, &mut iov).await?;
+
         Ok(())
     }
 
@@ -204,6 +205,36 @@ impl RedisConnection {
             }
         }
         bail!("read eof");
+    }
+}
+
+/// A helper function that performs a vector write to completion, since
+/// the `tokio` one is not guaranteed to write all the data.
+async fn write_all_vectored<'a, W: AsyncWrite + Unpin>(
+    w: &'a mut W,
+    mut slices: &'a mut [IoSlice<'a>],
+) -> tokio::io::Result<()> {
+    let mut n: usize = slices.iter().map(|s| s.len()).sum();
+
+    loop {
+        let mut did_write = w.write_vectored(slices).await?;
+
+        if did_write == n {
+            // Done, yay
+            break Ok(());
+        }
+
+        n -= did_write;
+
+        // Not done, need to advance the slices
+        while did_write >= slices[0].len() {
+            // First skip entire slices
+            did_write -= slices[0].len();
+            slices = &mut slices[1..];
+        }
+
+        // Skip a partial buffer
+        slices[0].advance(did_write);
     }
 }
 
