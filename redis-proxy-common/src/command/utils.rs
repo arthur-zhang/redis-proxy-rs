@@ -137,7 +137,7 @@ fn range_from_keyword(keyword: &Keyword, range: &Range, bulk_args: &Vec<Bytes>) 
         return None;
     }
 
-    let ((mut keyword_index), reverse) = if keyword.startfrom >= 0 {
+    let (mut keyword_index, reverse) = if keyword.startfrom >= 0 {
         (keyword.startfrom as usize, false)
     } else {
         (bulks_length - keyword.startfrom.abs() as usize, true)
