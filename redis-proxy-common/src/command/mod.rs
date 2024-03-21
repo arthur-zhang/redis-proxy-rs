@@ -90,7 +90,7 @@ pub struct BeginSearch {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Index {
-    pub pos: i32
+    pub pos: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,13 +108,13 @@ pub struct FindKeys {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Range {
     pub lastkey: i32,
-    pub step: i32,
-    pub limit: i32
+    pub step: usize,
+    pub limit: usize
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeyNum {
-    pub keynumidx: i32,
-    pub firstkey: i32,
-    pub step: i32
+    pub keynumidx: usize,
+    pub firstkey: usize,
+    pub step: usize
 }
