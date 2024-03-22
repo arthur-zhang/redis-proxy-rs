@@ -120,7 +120,10 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         }
 
 
-        let join_result = tokio::join!(conn.send_bytes_vectored_and_wait_resp(&req_pkt),  dw_conn.send_bytes_vectored_and_wait_resp(&req_pkt));
+        let join_result = tokio::join!(
+            conn.send_bytes_vectored_and_wait_resp(&req_pkt),
+            dw_conn.send_bytes_vectored_and_wait_resp(&req_pkt)
+        );
 
         return match join_result {
             (Ok((upstream_resp_ok, upstream_pkts, upstream_resp_size)),
@@ -143,9 +146,9 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 }
                 Ok(())
             }
-            _ => {
+            (r1, r2) => {
                 let _ = session.write_downstream(b"-error").await;
-                bail!("double write error")
+                bail!("double write error: r1: {:?}, r2:{:?}", r1, r2)
             }
         };
     }
@@ -160,7 +163,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             if CMD_TYPE_AUTH.eq(cmd_type) && res_framed_data.is_done {
                 session.is_authed = res_framed_data.res_is_ok;
             }
-           
+
             session.write_downstream(&res_framed_data.data).await?;
 
             if res_framed_data.is_done {

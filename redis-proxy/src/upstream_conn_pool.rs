@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::Relaxed;
 
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use bytes::{Bytes, BytesMut};
 use futures::future::BoxFuture;
 use log::{debug, info};
@@ -159,7 +159,9 @@ impl RedisConnection {
     }
 
     pub async fn send_bytes_vectored_and_wait_resp(&mut self, pkt: &ReqPkt) -> anyhow::Result<(bool, Vec<ResFramedData>, usize)> {
-        self.send_bytes_vectored(pkt).await?;
+
+        self.send_bytes_vectored(pkt).await.context(format!("send_bytes_vectored {:?}", pkt.bytes_total))?;
+
         let mut result: Vec<ResFramedData> = Vec::with_capacity(1);
         let mut total_size = 0;
 
