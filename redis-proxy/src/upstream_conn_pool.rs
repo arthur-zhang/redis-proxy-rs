@@ -40,8 +40,6 @@ pub struct AuthInfo {
 pub struct RedisConnectionOption {
     counter: AtomicU64,
     addr: String,
-    username: Option<String>,
-    password: Option<String>,
 }
 
 impl Clone for RedisConnectionOption {
@@ -49,8 +47,6 @@ impl Clone for RedisConnectionOption {
         Self {
             counter: Default::default(),
             addr: self.addr.clone(),
-            username: self.username.clone(),
-            password: self.password.clone(),
         }
     }
 }
@@ -121,7 +117,7 @@ impl RedisConnection {
             self.authed_info = Some(auth_info.clone());
             return Ok(AuthStatus::Authed);
         }
-        
+
         self.authed_info = None;
         Ok(AuthStatus::AuthFailed)
     }
@@ -358,11 +354,8 @@ impl ConnectOptions for RedisConnectionOption {
         // todo fix unwrap
         let host = url.host_str().unwrap();
         let port = url.port().unwrap_or(6379);
-        let username = url.username();
-        let username = if username.is_empty() { None } else { Some(username.to_string()) };
-        let password = url.password().map(|s| s.to_string());
         let addr = format!("{}:{}", host, port);
-        Ok(Self { counter: AtomicU64::new(0), addr, password, username })
+        Ok(Self { counter: AtomicU64::new(0), addr })
     }
 
     fn connect(&self) -> BoxFuture<'_, Result<Self::Connection, Error>> where Self::Connection: Sized {
@@ -373,37 +366,14 @@ impl ConnectOptions for RedisConnectionOption {
                 conn.set_nodelay(true).unwrap();
                 METRICS.connections.with_label_values(&[CONN_UPSTREAM]).inc();
                 let (r, w) = conn.into_split();
-
-                let mut conn = RedisConnection {
+                
+                Ok(RedisConnection {
                     id: self.counter.fetch_add(1, Relaxed),
                     authed_info: None,
                     r: FramedRead::new(r, RespPktDecoder::new()),
                     w,
                     session_attr: SessionAttr::default(),
-                };
-
-                if let Some(ref pass) = self.password {
-                    let cmd = if let Some(ref user) = self.username {
-                        format!("*3\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n${}\r\n{}\r\n", user.len(), user, pass.len(), pass)
-                    } else {
-                        format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", pass.len(), pass)
-                    };
-
-                    return match conn.query_with_resp(cmd.as_bytes()).await {
-                        Ok((true, _)) => {
-                            conn.authed_info = Some(AuthInfo {
-                                username: self.username.clone().map(|s| s.into_bytes()),
-                                password: pass.clone().into_bytes()
-                            });
-                            Ok(conn)
-                        }
-                        _ => {
-                            conn.authed_info = None;
-                            Err(Error::ResponseError)
-                        }
-                    };
-                }
-                Ok(conn)
+                })
             }
         })
     }
