@@ -1,13 +1,13 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::Error;
 use async_trait::async_trait;
 
 use redis_proxy::config::Config;
 use redis_proxy::filter_trait::{Filter, FilterContext, Value};
 use redis_proxy::prometheus::{METRICS, RESP_FAILED, RESP_SUCCESS, TRAFFIC_TYPE_EGRESS, TRAFFIC_TYPE_INGRESS};
 use redis_proxy::session::Session;
+use redis_proxy::SmolStr;
 use redis_proxy_common::ReqPkt;
 
 use crate::filter_trait::{REQ_SIZE, RES_IS_OK, RES_SIZE, START_INSTANT};
@@ -35,14 +35,13 @@ impl Filter for FilterImpl {
         Ok(false)
     }
 
-    async fn on_request_done(&self, session: &mut Session, e: Option<&Error>, ctx: &mut FilterContext) {
-        let cmd = session.cmd_type().as_str();
+    async fn on_request_done(&self, session: &mut Session, cmd_type: &SmolStr, e: Option<&anyhow::Error>, ctx: &mut FilterContext) {
         let resp_ok_label = if session.res_is_ok { RESP_SUCCESS } else { RESP_FAILED };
-        METRICS.request_latency.with_label_values(&[cmd, resp_ok_label]).observe(session.req_start.elapsed().as_secs_f64());
-        METRICS.bandwidth.with_label_values(&[cmd, TRAFFIC_TYPE_INGRESS]).inc_by(session.req_size as u64);
-        METRICS.bandwidth.with_label_values(&[cmd, TRAFFIC_TYPE_EGRESS]).inc_by(session.res_size as u64);
+        METRICS.request_latency.with_label_values(&[cmd_type, resp_ok_label]).observe(session.req_start.elapsed().as_secs_f64());
+        METRICS.bandwidth.with_label_values(&[cmd_type, TRAFFIC_TYPE_INGRESS]).inc_by(session.req_size as u64);
+        METRICS.bandwidth.with_label_values(&[cmd_type, TRAFFIC_TYPE_EGRESS]).inc_by(session.res_size as u64);
         for filter in &self.filters {
-            filter.on_request_done(session, e, ctx).await;
+            filter.on_request_done(session, cmd_type, e, ctx).await;
         }
     }
 }
