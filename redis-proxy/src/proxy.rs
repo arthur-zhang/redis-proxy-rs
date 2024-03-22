@@ -1,8 +1,6 @@
-use std::collections::HashMap;
 use std::time::Instant;
 
 use anyhow::{anyhow, bail};
-use async_trait::async_trait;
 use futures::StreamExt;
 use log::debug;
 use poolx::PoolConnection;
@@ -11,12 +9,11 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use redis_codec_core::resp_decoder::ResFramedData;
-use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, has_key, is_connection_cmd, is_readonly_cmd, is_write_cmd};
+use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, has_key, is_readonly_cmd};
 use redis_proxy_common::ReqPkt;
 
 use crate::double_writer::DoubleWriter;
 use crate::filter_trait::{Filter, FilterContext};
-use crate::peer;
 use crate::session::Session;
 use crate::upstream_conn_pool::{AuthStatus, Pool, RedisConnection};
 
@@ -56,7 +53,7 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
         }
         session.upstream_start = Instant::now();
 
-        match self.handle_request_inner(&mut session, &req_pkt, &req_pkt.cmd_type, &mut ctx).await {
+        match self.handle_request_inner(&mut session, &req_pkt, &mut ctx).await {
             Ok(_) => {
                 self.filter.on_request_done(&mut session, &req_pkt.cmd_type, None, &mut ctx).await;
             }
@@ -69,7 +66,6 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
     }
     pub async fn handle_request_inner(&self, session: &mut Session,
                                       req_pkt: &ReqPkt,
-                                      cmd_type: &SmolStr,
                                       ctx: &mut FilterContext) -> anyhow::Result<()> {
         if self.should_double_write(&req_pkt) {
             let start = Instant::now();
@@ -83,22 +79,22 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
                 _ => bail!("get connection from pool error")
             };
 
-            self.handle_double_write(session, &req_pkt, dw_conn, conn, cmd_type, ctx).await
+            self.handle_double_write(session, &req_pkt, dw_conn, conn, ctx).await
         } else {
             let start = Instant::now();
             let conn =
                 self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
             session.pool_acquire_elapsed = start.elapsed();
 
-            self.handle_normal_request(session, &req_pkt, cmd_type, ctx, conn).await
+            self.handle_normal_request(session, &req_pkt, conn, ctx).await
         }
     }
 
     async fn handle_normal_request(&self, session: &mut Session, req_pkt: &ReqPkt,
-                                   cmd_type: &SmolStr, _ctx: &mut FilterContext,
-                                   mut conn: PoolConnection<RedisConnection>) -> anyhow::Result<()> {
+                                   mut conn: PoolConnection<RedisConnection>,
+                                   _ctx: &mut FilterContext) -> anyhow::Result<()> {
         let auth_status =
-            conn.init_from_session(cmd_type, session.is_authed, &session.username, &session.password, session.db).await?;
+            conn.init_from_session(&req_pkt.cmd_type, &session.authed_info, session.db).await?;
 
         if auth_status != AuthStatus::Authed {
             session.write_downstream(b"-NOAUTH Authentication required.\r\n").await?;
@@ -111,8 +107,8 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
 
         // bi-directional proxy
         tokio::try_join!(
-            self.proxy_handle_downstream(session, cmd_type, rx_upstream),
-            self.proxy_handle_upstream(conn, tx_upstream, cmd_type)
+            self.proxy_handle_downstream(session, &req_pkt.cmd_type, rx_upstream),
+            self.proxy_handle_upstream(conn, tx_upstream, &req_pkt.cmd_type)
         )?;
         Ok(())
     }
@@ -120,10 +116,10 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
                                  req_pkt: &ReqPkt,
                                  mut dw_conn: PoolConnection<RedisConnection>,
                                  mut conn: PoolConnection<RedisConnection>,
-                                 cmd_type: &SmolStr, ctx: &mut FilterContext) -> anyhow::Result<()> {
+                                 _ctx: &mut FilterContext) -> anyhow::Result<()> {
         let (auth_status_upstream, auth_status_dw) = tokio::try_join!(
-                conn.init_from_session(cmd_type, session.is_authed, &session.username, &session.password, session.db),
-                dw_conn.init_from_session(cmd_type, session.is_authed, &session.username, &session.password, session.db))?;
+                conn.init_from_session(&req_pkt.cmd_type, &session.authed_info, session.db),
+                dw_conn.init_from_session(&req_pkt.cmd_type, &session.authed_info, session.db))?;
         match (auth_status_upstream, auth_status_dw) {
             (AuthStatus::Authed, AuthStatus::Authed) => {}
             (_, _) => {
@@ -143,8 +139,10 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
         return match join_result {
             (Ok((upstream_resp_ok, upstream_pkts, upstream_resp_size)),
                 Ok((dw_resp_ok, dw_pkts, _))) => {
-                if CMD_TYPE_AUTH.eq(cmd_type) {
-                    session.is_authed = upstream_resp_ok;
+                if CMD_TYPE_AUTH.eq(&req_pkt.cmd_type) {
+                    if !upstream_resp_ok {
+                        session.authed_info = None;
+                    }
                 }
                 session.res_size += upstream_resp_size;
                 session.res_is_ok = upstream_resp_ok && dw_resp_ok;
@@ -172,7 +170,9 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
             }
             session.res_size += res_framed_data.data.len();
             if CMD_TYPE_AUTH.eq(cmd_type) && res_framed_data.is_done {
-                session.is_authed = res_framed_data.res_is_ok;
+                if !res_framed_data.res_is_ok {
+                    session.authed_info = None;
+                }
             }
 
             session.write_downstream(&res_framed_data.data).await?;
@@ -184,8 +184,7 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
         Ok(())
     }
 
-    async fn proxy_handle_upstream(&self,
-                                   mut conn: PoolConnection<RedisConnection>,
+    async fn proxy_handle_upstream(&self, mut conn: PoolConnection<RedisConnection>,
                                    tx_upstream: Sender<ResFramedData>,
                                    cmd_type: &SmolStr)
                                    -> anyhow::Result<()> {
@@ -193,7 +192,7 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
             let is_done = data.is_done;
 
             if CMD_TYPE_AUTH.eq(cmd_type) && is_done {
-                conn.is_authed = data.res_is_ok;
+                conn.update_authed_info(data.res_is_ok);
             }
             tx_upstream.send(data).await?;
             if is_done {
