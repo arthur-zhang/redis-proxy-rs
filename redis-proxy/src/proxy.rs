@@ -143,8 +143,8 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
     }
     async fn handle_double_write(&self, session: &mut Session,
                                  req_pkt: &ReqPkt,
-                                 dw_conn: &mut PoolConnection<RedisConnection>,
                                  conn: &mut PoolConnection<RedisConnection>,
+                                 dw_conn: &mut PoolConnection<RedisConnection>,
                                  _ctx: &mut FilterContext) -> anyhow::Result<()> {
         let (auth_status_upstream, auth_status_dw) = tokio::try_join!(
                 conn.init_from_session(&req_pkt.cmd_type, &session.authed_info, session.db),
@@ -162,7 +162,7 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
             conn.send_bytes_vectored_and_wait_resp(&req_pkt),
             dw_conn.send_bytes_vectored_and_wait_resp(&req_pkt)
         );
-        
+
         debug!("double write result: {:?}", join_result);
 
         session.upstream_elapsed = session.upstream_start.elapsed();
