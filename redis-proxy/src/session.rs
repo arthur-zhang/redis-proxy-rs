@@ -1,7 +1,6 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use bytes::Bytes;
-use smol_str::SmolStr;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
@@ -10,18 +9,20 @@ use tokio_util::codec::FramedRead;
 
 use redis_codec_core::req_decoder::ReqDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
-use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, CMD_TYPE_SELECT, CMD_TYPE_UNKNOWN};
+use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, CMD_TYPE_SELECT};
 use redis_proxy_common::ReqPkt;
 
 pub struct Session {
     downstream_reader: FramedRead<OwnedReadHalf, ReqDecoder>,
     downstream_writer: OwnedWriteHalf,
-    // pub cmd_type: &'a SmolStr,
     pub username: Option<Vec<u8>>,
     pub password: Option<Vec<u8>>,
     pub db: u64,
     pub is_authed: bool,
     pub req_start: Instant,
+    pub(crate) upstream_start: Instant,
+    pub upstream_elapsed: Duration,
+    pub pool_acquire_elapsed: Duration,
     pub res_is_ok: bool,
     pub req_size: usize,
     pub res_size: usize,
@@ -40,6 +41,9 @@ impl Session {
             db: 0,
             is_authed: false,
             req_start: Instant::now(),
+            upstream_start: Instant::now(),
+            upstream_elapsed: Default::default(),
+            pool_acquire_elapsed: Default::default(),
             res_is_ok: true,
             req_size: 0,
             res_size: 0,
@@ -57,12 +61,6 @@ impl Session {
         } else if CMD_TYPE_AUTH.eq(cmd_type) {
             self.on_auth(req_pkt);
         }
-    }
-
-    #[inline]
-    pub fn cmd_type(&self) -> &SmolStr {
-        // todo
-        &CMD_TYPE_UNKNOWN
     }
 
 

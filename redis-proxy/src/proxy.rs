@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Instant;
 
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
@@ -46,8 +47,6 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
         let req_pkt = session.read_req_pkt().await?.ok()?;
         session.init_from_req(&req_pkt);
 
-        session.cmd_type = &req_pkt.cmd_type;
-
         let mut ctx = FilterContext::new();
 
         let response_sent =
@@ -55,13 +54,14 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
         if response_sent {
             return Some(session);
         }
+        session.upstream_start = Instant::now();
 
         match self.handle_request_inner(&mut session, &req_pkt, &req_pkt.cmd_type, &mut ctx).await {
             Ok(_) => {
-                self.filter.on_request_done(&mut session, None, &mut ctx).await;
+                self.filter.on_request_done(&mut session, &req_pkt.cmd_type, None, &mut ctx).await;
             }
             Err(err) => {
-                self.filter.on_request_done(&mut session, Some(&err), &mut ctx).await;
+                self.filter.on_request_done(&mut session, &req_pkt.cmd_type, Some(&err), &mut ctx).await;
                 return None;
             }
         }
@@ -71,19 +71,31 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
                                       req_pkt: &ReqPkt,
                                       cmd_type: &SmolStr,
                                       ctx: &mut FilterContext) -> anyhow::Result<()> {
-        let conn =
-            self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
-
         if self.should_double_write(&req_pkt) {
-            let dw_conn = self.double_writer.acquire_conn().await.map_err(|e| anyhow!("get double write connection from pool error: {:?}", e))?;
+            let start = Instant::now();
+            let (r1, r2) = tokio::join!(
+                self.upstream_pool.acquire(),
+                self.double_writer.acquire_conn(),
+            );
+            session.pool_acquire_elapsed = start.elapsed();
+            let (conn, dw_conn) = match (r1, r2) {
+                (Ok(c), Ok(d)) => (c, d),
+                _ => bail!("get connection from pool error")
+            };
+
             self.handle_double_write(session, &req_pkt, dw_conn, conn, cmd_type, ctx).await
         } else {
+            let start = Instant::now();
+            let conn =
+                self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
+            session.pool_acquire_elapsed = start.elapsed();
+
             self.handle_normal_request(session, &req_pkt, cmd_type, ctx, conn).await
         }
     }
 
     async fn handle_normal_request(&self, session: &mut Session, req_pkt: &ReqPkt,
-                                   cmd_type: &SmolStr, ctx: &mut FilterContext,
+                                   cmd_type: &SmolStr, _ctx: &mut FilterContext,
                                    mut conn: PoolConnection<RedisConnection>) -> anyhow::Result<()> {
         let auth_status =
             conn.init_from_session(cmd_type, session.is_authed, &session.username, &session.password, session.db).await?;
@@ -99,7 +111,7 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
 
         // bi-directional proxy
         tokio::try_join!(
-            self.proxy_handle_downstream(session, rx_upstream),
+            self.proxy_handle_downstream(session, cmd_type, rx_upstream),
             self.proxy_handle_upstream(conn, tx_upstream, cmd_type)
         )?;
         Ok(())
@@ -120,11 +132,13 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
             }
         }
 
-
+        session.upstream_start = Instant::now();
         let join_result = tokio::join!(
             conn.send_bytes_vectored_and_wait_resp(&req_pkt),
             dw_conn.send_bytes_vectored_and_wait_resp(&req_pkt)
         );
+
+        session.upstream_elapsed = session.upstream_start.elapsed();
 
         return match join_result {
             (Ok((upstream_resp_ok, upstream_pkts, upstream_resp_size)),
@@ -150,13 +164,13 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
         };
     }
 
-    async fn proxy_handle_downstream(&self, session: &mut Session, mut rx_upstream: Receiver<ResFramedData>) -> anyhow::Result<()> {
+    async fn proxy_handle_downstream(&self, session: &mut Session, cmd_type: &SmolStr, mut rx_upstream: Receiver<ResFramedData>) -> anyhow::Result<()> {
         while let Some(res_framed_data) = rx_upstream.recv().await {
             if res_framed_data.is_done {
+                session.upstream_elapsed = session.upstream_start.elapsed();
                 session.res_is_ok = res_framed_data.res_is_ok;
             }
             session.res_size += res_framed_data.data.len();
-            let cmd_type = session.cmd_type();
             if CMD_TYPE_AUTH.eq(cmd_type) && res_framed_data.is_done {
                 session.is_authed = res_framed_data.res_is_ok;
             }

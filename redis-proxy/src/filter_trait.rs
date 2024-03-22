@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use async_trait::async_trait;
+use smol_str::SmolStr;
 use redis_proxy_common::ReqPkt;
 use crate::session::Session;
 
@@ -33,5 +34,5 @@ pub trait Filter {
         Ok(false)
     }
 
-    async fn on_request_done(&self, session: &mut Session, e: Option<&anyhow::Error>, ctx: &mut FilterContext) {}
+    async fn on_request_done(&self, session: &mut Session, cmd_type: &SmolStr, e: Option<&anyhow::Error>, ctx: &mut FilterContext) {}
 }
