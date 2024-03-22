@@ -32,5 +32,5 @@ serde = { version = "1.0.197", features = ["derive"] }
 toml = "0.8.10"
 async-trait = "0.1.77"
 futures = "0.3.30"
-tikv-jemallocator = "0.5.4"
+tikv-jemallocator = { version = "0.5.4", features = ["profiling"] }
 
