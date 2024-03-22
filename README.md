@@ -1,6 +1,6 @@
 # Redis proxy in rust
 
-## what is this
+## Introduction
 
 This project presents a Redis proxy implemented in Rust. It is specifically tailored for use in multi-cloud architectures, providing a seamless Redis service across various cloud platforms.
 
