@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
+use poolx::PoolConnection;
 use tokio::io::AsyncWriteExt;
 use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use tokio::net::TcpStream;
@@ -12,11 +13,13 @@ use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, CMD_TYPE_SELECT};
 use redis_proxy_common::ReqPkt;
 
-use crate::upstream_conn_pool::AuthInfo;
+use crate::upstream_conn_pool::{AuthInfo, RedisConnection};
 
 pub struct Session {
     downstream_reader: FramedRead<OwnedReadHalf, ReqDecoder>,
     downstream_writer: OwnedWriteHalf,
+    pub upstream_conn: Option<PoolConnection<RedisConnection>>,
+    pub dw_conn: Option<PoolConnection<RedisConnection>>,
     pub authed_info: Option<AuthInfo>,
     pub db: u64,
     pub req_start: Instant,
@@ -36,6 +39,8 @@ impl Session {
         Session {
             downstream_reader: r,
             downstream_writer: w,
+            upstream_conn: None,
+            dw_conn: None,
             authed_info: None,
             db: 0,
             req_start: Instant::now(),

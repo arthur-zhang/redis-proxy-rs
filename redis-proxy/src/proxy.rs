@@ -67,31 +67,60 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
     pub async fn handle_request_inner(&self, session: &mut Session,
                                       req_pkt: &ReqPkt,
                                       ctx: &mut FilterContext) -> anyhow::Result<()> {
+        let start = Instant::now();
         if self.should_double_write(&req_pkt) {
-            let start = Instant::now();
-            let (r1, r2) = tokio::join!(
-                self.upstream_pool.acquire(),
-                self.double_writer.acquire_conn(),
-            );
-            session.pool_acquire_elapsed = start.elapsed();
-            let (conn, dw_conn) = match (r1, r2) {
-                (Ok(c), Ok(d)) => (c, d),
-                _ => bail!("get connection from pool error")
-            };
+            match (&session.upstream_conn.is_none(), &session.dw_conn.is_none()) {
+                (false, false) => {
+                    // do nothing
+                }
+                (true, false) => {
+                    bail!("should not happen!!! upstream connection is none, but dw_conn is not none")
+                }
+                (true, true) => {
+                    let (r1, r2) = tokio::join!(
+                        self.upstream_pool.acquire(),
+                        self.double_writer.acquire_conn(),
+                    );
+                    session.pool_acquire_elapsed = start.elapsed();
+                    match (r1, r2) {
+                        (Ok(c), Ok(d)) => {
+                            session.upstream_conn = Some(c);
+                            session.dw_conn = Some(d);
+                        },
+                        _ => bail!("get connection from pool error")
+                    };
+                }
+                (false, true) => {
+                    let conn =
+                        self.double_writer.acquire_conn().await.map_err(|e| anyhow!("get connection from dw pool error: {:?}", e))?;
+                    session.pool_acquire_elapsed = start.elapsed();
+                    session.dw_conn = Some(conn);
+                }
+            }
 
-            self.handle_double_write(session, &req_pkt, dw_conn, conn, ctx).await
+            let mut conn = session.upstream_conn.take().unwrap();
+            let mut dw_conn = session.dw_conn.take().unwrap();
+            self.handle_double_write(session, &req_pkt, &mut conn, &mut dw_conn, ctx).await?;
+            session.upstream_conn = Some(conn);
+            session.dw_conn = Some(dw_conn);
+            Ok(())
         } else {
-            let start = Instant::now();
-            let conn =
-                self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
-            session.pool_acquire_elapsed = start.elapsed();
+            if session.upstream_conn.is_none() {
+                let conn =
+                    self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from upstream pool error: {:?}", e))?;
+                session.pool_acquire_elapsed = start.elapsed();
+                session.upstream_conn = Some(conn);
+            }
 
-            self.handle_normal_request(session, &req_pkt, conn, ctx).await
+            let mut conn = session.upstream_conn.take().unwrap();
+            self.handle_normal_request(session, &req_pkt, &mut conn, ctx).await?;
+            session.upstream_conn = Some(conn);
+            Ok(())
         }
     }
 
     async fn handle_normal_request(&self, session: &mut Session, req_pkt: &ReqPkt,
-                                   mut conn: PoolConnection<RedisConnection>,
+                                   conn: &mut PoolConnection<RedisConnection>,
                                    _ctx: &mut FilterContext) -> anyhow::Result<()> {
         let auth_status =
             conn.init_from_session(&req_pkt.cmd_type, &session.authed_info, session.db).await?;
@@ -114,8 +143,8 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
     }
     async fn handle_double_write(&self, session: &mut Session,
                                  req_pkt: &ReqPkt,
-                                 mut dw_conn: PoolConnection<RedisConnection>,
-                                 mut conn: PoolConnection<RedisConnection>,
+                                 dw_conn: &mut PoolConnection<RedisConnection>,
+                                 conn: &mut PoolConnection<RedisConnection>,
                                  _ctx: &mut FilterContext) -> anyhow::Result<()> {
         let (auth_status_upstream, auth_status_dw) = tokio::try_join!(
                 conn.init_from_session(&req_pkt.cmd_type, &session.authed_info, session.db),
@@ -133,6 +162,8 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
             conn.send_bytes_vectored_and_wait_resp(&req_pkt),
             dw_conn.send_bytes_vectored_and_wait_resp(&req_pkt)
         );
+        
+        debug!("double write result: {:?}", join_result);
 
         session.upstream_elapsed = session.upstream_start.elapsed();
 
@@ -178,13 +209,14 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
             session.write_downstream(&res_framed_data.data).await?;
 
             if res_framed_data.is_done {
+                debug!("upstream result: {:?}", res_framed_data);
                 break;
             }
         }
         Ok(())
     }
 
-    async fn proxy_handle_upstream(&self, mut conn: PoolConnection<RedisConnection>,
+    async fn proxy_handle_upstream(&self, conn: &mut PoolConnection<RedisConnection>,
                                    tx_upstream: Sender<ResFramedData>,
                                    cmd_type: &SmolStr)
                                    -> anyhow::Result<()> {
