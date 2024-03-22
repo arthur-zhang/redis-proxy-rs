@@ -16,6 +16,7 @@ use redis_proxy_common::ReqPkt;
 pub struct Session {
     downstream_reader: FramedRead<OwnedReadHalf, ReqDecoder>,
     downstream_writer: OwnedWriteHalf,
+    // pub cmd_type: &'a SmolStr,
     pub username: Option<Vec<u8>>,
     pub password: Option<Vec<u8>>,
     pub db: u64,

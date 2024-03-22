@@ -1,19 +1,17 @@
 use anyhow::Error;
 use async_trait::async_trait;
 use log::{error, info};
+use redis_proxy::filter_trait::{Filter, FilterContext};
 
-use redis_proxy::proxy::Proxy;
 use redis_proxy::session::Session;
 
-use crate::filter_trait::FilterContext;
 
 pub struct LogFilter {}
 
 #[async_trait]
-impl Proxy for LogFilter {
-    type CTX = FilterContext;
+impl Filter for LogFilter {
 
-    async fn request_done(&self, session: &mut Session, e: Option<&Error>, _ctx: &mut Self::CTX) where Self::CTX: Send + Sync {
+    async fn on_request_done(&self, session: &mut Session, e: Option<&Error>, _ctx: &mut FilterContext) {
         let start = session.req_start;
         let time_cost = start.elapsed();
         let cmd = session.cmd_type();

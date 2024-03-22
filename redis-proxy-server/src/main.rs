@@ -9,13 +9,12 @@ use tikv_jemallocator::Jemalloc;
 use redis_proxy::config::Config;
 use redis_proxy::etcd_client::EtcdClient;
 use redis_proxy::prometheus::PrometheusServer;
-use redis_proxy::proxy::Proxy;
+use redis_proxy::filter_trait::Filter;
 use redis_proxy::server::ProxyServer;
 
 use crate::blacklist_filter::BlackListFilter;
-use crate::filter_trait::FilterContext;
 use crate::log_filter::LogFilter;
-use crate::proxy_impl::RedisProxyImpl;
+use crate::proxy_impl::FilterImpl;
 
 mod proxy_impl;
 mod filter_trait;
@@ -39,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
         console_subscriber::init();
     }
     info!("starting redis proxy server...");
-    
+
     let mut etcd_client = None;
     if let Some(etcd_config) = &conf.etcd_config {
         etcd_client = Some(EtcdClient::new(etcd_config.clone()).await?);
@@ -49,8 +48,8 @@ async fn main() -> anyhow::Result<()> {
     let conf = Arc::new(conf);
     let filters = load_filters(&conf, etcd_client.clone()).await?;
 
-    let proxy = RedisProxyImpl { filters, conf: conf.clone() };
-    let server = ProxyServer::new(conf, proxy, etcd_client)?;
+    let filters = FilterImpl { filters, conf: conf.clone() };
+    let server = ProxyServer::new(conf, filters, etcd_client)?;
     let _ = server.start().await;
     info!("redis proxy server quit.");
     Ok(())
@@ -63,15 +62,15 @@ fn start_prometheus_server(conf: &Config) {
     }
 }
 
-async fn load_filters(conf: &Arc<Config>, etcd_client: Option<EtcdClient>) -> anyhow::Result<Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>>> {
-    let mut filters: Vec<Box<dyn Proxy<CTX=FilterContext> + Send + Sync>> = vec![];
+async fn load_filters(conf: &Arc<Config>, etcd_client: Option<EtcdClient>) -> anyhow::Result<Vec<Box<dyn Filter + Send + Sync>>> {
+    let mut filters: Vec<Box<dyn Filter + Send + Sync>> = vec![];
     let splitter = conf.splitter.unwrap_or(':');
 
     if let Some(blacklist) = &conf.filter_chain.blacklist {
         let blacklist_filter = BlackListFilter::new(splitter, blacklist, etcd_client.clone()).await?;
         filters.push(Box::new(blacklist_filter));
     }
-    
+
     if let Some(_) = conf.filter_chain.log {
         let log_filter = LogFilter {};
         filters.push(Box::new(log_filter));

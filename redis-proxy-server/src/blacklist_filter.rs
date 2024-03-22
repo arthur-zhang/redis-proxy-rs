@@ -5,12 +5,11 @@ use bytes::Bytes;
 
 use redis_proxy::config::Blacklist;
 use redis_proxy::etcd_client::EtcdClient;
-use redis_proxy::proxy::Proxy;
+use redis_proxy::filter_trait::{Filter, FilterContext};
 use redis_proxy::router::{create_router, Router};
 use redis_proxy::session::Session;
 use redis_proxy_common::ReqPkt;
 
-use crate::filter_trait::FilterContext;
 
 pub struct BlackListFilter {
     router: Arc<dyn Router>,
@@ -31,15 +30,14 @@ impl BlackListFilter {
 
 
 #[async_trait]
-impl Proxy for BlackListFilter {
-    type CTX = FilterContext;
+impl Filter for BlackListFilter {
 
-    async fn request_filter(&self, _session: &mut Session, req_pkt: &ReqPkt, _ctx: &mut Self::CTX) -> anyhow::Result<bool> {
+    async fn on_request(&self, session: &mut Session, req_pkt: &ReqPkt, ctx: &mut FilterContext) -> anyhow::Result<bool> {
         let keys = req_pkt.keys();
         if let Some(keys) = keys {
             for key in keys {
                 if self.router.match_route(key, &req_pkt.cmd_type) {
-                    _session.send_resp_to_downstream(Bytes::from_static(b"-ERR black list\r\n")).await?;
+                    session.send_resp_to_downstream(Bytes::from_static(b"-ERR black list\r\n")).await?;
                     return Ok(true);
                 }
             }

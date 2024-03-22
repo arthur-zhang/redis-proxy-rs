@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::{anyhow, bail};
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -12,6 +14,7 @@ use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, has_key, is_connection_c
 use redis_proxy_common::ReqPkt;
 
 use crate::double_writer::DoubleWriter;
+use crate::filter_trait::{Filter, FilterContext};
 use crate::peer;
 use crate::session::Session;
 use crate::upstream_conn_pool::{AuthStatus, Pool, RedisConnection};
@@ -19,7 +22,7 @@ use crate::upstream_conn_pool::{AuthStatus, Pool, RedisConnection};
 const TASK_BUFFER_SIZE: usize = 16;
 
 pub struct RedisProxy<P> {
-    pub inner: P,
+    pub filter: P,
     pub upstream_pool: Pool,
     pub double_writer: DoubleWriter,
 }
@@ -30,34 +33,35 @@ impl<P> RedisProxy<P> {
             return false;
         }
         if !has_key(&header_frame.cmd_type) {
-            return true
+            return true;
         }
         self.double_writer.should_double_write(header_frame)
     }
 }
 
-impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sync {
+impl<P> RedisProxy<P> where P: Filter + Send + Sync {
     pub async fn handle_new_request(&self, mut session: Session) -> Option<Session> {
         debug!("handle new request");
 
-        self.inner.on_session_create().await.ok()?;
         let req_pkt = session.read_req_pkt().await?.ok()?;
         session.init_from_req(&req_pkt);
 
-        let mut ctx = self.inner.new_ctx();
+        session.cmd_type = &req_pkt.cmd_type;
+
+        let mut ctx = FilterContext::new();
 
         let response_sent =
-            self.inner.request_filter(&mut session, &req_pkt, &mut ctx).await.ok()?;
+            self.filter.on_request(&mut session, &req_pkt, &mut ctx).await.ok()?;
         if response_sent {
             return Some(session);
         }
 
         match self.handle_request_inner(&mut session, &req_pkt, &req_pkt.cmd_type, &mut ctx).await {
             Ok(_) => {
-                self.inner.request_done(&mut session, None, &mut ctx).await;
+                self.filter.on_request_done(&mut session, None, &mut ctx).await;
             }
             Err(err) => {
-                self.inner.request_done(&mut session, Some(&err), &mut ctx).await;
+                self.filter.on_request_done(&mut session, Some(&err), &mut ctx).await;
                 return None;
             }
         }
@@ -66,7 +70,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     pub async fn handle_request_inner(&self, session: &mut Session,
                                       req_pkt: &ReqPkt,
                                       cmd_type: &SmolStr,
-                                      ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
+                                      ctx: &mut FilterContext) -> anyhow::Result<()> {
         let conn =
             self.upstream_pool.acquire().await.map_err(|e| anyhow!("get connection from pool error: {:?}", e))?;
 
@@ -79,7 +83,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
     }
 
     async fn handle_normal_request(&self, session: &mut Session, req_pkt: &ReqPkt,
-                                   cmd_type: &SmolStr, ctx: &mut <P as Proxy>::CTX,
+                                   cmd_type: &SmolStr, ctx: &mut FilterContext,
                                    mut conn: PoolConnection<RedisConnection>) -> anyhow::Result<()> {
         let auth_status =
             conn.init_from_session(cmd_type, session.is_authed, &session.username, &session.password, session.db).await?;
@@ -88,9 +92,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
             session.write_downstream(b"-NOAUTH Authentication required.\r\n").await?;
             return Ok(());
         }
-
-        // self.inner.proxy_upstream_filter(session, ctx).await?;
-        // self.inner.upstream_request_filter(session, req_pkt, ctx).await?;
 
         let (tx_upstream, rx_upstream) = mpsc::channel::<ResFramedData>(TASK_BUFFER_SIZE);
 
@@ -107,7 +108,7 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                                  req_pkt: &ReqPkt,
                                  mut dw_conn: PoolConnection<RedisConnection>,
                                  mut conn: PoolConnection<RedisConnection>,
-                                 cmd_type: &SmolStr, ctx: &mut <P as Proxy>::CTX) -> anyhow::Result<()> {
+                                 cmd_type: &SmolStr, ctx: &mut FilterContext) -> anyhow::Result<()> {
         let (auth_status_upstream, auth_status_dw) = tokio::try_join!(
                 conn.init_from_session(cmd_type, session.is_authed, &session.username, &session.password, session.db),
                 dw_conn.init_from_session(cmd_type, session.is_authed, &session.username, &session.password, session.db))?;
@@ -133,10 +134,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
                 }
                 session.res_size += upstream_resp_size;
                 session.res_is_ok = upstream_resp_ok && dw_resp_ok;
-
-                for pkt in &upstream_pkts {
-                    self.inner.upstream_response_filter(session, &pkt, ctx);
-                }
 
                 if dw_resp_ok {
                     session.write_downstream_batch(upstream_pkts).await?;
@@ -191,81 +188,6 @@ impl<P> RedisProxy<P> where P: Proxy + Send + Sync, <P as Proxy>::CTX: Send + Sy
         }
         Ok(())
     }
-}
-
-
-#[async_trait]
-pub trait Proxy {
-    type CTX;
-    fn new_ctx(&self) -> Self::CTX { unimplemented!("unexpected data") }
-
-    async fn on_session_create(&self) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-
-    /// Define where the proxy should sent the request to.
-    ///
-    /// The returned [RedisPeer] contains the information regarding where and how this request should
-    /// be forwarded to.
-    async fn upstream_peer(
-        &self,
-        _session: &mut Session,
-        _ctx: &mut Self::CTX,
-    ) -> anyhow::Result<peer::RedisPeer> { unimplemented!("unexpected data") }
-
-    /// Handle the incoming request.
-    ///
-    /// In this phase, users can parse, validate, rate limit, perform access control and/or
-    /// return a response for this request.
-    ///
-    /// If the user already sent a response to this request, a `Ok(true)` should be returned so that
-    /// the proxy would exit. The proxy continues to the next phases when `Ok(false)` is returned.
-    ///
-    /// By default, this filter does nothing and returns `Ok(false)`.
-    async fn request_filter(&self, _session: &mut Session, _req_pkt: &ReqPkt, _ctx: &mut Self::CTX) -> anyhow::Result<bool> {
-        Ok(false)
-    }
-
-
-    async fn request_data_filter(&self, _session: &mut Session, _ctx: &mut Self::CTX) -> anyhow::Result<()> {
-        Ok(())
-    }
-    /// Decide if a request should continue to upstream
-    ///
-    /// returns: Ok(true) if the request should continue, Ok(false) if a response was written by the
-    /// callback and the session should be finished, or an error
-    ///
-    /// This filter can be used for deferring checks like rate limiting or access control
-    async fn proxy_upstream_filter(&self, _session: &mut Session,
-                                   _ctx: &mut Self::CTX) -> anyhow::Result<bool> {
-        Ok(false)
-    }
-
-
-    /// Modify the request before it is sent to the upstream
-    ///
-    /// Unlike [Self::request_filter()], this filter allows to change the request data to send
-    /// to the upstream.
-    async fn upstream_request_filter(&self, _session: &mut Session,
-                                     _upstream_request: &ReqPkt,
-                                     _ctx: &mut Self::CTX) -> anyhow::Result<()> { Ok(()) }
-
-    /// Modify the response header from the upstream
-    ///
-    /// The modification is before caching so any change here will be stored in cache if enabled.
-    ///
-    /// Responses served from cache won't trigger this filter.
-    fn upstream_response_filter(
-        &self,
-        _session: &mut Session,
-        _upstream_response: &ResFramedData,
-        _ctx: &mut Self::CTX,
-    ) {}
-
-    async fn request_done(&self, _session: &mut Session, _e: Option<&anyhow::Error>, _ctx: &mut Self::CTX)
-        where
-            Self::CTX: Send + Sync {}
 }
 
 
