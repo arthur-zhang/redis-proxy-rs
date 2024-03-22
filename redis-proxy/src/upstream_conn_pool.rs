@@ -123,8 +123,6 @@ impl RedisConnection {
     }
 
     async fn auth_connection_with_username(&mut self, auth_info: &AuthInfo) -> anyhow::Result<AuthStatus> {
-
-
         let password = &auth_info.password;
         let pass_len = password.len().to_string();
         
@@ -234,6 +232,9 @@ impl RedisConnection {
                     total_size += it.data.len();
                     result.push(it);
                     if is_done {
+                        if CMD_TYPE_AUTH.eq(&pkt.cmd_type) {
+                            self.update_authed_info(res_is_ok);
+                        }
                         return Ok((res_is_ok, result, total_size));
                     }
                 }
@@ -366,7 +367,7 @@ impl ConnectOptions for RedisConnectionOption {
                 conn.set_nodelay(true).unwrap();
                 METRICS.connections.with_label_values(&[CONN_UPSTREAM]).inc();
                 let (r, w) = conn.into_split();
-                
+
                 Ok(RedisConnection {
                     id: self.counter.fetch_add(1, Relaxed),
                     authed_info: None,

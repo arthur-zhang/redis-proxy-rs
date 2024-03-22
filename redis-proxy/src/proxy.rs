@@ -140,8 +140,6 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
             (Ok((upstream_resp_ok, upstream_pkts, upstream_resp_size)),
                 Ok((dw_resp_ok, dw_pkts, _))) => {
                 if CMD_TYPE_AUTH.eq(&req_pkt.cmd_type) {
-                    conn.update_authed_info(upstream_resp_ok);
-                    dw_conn.update_authed_info(upstream_resp_ok);
                     if !upstream_resp_ok {
                         session.authed_info = None;
                     }
@@ -186,8 +184,7 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
         Ok(())
     }
 
-    async fn proxy_handle_upstream(&self,
-                                   mut conn: PoolConnection<RedisConnection>,
+    async fn proxy_handle_upstream(&self, mut conn: PoolConnection<RedisConnection>,
                                    tx_upstream: Sender<ResFramedData>,
                                    cmd_type: &SmolStr)
                                    -> anyhow::Result<()> {
