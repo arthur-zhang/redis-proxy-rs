@@ -12,13 +12,13 @@ use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, CMD_TYPE_SELECT};
 use redis_proxy_common::ReqPkt;
 
+use crate::upstream_conn_pool::AuthInfo;
+
 pub struct Session {
     downstream_reader: FramedRead<OwnedReadHalf, ReqDecoder>,
     downstream_writer: OwnedWriteHalf,
-    pub username: Option<Vec<u8>>,
-    pub password: Option<Vec<u8>>,
+    pub authed_info: Option<AuthInfo>,
     pub db: u64,
-    pub is_authed: bool,
     pub req_start: Instant,
     pub(crate) upstream_start: Instant,
     pub upstream_elapsed: Duration,
@@ -36,10 +36,8 @@ impl Session {
         Session {
             downstream_reader: r,
             downstream_writer: w,
-            username: None,
-            password: None,
+            authed_info: None,
             db: 0,
-            is_authed: false,
             req_start: Instant::now(),
             upstream_start: Instant::now(),
             upstream_elapsed: Default::default(),
@@ -116,11 +114,13 @@ impl Session {
         if req_pkt.bulk_args.len() <= 1 {
             return;
         }
-        if req_pkt.bulk_args.len() > 2 {
-            let auth_username = req_pkt.bulk_args[1].as_ref().to_vec();
-            self.username = Some(auth_username);
-        }
-        let auth_password = req_pkt.bulk_args[req_pkt.bulk_args.len() - 1].as_ref().to_vec();
-        self.password = Some(auth_password);
+        self.authed_info = Some(AuthInfo {
+            username: if req_pkt.bulk_args.len() > 2 {
+                Some(req_pkt.bulk_args[1].as_ref().to_vec())
+            } else {
+                None
+            },
+            password: req_pkt.bulk_args[req_pkt.bulk_args.len() - 1].as_ref().to_vec()
+        });
     }
 }
