@@ -33,6 +33,20 @@ pub fn is_write_cmd(cmd: &SmolStr) -> bool {
     return false
 }
 
+pub fn is_readonly_cmd(cmd: &SmolStr) -> bool {
+    if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
+        return cmd.command_flags & (CommandFlags::Readonly as u32) > 0
+    }
+    return false
+}
+
+pub fn has_key(cmd: &SmolStr) -> bool {
+    if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
+        return cmd.key_specs.is_some()
+    }
+    return false
+}
+
 pub fn is_connection_cmd(cmd: &SmolStr) -> bool {
     if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
         return cmd.group == Group::Connection
@@ -137,7 +151,7 @@ fn range_from_keyword(keyword: &Keyword, range: &Range, bulk_args: &Vec<Bytes>) 
         return None;
     }
 
-    let ((mut keyword_index), reverse) = if keyword.startfrom >= 0 {
+    let (mut keyword_index, reverse) = if keyword.startfrom >= 0 {
         (keyword.startfrom as usize, false)
     } else {
         (bulks_length - keyword.startfrom.abs() as usize, true)

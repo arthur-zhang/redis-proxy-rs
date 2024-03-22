@@ -113,8 +113,8 @@ impl EtcdClient {
                     }
                     EventType::Delete => {
                         if let Some(kv) = event.kv() {
-                            let (key, route) = Self::decode_kv(kv);
-                            if key.is_ok() && route.is_ok() {
+                            let key = Self::decode_k(kv);
+                            if key.is_ok() {
                                 routes.remove(&key.unwrap());
                             }
                         }
@@ -124,6 +124,22 @@ impl EtcdClient {
             update_tx.send(()).await?;
         }
         Ok(())
+    }
+
+    fn decode_k(kv: &KeyValue) -> anyhow::Result<String> {
+        let key = kv.key_str();
+        if key.is_err(){
+            warn!("etcd key or value is not correct, will ignore it!");
+            return Err(anyhow!("etcd key or value is not correct"));
+        }
+
+        let key = key.unwrap();
+        let key_split: Vec<&str> = key.split('/').collect::<Vec<_>>();
+        if key_split.len() != 4 { // pattern must be /prefix/router_name/route_id
+            return Err(anyhow!("etcd key is not correct"));
+        }
+        
+        Ok(key_split[3].to_string())
     }
 
     fn decode_kv(kv: &KeyValue) -> (anyhow::Result<String>, anyhow::Result<Route>) {

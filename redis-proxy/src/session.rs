@@ -16,6 +16,7 @@ use redis_proxy_common::ReqPkt;
 pub struct Session {
     downstream_reader: FramedRead<OwnedReadHalf, ReqDecoder>,
     downstream_writer: OwnedWriteHalf,
+    pub username: Option<Vec<u8>>,
     pub password: Option<Vec<u8>>,
     pub db: u64,
     pub is_authed: bool,
@@ -33,6 +34,7 @@ impl Session {
         Session {
             downstream_reader: r,
             downstream_writer: w,
+            username: None,
             password: None,
             db: 0,
             is_authed: false,
@@ -115,7 +117,11 @@ impl Session {
         if req_pkt.bulk_args.len() <= 1 {
             return;
         }
-        let auth_password = req_pkt.bulk_args[1].as_ref().to_vec();
+        if req_pkt.bulk_args.len() > 2 {
+            let auth_username = req_pkt.bulk_args[1].as_ref().to_vec();
+            self.username = Some(auth_username);
+        }
+        let auth_password = req_pkt.bulk_args[req_pkt.bulk_args.len() - 1].as_ref().to_vec();
         self.password = Some(auth_password);
     }
 }
