@@ -36,6 +36,7 @@ pub struct SessionAttr {
 pub struct RedisConnectionOption {
     counter: AtomicU64,
     addr: String,
+    username: Option<String>,
     password: Option<String>,
 }
 
@@ -44,6 +45,7 @@ impl Clone for RedisConnectionOption {
         Self {
             counter: Default::default(),
             addr: self.addr.clone(),
+            username: self.username.clone(),
             password: self.password.clone(),
         }
     }
@@ -328,9 +330,11 @@ impl ConnectOptions for RedisConnectionOption {
         // todo fix unwrap
         let host = url.host_str().unwrap();
         let port = url.port().unwrap_or(6379);
+        let username = url.username();
+        let username = if username.is_empty() { None } else { Some(username.to_string()) };
         let password = url.password().map(|s| s.to_string());
         let addr = format!("{}:{}", host, port);
-        Ok(Self { counter: AtomicU64::new(0), addr, password })
+        Ok(Self { counter: AtomicU64::new(0), addr, password, username })
     }
 
     fn connect(&self) -> BoxFuture<'_, Result<Self::Connection, Error>> where Self::Connection: Sized {
@@ -351,7 +355,11 @@ impl ConnectOptions for RedisConnectionOption {
                 };
 
                 if let Some(ref pass) = self.password {
-                    let cmd = format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", pass.len(), pass);
+                    let cmd = if let Some(ref user) = self.username {
+                        format!("*3\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n${}\r\n{}\r\n", user.len(), user, pass.len(), pass)
+                    } else {
+                        format!("*2\r\n$4\r\nAUTH\r\n${}\r\n{}\r\n", pass.len(), pass)
+                    };
 
                     return match conn.query_with_resp(cmd.as_bytes()).await {
                         Ok((true, _)) => {
