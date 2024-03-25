@@ -1,0 +1,9 @@
+[package]
+name = "redis-command"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bitflags = "2.5.0"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"

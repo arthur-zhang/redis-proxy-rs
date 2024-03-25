@@ -4,3 +4,4 @@
 /test-dir/
 .DS_Store
 config.toml
+/redis-command-gen/src/holder.rs

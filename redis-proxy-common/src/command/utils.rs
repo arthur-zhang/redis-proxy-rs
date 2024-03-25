@@ -4,9 +4,8 @@ use std::usize;
 use bytes::Bytes;
 use lazy_static::lazy_static;
 use smol_str::SmolStr;
-
-use crate::command::{CommandFlags, Group, Index, KeyNum, Keyword, Range};
-use crate::command::holder::COMMAND_ATTRIBUTES;
+use redis_command::{Command, CommandFlags, Group, Index, KeyNum, Keyword, Range};
+use redis_command_gen::COMMAND_ATTRIBUTES;
 
 lazy_static!{
     // some special command types
@@ -28,14 +27,14 @@ pub fn to_lower_effective(origin: &[u8]) -> Vec<u8> {
 
 pub fn is_write_cmd(cmd: &SmolStr) -> bool {
     if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
-        return cmd.command_flags & (CommandFlags::Write as u32) > 0
+        return cmd.command_flags.contains(CommandFlags::Write);
     }
     return false
 }
 
 pub fn is_readonly_cmd(cmd: &SmolStr) -> bool {
     if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
-        return cmd.command_flags & (CommandFlags::Readonly as u32) > 0
+        return cmd.command_flags.contains(CommandFlags::Readonly);
     }
     return false
 }
@@ -58,7 +57,8 @@ pub fn get_cmd_key_bulks<'a>(cmd: &SmolStr, bulk_args: &'a Vec<Bytes>) -> Option
     if bulk_args.len() < 2 {
         return None
     }
-    let cmd = COMMAND_ATTRIBUTES.get(cmd);
+    // let cmd = COMMAND_ATTRIBUTES.get(cmd);
+    let cmd :Option<Command> = None;
     if cmd.is_none() {
         return None
     }

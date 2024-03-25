@@ -17,6 +17,7 @@ bytes = "1.5.0"
 redis-codec-core = { path = "../redis-codec-core" }
 env_logger = "0.11.0"
 redis-proxy-common = { path = "../redis-proxy-common" }
+redis-command-gen = { path = "../redis-command-gen" }
 regex = "1.10.3"
 serde = { version = "1.0.197", features = ["derive"] }
 toml = "0.8.10"

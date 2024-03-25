@@ -5,14 +5,14 @@ use std::io::Write;
 use std::path::Path;
 
 use serde_json::Error;
+use redis_command::{Command, CommandFlags, Group, RedisCmdDescribeEntity};
 
-use redis_proxy_common::command::{Command, CommandFlags, Group, RedisCmdDescribeEntity};
 
 fn main() {
-    println!("cargo:rerun-if-changed=../redis-command");
+    println!("cargo:rerun-if-changed=../redis-command-gen");
 
-    let command_holder_rs_path = "../redis-proxy-common/src/command/holder.rs";
-    let cmd_json_path = "../redis-command";
+    let command_holder_rs_path = "../redis-command-gen/src/holder.rs";
+    let cmd_json_path = "./json";
 
     //let mut all_cmd_entity_map = BTreeMap::new();
     let mut all_multi_cmd_map = BTreeMap::new();
@@ -112,7 +112,11 @@ fn main() {
         } else {
             String::from("            function: None,\n")
         };
-        let command_flags = format!("            command_flags: {},\n", v.command_flags);
+        let mut flags = v.command_flags.iter_names().map(|it|format!("CommandFlags::{}", it.0)).collect::<Vec<_>>().join(" | ");
+        if flags.is_empty(){
+            flags = "CommandFlags::empty()".to_string();
+        }
+        let command_flags = format!("            command_flags: {},\n", flags);
         let key_specs = if let Some(key_specs) = v.key_specs {
             let mut ks_vec = String::from("            key_specs: Some(vec![\n");
             for ks in key_specs {
@@ -176,7 +180,7 @@ fn main() {
     cmd_holder_rs_content.push_str("use std::collections::HashMap;\n\n");
     cmd_holder_rs_content.push_str("use lazy_static::lazy_static;\n");
     cmd_holder_rs_content.push_str("use smol_str::SmolStr;\n\n");
-    cmd_holder_rs_content.push_str("use crate::command::{BeginSearch, Command, FindKeys, Group, Index, KeyNum, KeySpecs, Keyword, Range};\n\n");
+    cmd_holder_rs_content.push_str("use redis_command::{BeginSearch, Command, CommandFlags, FindKeys, Group, Index, KeyNum, KeySpecs, Keyword, Range};\n\n");
     cmd_holder_rs_content.push_str("lazy_static! {\n");
     cmd_holder_rs_content.push_str("    /**\n");
     cmd_holder_rs_content.push_str("     * Redis command's name(or container) and whether it is a multipart command\n");
@@ -197,17 +201,17 @@ fn main() {
     generate_file(command_holder_rs_path, cmd_holder_rs_content.as_bytes());
 }
 
-fn generate_command_flags(command_flags: Option<Vec<String>>, flag_map: &HashMap<String, CommandFlags>) -> u32 {
+fn generate_command_flags(command_flags: Option<Vec<String>>, flag_map: &HashMap<String, CommandFlags>) -> CommandFlags {
     return if let Some(flags) = command_flags {
-        let mut combined_flags = 0;
+        let mut combined_flags = CommandFlags::empty();
         for flag in flags {
             if let Some(flag_value) = flag_map.get(&flag) {
-                combined_flags |= flag_value.clone() as u32;
+                combined_flags |= *flag_value;
             }
         }
         combined_flags
     } else {
-        0
+        CommandFlags::empty()
     }
 }
 
