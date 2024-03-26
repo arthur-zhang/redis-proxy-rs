@@ -37,7 +37,7 @@ impl DoubleWriter {
         let keys = req_frame_data.keys();
         if let Some(key) = keys {
             for key in key {
-                return self.router.match_route(key, &req_frame_data.cmd_type);
+                return self.router.match_route(key, req_frame_data.cmd_type);
             }
         }
         return false;

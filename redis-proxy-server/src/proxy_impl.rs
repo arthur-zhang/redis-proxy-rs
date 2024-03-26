@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
+use redis_command_gen::CmdType;
 
 use redis_proxy::config::Config;
 use redis_proxy::filter_trait::{Filter, FilterContext, Value};
@@ -35,11 +36,11 @@ impl Filter for FilterImpl {
         Ok(false)
     }
 
-    async fn on_request_done(&self, session: &mut Session, cmd_type: &SmolStr, e: Option<&anyhow::Error>, ctx: &mut FilterContext) {
+    async fn on_request_done(&self, session: &mut Session, cmd_type: CmdType, e: Option<&anyhow::Error>, ctx: &mut FilterContext) {
         let resp_ok_label = if session.res_is_ok { RESP_SUCCESS } else { RESP_FAILED };
-        METRICS.request_latency.with_label_values(&[cmd_type, resp_ok_label]).observe(session.req_start.elapsed().as_secs_f64());
-        METRICS.bandwidth.with_label_values(&[cmd_type, TRAFFIC_TYPE_INGRESS]).inc_by(session.req_size as u64);
-        METRICS.bandwidth.with_label_values(&[cmd_type, TRAFFIC_TYPE_EGRESS]).inc_by(session.res_size as u64);
+        METRICS.request_latency.with_label_values(&[cmd_type.as_ref(), resp_ok_label]).observe(session.req_start.elapsed().as_secs_f64());
+        METRICS.bandwidth.with_label_values(&[cmd_type.as_ref(), TRAFFIC_TYPE_INGRESS]).inc_by(session.req_size as u64);
+        METRICS.bandwidth.with_label_values(&[cmd_type.as_ref(), TRAFFIC_TYPE_EGRESS]).inc_by(session.res_size as u64);
         for filter in &self.filters {
             filter.on_request_done(session, cmd_type, e, ctx).await;
         }

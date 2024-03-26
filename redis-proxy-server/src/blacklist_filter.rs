@@ -35,7 +35,7 @@ impl Filter for BlackListFilter {
         let keys = req_pkt.keys();
         if let Some(keys) = keys {
             for key in keys {
-                if self.router.match_route(key, &req_pkt.cmd_type) {
+                if self.router.match_route(key, req_pkt.cmd_type) {
                     session.send_resp_to_downstream(Bytes::from_static(b"-ERR black list\r\n")).await?;
                     return Ok(true);
                 }

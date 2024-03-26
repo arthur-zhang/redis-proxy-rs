@@ -17,7 +17,7 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::FramedRead;
 
 use redis_codec_core::resp_decoder::{ResFramedData, RespPktDecoder};
-use redis_proxy_common::command::utils::CMD_TYPE_AUTH;
+use redis_command_gen::CmdType;
 use redis_proxy_common::ReqPkt;
 
 use crate::prometheus::{CONN_UPSTREAM, METRICS};
@@ -78,8 +78,8 @@ impl RedisConnection {
     }
 
     // get password and db from session, auth connection if needed
-    pub async fn init_from_session(&mut self, cmd_type: &SmolStr, session_authed_info: &Option<AuthInfo>, session_db: u64) -> anyhow::Result<AuthStatus> {
-        if !CMD_TYPE_AUTH.eq(cmd_type) {
+    pub async fn init_from_session(&mut self, cmd_type: CmdType, session_authed_info: &Option<AuthInfo>, session_db: u64) -> anyhow::Result<AuthStatus> {
+        if CmdType::AUTH != cmd_type {
             let auth_status = self.auth_connection_if_needed(session_authed_info).await?;
             if matches!(auth_status, AuthStatus::AuthFailed) {
                 return Ok(AuthStatus::AuthFailed);
@@ -232,7 +232,7 @@ impl RedisConnection {
                     total_size += it.data.len();
                     result.push(it);
                     if is_done {
-                        if CMD_TYPE_AUTH.eq(&pkt.cmd_type) {
+                        if CmdType::AUTH == pkt.cmd_type {
                             self.update_authed_info(res_is_ok);
                         }
                         return Ok((res_is_ok, result, total_size));

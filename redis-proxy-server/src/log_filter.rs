@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use log::{error, info};
+use redis_command_gen::CmdType;
 
 use redis_proxy::filter_trait::{Filter, FilterContext};
 use redis_proxy::session::Session;
@@ -10,7 +11,7 @@ pub struct LogFilter {}
 #[async_trait]
 impl Filter for LogFilter {
 
-    async fn on_request_done(&self, session: &mut Session, cmd_type: &SmolStr, e: Option<&anyhow::Error>, _ctx: &mut FilterContext) {
+    async fn on_request_done(&self, session: &mut Session, cmd_type: CmdType, e: Option<&anyhow::Error>, ctx: &mut FilterContext) {
         let time_cost = (&session.req_start).elapsed();
         let resp_is_ok = session.res_is_ok && e.is_none();
         if let Some(e) = e {

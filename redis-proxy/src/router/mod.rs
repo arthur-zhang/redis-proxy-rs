@@ -1,12 +1,12 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
-use redis_command_gen::COMMAND_ATTRIBUTES;
+use redis_command_gen::{CmdType, COMMAND_ATTRIBUTES};
 
-use redis_proxy_common::command::utils::CMD_TYPE_ALL;
 
 use crate::config::{ConfigCenter, LocalRoute};
 use crate::etcd_client::EtcdClient;
@@ -15,7 +15,7 @@ pub mod etcd;
 pub mod local;
 
 pub trait Router: Send + Sync {
-    fn match_route(&self, key: &[u8], cmd_type: &SmolStr) -> bool;
+    fn match_route(&self, key: &[u8], cmd_type: CmdType) -> bool;
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -51,8 +51,8 @@ impl Route {
             }
         }
         for cmd in &self.commands {
-            let cmd = &SmolStr::from(cmd);
-            let cmd = COMMAND_ATTRIBUTES.get(cmd);
+            let cmd = CmdType::from_str(cmd).unwrap_or(CmdType::UNKNOWN);
+            let cmd = COMMAND_ATTRIBUTES.get(&cmd);
             if cmd.is_none() {
                 error!("unknown command type: {:?}, route id: {:?}", cmd, self.id);
                 return Err(anyhow::anyhow!("unknown command type: {:?}, route id: {:?}", cmd, self.id));
@@ -89,7 +89,7 @@ impl InnerRouter {
         }
     }
 
-    pub fn get(&self, s: &[u8], cmd_type: &SmolStr) -> Option<&Route> {
+    pub fn get(&self, s: &[u8], cmd_type: CmdType) -> Option<&Route> {
         if s.is_empty() {
             return None;
         }
@@ -114,7 +114,7 @@ impl InnerRouter {
 #[derive(Debug, Default)]
 pub struct Node {
     name: String,
-    command_router: HashMap<SmolStr, Route>,
+    command_router: HashMap<CmdType, Route>,
     children: HashMap<String, Node>,
 }
 
@@ -141,11 +141,11 @@ impl Node {
         if parts.len() == 1 || part == "**" { // it means it is the last part of the route
             let mut command_router = HashMap::new();
             for cmd in &route.commands {
-                let cmd_type = SmolStr::from(cmd);
+                let cmd_type = CmdType::from_str(&cmd.to_ascii_uppercase()).unwrap_or(CmdType::UNKNOWN);
                 command_router.insert(cmd_type, route.clone());
             }
             if command_router.is_empty() {
-                command_router.insert(CMD_TYPE_ALL.clone(), route.clone());
+                command_router.insert(CmdType::ALL, route.clone());
             }
             for (cmd_type, route) in command_router {
                 matched_child.command_router.insert(cmd_type, route);
@@ -154,10 +154,10 @@ impl Node {
         matched_child.push(&parts[1..], route);
     }
 
-    fn get(&self, parts: &[&str], level: usize, cmd_type: &SmolStr) -> Option<&Route> {
+    fn get(&self, parts: &[&str], level: usize, cmd_type: CmdType) -> Option<&Route> {
         if level >= parts.len() || self.name == "**" {
-            return self.command_router.get(cmd_type)
-                .or_else(|| self.command_router.get(&CMD_TYPE_ALL as &SmolStr));
+            return self.command_router.get(&cmd_type)
+                .or_else(|| self.command_router.get(&CmdType::ALL));
         }
 
         if self.children.is_empty() {

@@ -5,15 +5,15 @@ use bytes::Bytes;
 use lazy_static::lazy_static;
 use smol_str::SmolStr;
 use redis_command::{Command, CommandFlags, Group, Index, KeyNum, Keyword, Range};
-use redis_command_gen::COMMAND_ATTRIBUTES;
+use redis_command_gen::{CmdType, COMMAND_ATTRIBUTES};
 
-lazy_static!{
+lazy_static! {
     // some special command types
-    pub static ref CMD_TYPE_ALL: SmolStr = SmolStr::from("*");
-    pub static ref CMD_TYPE_UNKNOWN: SmolStr = SmolStr::from("unknown");
-    
-    pub static ref CMD_TYPE_AUTH: SmolStr = SmolStr::from("auth");
-    pub static ref CMD_TYPE_SELECT: SmolStr = SmolStr::from("select");
+    // pub static ref CMD_TYPE_ALL: SmolStr = SmolStr::from("*");
+    // pub static ref CMD_TYPE_UNKNOWN: SmolStr = SmolStr::from("unknown");
+
+    // pub static ref CMD_TYPE_AUTH: CmdType = CmdType::from_str("AUTH").unwrap();
+    // pub static ref CMD_TYPE_SELECT: CmdType = CmdType::from_str("SELECT");
 }
 
 #[inline]
@@ -25,42 +25,41 @@ pub fn to_lower_effective(origin: &[u8]) -> Vec<u8> {
     target
 }
 
-pub fn is_write_cmd(cmd: &SmolStr) -> bool {
+pub fn is_write_cmd(cmd: &CmdType) -> bool {
     if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
         return cmd.command_flags.contains(CommandFlags::Write);
     }
-    return false
+    return false;
 }
 
-pub fn is_readonly_cmd(cmd: &SmolStr) -> bool {
+pub fn is_readonly_cmd(cmd: &CmdType) -> bool {
     if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
         return cmd.command_flags.contains(CommandFlags::Readonly);
     }
-    return false
+    return false;
 }
 
-pub fn has_key(cmd: &SmolStr) -> bool {
+pub fn has_key(cmd: &CmdType) -> bool {
     if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
-        return cmd.key_specs.is_some()
+        return cmd.key_specs.is_some();
     }
-    return false
+    return false;
 }
 
-pub fn is_connection_cmd(cmd: &SmolStr) -> bool {
+pub fn is_connection_cmd(cmd: &CmdType) -> bool {
     if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
-        return cmd.group == Group::Connection
+        return cmd.group == Group::Connection;
     }
-    return false
+    return false;
 }
 
-pub fn get_cmd_key_bulks<'a>(cmd: &SmolStr, bulk_args: &'a Vec<Bytes>) -> Option<Vec<&'a [u8]>> {
+pub fn get_cmd_key_bulks<'a>(cmd: &CmdType, bulk_args: &'a Vec<Bytes>) -> Option<Vec<&'a [u8]>> {
     if bulk_args.len() < 2 {
-        return None
+        return None;
     }
-    // let cmd = COMMAND_ATTRIBUTES.get(cmd);
-    let cmd :Option<Command> = None;
+    let cmd = COMMAND_ATTRIBUTES.get(cmd);
     if cmd.is_none() {
-        return None
+        return None;
     }
     let cmd = cmd.unwrap();
 
@@ -77,7 +76,7 @@ pub fn get_cmd_key_bulks<'a>(cmd: &SmolStr, bulk_args: &'a Vec<Bytes>) -> Option
                             i += range.step;
                         }
                     }
-                },
+                }
                 (Some(index), None, None, Some(keynum)) => {
                     if let Some((first, key_nums)) = first_and_keynums_from_index(index, keynum, bulk_args) {
                         let mut nums = 0;
@@ -88,7 +87,7 @@ pub fn get_cmd_key_bulks<'a>(cmd: &SmolStr, bulk_args: &'a Vec<Bytes>) -> Option
                             i += keynum.step;
                         }
                     }
-                },
+                }
                 (None, Some(keyword), Some(find_keys_range), None) => {
                     if let Some((keyword_index, find_last_index)) = range_from_keyword(keyword, find_keys_range, bulk_args) {
                         let mut i = keyword_index + 1;
@@ -97,16 +96,16 @@ pub fn get_cmd_key_bulks<'a>(cmd: &SmolStr, bulk_args: &'a Vec<Bytes>) -> Option
                             i += find_keys_range.step;
                         }
                     }
-                },
+                }
                 _ => { //other case do not exist in redis command
                     continue;
                 }
             }
         }
         if key_bulks.is_empty() {
-            return None
+            return None;
         }
-        return Some(key_bulks)
+        return Some(key_bulks);
     }
     None
 }
@@ -137,7 +136,7 @@ fn first_and_keynums_from_index(index: &Index, keynum: &KeyNum, bulk_args: &Vec<
     }
 
     let key_num_bytes = &bulk_args[index.pos + keynum.keynumidx];
-    let key_nums = unsafe {std::str::from_utf8_unchecked(key_num_bytes.as_ref())};
+    let key_nums = unsafe { std::str::from_utf8_unchecked(key_num_bytes.as_ref()) };
     let key_nums = usize::from_str(key_nums);
     if key_nums.is_err() {
         return None;
@@ -158,11 +157,11 @@ fn range_from_keyword(keyword: &Keyword, range: &Range, bulk_args: &Vec<Bytes>) 
     };
 
     let mut keyword_bytes = &bulk_args[keyword_index];
-    let mut keyword_str = unsafe {std::str::from_utf8_unchecked(keyword_bytes.as_ref())};
+    let mut keyword_str = unsafe { std::str::from_utf8_unchecked(keyword_bytes.as_ref()) };
     while !keyword_str.eq_ignore_ascii_case(&keyword.keyword) && keyword_index < (bulks_length - 1) {
         keyword_index = if reverse { keyword_index - 1 } else { keyword_index + 1 };
         keyword_bytes = &bulk_args[keyword_index];
-        keyword_str = unsafe {std::str::from_utf8_unchecked(keyword_bytes.as_ref())};
+        keyword_str = unsafe { std::str::from_utf8_unchecked(keyword_bytes.as_ref()) };
     }
     if keyword_index >= (bulks_length - 1) {
         return None;
@@ -181,7 +180,11 @@ fn range_from_keyword(keyword: &Keyword, range: &Range, bulk_args: &Vec<Bytes>) 
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
     use bytes::Bytes;
+
+    use redis_command_gen::CmdType;
 
     #[test]
     fn test_to_lower_effective() {
@@ -192,80 +195,79 @@ mod test {
 
     #[test]
     fn test_is_write_cmd() {
-        let cmd = smol_str::SmolStr::from("set");
+        let cmd = CmdType::from_str("set").unwrap();
         assert_eq!(super::is_write_cmd(&cmd), true);
-        let cmd = smol_str::SmolStr::from("get");
+        let cmd = CmdType::from_str("get").unwrap();
         assert_eq!(super::is_write_cmd(&cmd), false);
     }
 
     #[test]
     fn test_is_connection_cmd() {
-        let cmd = smol_str::SmolStr::from("auth");
+        let cmd = CmdType::from_str("auth").unwrap();
         assert_eq!(super::is_connection_cmd(&cmd), true);
-        let cmd = smol_str::SmolStr::from("get");
+        let cmd = CmdType::from_str("get").unwrap();
         assert_eq!(super::is_connection_cmd(&cmd), false);
     }
 
     #[test]
     fn test_get_cmd_key_bulks() {
-
         /* index and range
          */
-        let cmd = smol_str::SmolStr::from("set");
+        let cmd = CmdType::from_str("set").unwrap();
         let bulk_args = vec![Bytes::from("set"), Bytes::from("key"), Bytes::from("value")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key".as_ref()]));
 
-        let cmd = smol_str::SmolStr::from("lcs");
+        let cmd = CmdType::from_str("lcs").unwrap();
         let bulk_args = vec![Bytes::from("lcs"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("IDX"), Bytes::from("MINMATCHLEN"), Bytes::from("4"), Bytes::from("WITHMATCHLEN")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref()]));
 
-        let cmd = smol_str::SmolStr::from("mget");
+        let cmd = CmdType::from_str("mget").unwrap();
         let bulk_args = vec![Bytes::from("mget"), Bytes::from("key1"), Bytes::from("key2")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref()]));
 
-        let cmd = smol_str::SmolStr::from("mset");
+        let cmd = CmdType::from_str("mset").unwrap();
         let bulk_args = vec![Bytes::from("mset"), Bytes::from("key1"), Bytes::from("value1"), Bytes::from("key2"), Bytes::from("value2")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref()]));
 
-        let cmd = smol_str::SmolStr::from("blpop");
+        let cmd = CmdType::from_str("blpop").unwrap();
         let bulk_args = vec![Bytes::from("blpop"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("key3"), Bytes::from("0")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
-        let cmd = smol_str::SmolStr::from("pfmerge");
+        let cmd = CmdType::from_str("pfmerge").unwrap();
         let bulk_args = vec![Bytes::from("pfmerge"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("key3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
         /* index and keynum
          */
-        let cmd = smol_str::SmolStr::from("lmpop");
+        let cmd = CmdType::from_str("lmpop").unwrap();
         let bulk_args = vec![Bytes::from("lmpop"), Bytes::from("3"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("key3"), Bytes::from("LEFT"), Bytes::from("COUNT"), Bytes::from("3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
-        let cmd = smol_str::SmolStr::from("blmpop");
+        let cmd = CmdType::from_str("blmpop").unwrap();
         let bulk_args = vec![Bytes::from("blmpop"), Bytes::from("1000"), Bytes::from("3"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("key3"), Bytes::from("LEFT"), Bytes::from("COUNT"), Bytes::from("3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
         /* keyword and range
          */
-        let cmd = smol_str::SmolStr::from("georadius");
+        let cmd = CmdType::from_str("georadius").unwrap();
         let bulk_args = vec![Bytes::from("georadius"), Bytes::from("key1"), Bytes::from("15"), Bytes::from("37"), Bytes::from("300"), Bytes::from("km"), Bytes::from("WITHCOORD"), Bytes::from("WITHDIST"), Bytes::from("WITHHASH"), Bytes::from("COUNT"), Bytes::from("3"), Bytes::from("ASC"), Bytes::from("store"), Bytes::from("key2"), Bytes::from("STOREDIST"), Bytes::from("key3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
-        let cmd = smol_str::SmolStr::from("xread");
+        let cmd = CmdType::from_str("xread").unwrap();
         let bulk_args = vec![Bytes::from("xread"), Bytes::from("count"), Bytes::from("1"), Bytes::from("block"), Bytes::from("1000"), Bytes::from("streams"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("key3"), Bytes::from("id1"), Bytes::from("id2"), Bytes::from("id3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
-        let cmd = smol_str::SmolStr::from("migrate");
+        let cmd = CmdType::from_str("migrate").unwrap();
         let bulk_args = vec![Bytes::from("migrate"), Bytes::from("127.0.0.1"), Bytes::from("9001"), Bytes::from("key1"), Bytes::from("0"), Bytes::from("1000"), Bytes::from("COPY"), Bytes::from("REPLACE"), Bytes::from("AUTH"), Bytes::from("123456"), Bytes::from("AUTH2"), Bytes::from("admin"), Bytes::from("root"), Bytes::from("keys"), Bytes::from("key2"), Bytes::from("key3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));

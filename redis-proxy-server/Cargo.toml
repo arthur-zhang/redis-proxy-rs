@@ -3,16 +3,9 @@ name = "redis-proxy-server"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [[bin]]
 name = "redis_proxy_server"
 path = "src/main.rs"
-
-[build-dependencies]
-serde = { version = "1.0.197", features = ["derive"] }
-serde_json = "1.0.114"
-redis-proxy-common = { path = "../redis-proxy-common" }
 
 [dependencies]
 console-subscriber = "0.2.0"
@@ -26,6 +19,7 @@ bytes = "1.5.0"
 redis-codec-core = { path = "../redis-codec-core" }
 env_logger = "0.11.0"
 redis-proxy-common = { path = "../redis-proxy-common" }
+redis-command-gen = { path = "../redis-command-gen" }
 regex = "1.10.3"
 serde = { version = "1.0.197", features = ["derive"] }
 toml = "0.8.10"

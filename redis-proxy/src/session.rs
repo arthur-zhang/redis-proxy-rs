@@ -10,7 +10,7 @@ use tokio_util::codec::FramedRead;
 
 use redis_codec_core::req_decoder::ReqDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
-use redis_proxy_common::command::utils::{CMD_TYPE_AUTH, CMD_TYPE_SELECT};
+use redis_command_gen::CmdType;
 use redis_proxy_common::ReqPkt;
 
 use crate::upstream_conn_pool::{AuthInfo, RedisConnection};
@@ -57,11 +57,11 @@ impl Session {
         self.req_size = req_pkt.bytes_total;
         self.res_size = 0;
         self.req_start = self.downstream_reader.decoder().req_start();
-        let cmd_type = &req_pkt.cmd_type;
+        let cmd_type = req_pkt.cmd_type;
 
-        if CMD_TYPE_SELECT.eq(cmd_type) {
+        if cmd_type == CmdType::SELECT {
             self.on_select_db(req_pkt);
-        } else if CMD_TYPE_AUTH.eq(cmd_type) {
+        } else if cmd_type == CmdType::AUTH {
             self.on_auth(req_pkt);
         }
     }
@@ -125,7 +125,7 @@ impl Session {
             } else {
                 None
             },
-            password: req_pkt.bulk_args[req_pkt.bulk_args.len() - 1].as_ref().to_vec()
+            password: req_pkt.bulk_args[req_pkt.bulk_args.len() - 1].as_ref().to_vec(),
         });
     }
 }

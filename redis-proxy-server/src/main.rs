@@ -8,8 +8,8 @@ use tikv_jemallocator::Jemalloc;
 
 use redis_proxy::config::Config;
 use redis_proxy::etcd_client::EtcdClient;
-use redis_proxy::prometheus::PrometheusServer;
 use redis_proxy::filter_trait::Filter;
+use redis_proxy::prometheus::PrometheusServer;
 use redis_proxy::server::ProxyServer;
 
 use crate::blacklist_filter::BlackListFilter;
@@ -81,4 +81,18 @@ async fn load_filters(conf: &Arc<Config>, etcd_client: Option<EtcdClient>) -> an
 fn get_conf(path: &Path) -> anyhow::Result<Config> {
     let conf = Config::load(path)?;
     Ok(conf)
+}
+
+#[cfg(test)]
+mod tests {
+    use redis_command_gen::COMMAND_ATTRIBUTES;
+
+    #[test]
+    fn test_a() {
+        for (k, v) in COMMAND_ATTRIBUTES.iter() {
+            if let Some(key) = &v.key_specs {
+                println!("{}: {:?}, key:{:?}", k, v.arity, key);
+            }
+        }
+    }
 }

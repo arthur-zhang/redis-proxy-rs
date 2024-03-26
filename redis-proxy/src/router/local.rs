@@ -1,4 +1,5 @@
 use smol_str::SmolStr;
+use redis_command_gen::CmdType;
 
 use crate::config::LocalRoute;
 use crate::router::{InnerRouter, Route, Router};
@@ -17,7 +18,7 @@ impl LocalRouter {
 }
 
 impl Router for LocalRouter {
-    fn match_route(&self, key: &[u8], cmd_type: &SmolStr) -> bool {
+    fn match_route(&self, key: &[u8], cmd_type: CmdType) -> bool {
         self.inner.get(key, cmd_type).is_some()
     }
 }

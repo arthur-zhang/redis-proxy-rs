@@ -4,6 +4,7 @@ use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use log::info;
 use smol_str::SmolStr;
+use redis_command_gen::CmdType;
 
 use crate::etcd_client::EtcdClient;
 use crate::router::{InnerRouter, Route, Router};
@@ -18,7 +19,7 @@ pub struct EtcdRouter {
 }
 
 impl Router for EtcdRouter {
-    fn match_route(&self, key: &[u8], cmd_type: &SmolStr) -> bool {
+    fn match_route(&self, key: &[u8], cmd_type: CmdType) -> bool {
         self.inner.load_full().get(key, cmd_type).is_some()
     }
 }
