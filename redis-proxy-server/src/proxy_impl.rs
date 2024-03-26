@@ -2,13 +2,12 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use async_trait::async_trait;
-use redis_command_gen::CmdType;
 
+use redis_command_gen::CmdType;
 use redis_proxy::config::Config;
 use redis_proxy::filter_trait::{Filter, FilterContext, Value};
 use redis_proxy::prometheus::{METRICS, RESP_FAILED, RESP_SUCCESS, TRAFFIC_TYPE_EGRESS, TRAFFIC_TYPE_INGRESS};
 use redis_proxy::session::Session;
-use redis_proxy::SmolStr;
 use redis_proxy_common::ReqPkt;
 
 use crate::filter_trait::{REQ_SIZE, RES_IS_OK, RES_SIZE, START_INSTANT};

@@ -1,4 +1,3 @@
-use smol_str::SmolStr;
 use redis_command_gen::CmdType;
 
 use crate::config::LocalRoute;

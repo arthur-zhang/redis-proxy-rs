@@ -20,7 +20,7 @@ pub struct ReqPkt {
 
 impl ReqPkt {
     pub fn new(bulk_args: Vec<Bytes>, bytes_total: usize) -> Self {
-        let mut cmd_type_str = bulk_args[0].iter().map(|it| it.to_ascii_uppercase() as char).collect::<SmolStr>();
+        let cmd_type_str = bulk_args[0].iter().map(|it| it.to_ascii_uppercase() as char).collect::<SmolStr>();
         // todo, add unknown
         let mut cmd_type = CmdType::from_str(&cmd_type_str).unwrap();
         if MULTIPART_COMMANDS.contains_key(&cmd_type) && bulk_args.len() > 1 {

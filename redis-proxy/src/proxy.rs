@@ -4,7 +4,6 @@ use anyhow::{anyhow, bail};
 use futures::StreamExt;
 use log::debug;
 use poolx::PoolConnection;
-use smol_str::SmolStr;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 

@@ -2,19 +2,9 @@ use std::str::FromStr;
 use std::usize;
 
 use bytes::Bytes;
-use lazy_static::lazy_static;
-use smol_str::SmolStr;
-use redis_command::{Command, CommandFlags, Group, Index, KeyNum, Keyword, Range};
+
+use redis_command::{CommandFlags, Group, Index, KeyNum, Keyword, Range};
 use redis_command_gen::{CmdType, COMMAND_ATTRIBUTES};
-
-lazy_static! {
-    // some special command types
-    // pub static ref CMD_TYPE_ALL: SmolStr = SmolStr::from("*");
-    // pub static ref CMD_TYPE_UNKNOWN: SmolStr = SmolStr::from("unknown");
-
-    // pub static ref CMD_TYPE_AUTH: CmdType = CmdType::from_str("AUTH").unwrap();
-    // pub static ref CMD_TYPE_SELECT: CmdType = CmdType::from_str("SELECT");
-}
 
 #[inline]
 pub fn to_lower_effective(origin: &[u8]) -> Vec<u8> {

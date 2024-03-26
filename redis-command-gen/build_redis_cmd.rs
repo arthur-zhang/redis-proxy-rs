@@ -196,10 +196,11 @@ pub enum CmdType {
  */
 use std::collections::HashMap;
 use std::str::FromStr;
+
 use lazy_static::lazy_static;
 use strum::EnumString;
-use std::convert::AsRef;
 use strum_macros::AsRefStr;
+
 use redis_command::{BeginSearch, Command, CommandFlags, FindKeys, Group, Index, KeyNum, KeySpecs, Keyword, Range};
 "#);
 

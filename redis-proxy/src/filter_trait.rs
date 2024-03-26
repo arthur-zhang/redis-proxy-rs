@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+
 use async_trait::async_trait;
-use smol_str::SmolStr;
+
 use redis_command_gen::CmdType;
 use redis_proxy_common::ReqPkt;
+
 use crate::session::Session;
 
 pub enum Value {

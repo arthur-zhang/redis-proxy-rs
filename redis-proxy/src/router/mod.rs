@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
 use redis_command_gen::{CmdType, COMMAND_ATTRIBUTES};
 
 

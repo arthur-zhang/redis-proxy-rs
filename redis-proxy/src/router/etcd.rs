@@ -3,7 +3,6 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use dashmap::DashMap;
 use log::info;
-use smol_str::SmolStr;
 use redis_command_gen::CmdType;
 
 use crate::etcd_client::EtcdClient;
