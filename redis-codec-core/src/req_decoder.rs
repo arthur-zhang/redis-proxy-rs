@@ -139,7 +139,11 @@ impl Decoder for ReqDecoder {
 
         let bulk_args = mem::take(&mut self.bulk_args_data);
         let bytes_total = start_len.saturating_sub(src.len());
-        Ok(Some(ReqPkt::new(bulk_args, bytes_total)))
+        let req_pkt = ReqPkt::new(bulk_args, bytes_total);
+        if req_pkt.is_err() {
+            bail!("Invalid request");
+        }
+        Ok(Some(req_pkt.unwrap()))
     }
 }
 

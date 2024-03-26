@@ -19,22 +19,21 @@ pub struct ReqPkt {
 }
 
 impl ReqPkt {
-    pub fn new(bulk_args: Vec<Bytes>, bytes_total: usize) -> Self {
+    pub fn new(bulk_args: Vec<Bytes>, bytes_total: usize) -> anyhow::Result<Self> {
         let cmd_type_str = bulk_args[0].iter().map(|it| it.to_ascii_uppercase() as char).collect::<SmolStr>();
-        // todo, add unknown
-        let mut cmd_type = CmdType::from_str(&cmd_type_str).unwrap();
+        let mut cmd_type = CmdType::from_str(&cmd_type_str)?;
         if MULTIPART_COMMANDS.contains_key(&cmd_type) && bulk_args.len() > 1 {
             let cmd_with_sub_cmd: SmolStr = cmd_type_str.chars()
                 .chain([' ' as char])
-                .chain(bulk_args[1].iter().map(|it| it.to_ascii_lowercase() as char))
+                .chain(bulk_args[1].iter().map(|it| it.to_ascii_uppercase() as char))
                 .collect();
-            cmd_type = CmdType::from_str(&cmd_with_sub_cmd).unwrap();
+            cmd_type = CmdType::from_str(&cmd_with_sub_cmd)?;
         }
-        return ReqPkt {
+        Ok(ReqPkt {
             cmd_type,
             bulk_args,
             bytes_total,
-        };
+        })
     }
 
     pub fn keys(&self) -> Option<Vec<&[u8]>> {

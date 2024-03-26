@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use redis_command_gen::{CmdType, COMMAND_ATTRIBUTES};
 
+use redis_command_gen::{CmdType, COMMAND_ATTRIBUTES};
 
 use crate::config::{ConfigCenter, LocalRoute};
 use crate::etcd_client::EtcdClient;
@@ -50,9 +50,9 @@ impl Route {
             }
         }
         for cmd in &self.commands {
-            let cmd = CmdType::from_str(cmd).unwrap_or(CmdType::UNKNOWN);
-            let cmd = COMMAND_ATTRIBUTES.get(&cmd);
-            if cmd.is_none() {
+            let cmd_type = CmdType::from_str(&cmd.to_ascii_uppercase()).unwrap_or(CmdType::UNKNOWN);
+            let cmd_type = COMMAND_ATTRIBUTES.get(&cmd_type);
+            if cmd_type.is_none() {
                 error!("unknown command type: {:?}, route id: {:?}", cmd, self.id);
                 return Err(anyhow::anyhow!("unknown command type: {:?}, route id: {:?}", cmd, self.id));
             }
@@ -140,8 +140,12 @@ impl Node {
         if parts.len() == 1 || part == "**" { // it means it is the last part of the route
             let mut command_router = HashMap::new();
             for cmd in &route.commands {
-                let cmd_type = CmdType::from_str(&cmd.to_ascii_uppercase()).unwrap_or(CmdType::UNKNOWN);
-                command_router.insert(cmd_type, route.clone());
+                let cmd_type = CmdType::from_str(&cmd.to_ascii_uppercase());
+                if cmd_type.is_err() {
+                    error!("unknown command type: {:?}, will ignore it.", cmd);
+                    continue;
+                }
+                command_router.insert(cmd_type.unwrap(), route.clone());
             }
             if command_router.is_empty() {
                 command_router.insert(CmdType::ALL, route.clone());

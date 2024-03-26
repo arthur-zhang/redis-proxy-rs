@@ -185,17 +185,17 @@ mod test {
 
     #[test]
     fn test_is_write_cmd() {
-        let cmd = CmdType::from_str("set").unwrap();
+        let cmd = CmdType::from_str("SET").unwrap();
         assert_eq!(super::is_write_cmd(&cmd), true);
-        let cmd = CmdType::from_str("get").unwrap();
+        let cmd = CmdType::from_str("GET").unwrap();
         assert_eq!(super::is_write_cmd(&cmd), false);
     }
 
     #[test]
     fn test_is_connection_cmd() {
-        let cmd = CmdType::from_str("auth").unwrap();
+        let cmd = CmdType::from_str("AUTH").unwrap();
         assert_eq!(super::is_connection_cmd(&cmd), true);
-        let cmd = CmdType::from_str("get").unwrap();
+        let cmd = CmdType::from_str("GET").unwrap();
         assert_eq!(super::is_connection_cmd(&cmd), false);
     }
 
@@ -203,61 +203,61 @@ mod test {
     fn test_get_cmd_key_bulks() {
         /* index and range
          */
-        let cmd = CmdType::from_str("set").unwrap();
+        let cmd = CmdType::from_str("SET").unwrap();
         let bulk_args = vec![Bytes::from("set"), Bytes::from("key"), Bytes::from("value")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key".as_ref()]));
 
-        let cmd = CmdType::from_str("lcs").unwrap();
+        let cmd = CmdType::from_str("LCS").unwrap();
         let bulk_args = vec![Bytes::from("lcs"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("IDX"), Bytes::from("MINMATCHLEN"), Bytes::from("4"), Bytes::from("WITHMATCHLEN")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref()]));
 
-        let cmd = CmdType::from_str("mget").unwrap();
+        let cmd = CmdType::from_str("MGET").unwrap();
         let bulk_args = vec![Bytes::from("mget"), Bytes::from("key1"), Bytes::from("key2")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref()]));
 
-        let cmd = CmdType::from_str("mset").unwrap();
+        let cmd = CmdType::from_str("MSET").unwrap();
         let bulk_args = vec![Bytes::from("mset"), Bytes::from("key1"), Bytes::from("value1"), Bytes::from("key2"), Bytes::from("value2")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref()]));
 
-        let cmd = CmdType::from_str("blpop").unwrap();
+        let cmd = CmdType::from_str("BLPOP").unwrap();
         let bulk_args = vec![Bytes::from("blpop"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("key3"), Bytes::from("0")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
-        let cmd = CmdType::from_str("pfmerge").unwrap();
+        let cmd = CmdType::from_str("PFMERGE").unwrap();
         let bulk_args = vec![Bytes::from("pfmerge"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("key3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
         /* index and keynum
          */
-        let cmd = CmdType::from_str("lmpop").unwrap();
+        let cmd = CmdType::from_str("LMPOP").unwrap();
         let bulk_args = vec![Bytes::from("lmpop"), Bytes::from("3"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("key3"), Bytes::from("LEFT"), Bytes::from("COUNT"), Bytes::from("3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
-        let cmd = CmdType::from_str("blmpop").unwrap();
+        let cmd = CmdType::from_str("BLMPOP").unwrap();
         let bulk_args = vec![Bytes::from("blmpop"), Bytes::from("1000"), Bytes::from("3"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("key3"), Bytes::from("LEFT"), Bytes::from("COUNT"), Bytes::from("3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
         /* keyword and range
          */
-        let cmd = CmdType::from_str("georadius").unwrap();
+        let cmd = CmdType::from_str("GEORADIUS").unwrap();
         let bulk_args = vec![Bytes::from("georadius"), Bytes::from("key1"), Bytes::from("15"), Bytes::from("37"), Bytes::from("300"), Bytes::from("km"), Bytes::from("WITHCOORD"), Bytes::from("WITHDIST"), Bytes::from("WITHHASH"), Bytes::from("COUNT"), Bytes::from("3"), Bytes::from("ASC"), Bytes::from("store"), Bytes::from("key2"), Bytes::from("STOREDIST"), Bytes::from("key3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
-        let cmd = CmdType::from_str("xread").unwrap();
+        let cmd = CmdType::from_str("XREAD").unwrap();
         let bulk_args = vec![Bytes::from("xread"), Bytes::from("count"), Bytes::from("1"), Bytes::from("block"), Bytes::from("1000"), Bytes::from("streams"), Bytes::from("key1"), Bytes::from("key2"), Bytes::from("key3"), Bytes::from("id1"), Bytes::from("id2"), Bytes::from("id3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
 
-        let cmd = CmdType::from_str("migrate").unwrap();
+        let cmd = CmdType::from_str("MIGRATE").unwrap();
         let bulk_args = vec![Bytes::from("migrate"), Bytes::from("127.0.0.1"), Bytes::from("9001"), Bytes::from("key1"), Bytes::from("0"), Bytes::from("1000"), Bytes::from("COPY"), Bytes::from("REPLACE"), Bytes::from("AUTH"), Bytes::from("123456"), Bytes::from("AUTH2"), Bytes::from("admin"), Bytes::from("root"), Bytes::from("keys"), Bytes::from("key2"), Bytes::from("key3")];
         let key_bulks = super::get_cmd_key_bulks(&cmd, &bulk_args);
         assert_eq!(key_bulks, Some(vec![b"key1".as_ref(), b"key2".as_ref(), b"key3".as_ref()]));
