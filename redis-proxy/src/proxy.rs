@@ -8,12 +8,14 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use redis_codec_core::resp_decoder::ResFramedData;
+use redis_command::{CommandFlags, Group};
 use redis_command_gen::CmdType;
-use redis_proxy_common::command::utils::{has_key, is_readonly_cmd};
+use redis_proxy_common::command::utils::{has_flag, has_key, is_group_of};
 use redis_proxy_common::ReqPkt;
 
 use crate::double_writer::DoubleWriter;
 use crate::filter_trait::{Filter, FilterContext};
+use crate::handler::get_handler;
 use crate::session::Session;
 use crate::upstream_conn_pool::{AuthStatus, Pool, RedisConnection};
 
@@ -27,9 +29,17 @@ pub struct RedisProxy<P> {
 
 impl<P> RedisProxy<P> {
     fn should_double_write(&self, header_frame: &ReqPkt) -> bool {
-        if is_readonly_cmd(&header_frame.cmd_type) {
+        //is group of transaction
+        if is_group_of(&header_frame.cmd_type, Group::Transactions) {
+            return true;
+        }
+        // not a write command, ignore it.
+        if !has_flag(&header_frame.cmd_type, CommandFlags::Write) {
             return false;
         }
+        // write command and has no key in command
+        // only FLUSHALL、FLUSHDB、FUNCTION DELETE、FUNCTION FLUSH、FUNCTION LOAD、FUNCTION RESTORE、SWAPDB
+        // will double write anyway
         if !has_key(&header_frame.cmd_type) {
             return true;
         }
@@ -51,7 +61,6 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
         if response_sent {
             return Some(session);
         }
-        session.upstream_start = Instant::now();
 
         match self.handle_request_inner(&mut session, &req_pkt, &mut ctx).await {
             Ok(_) => {
@@ -132,6 +141,8 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
 
         let (tx_upstream, rx_upstream) = mpsc::channel::<ResFramedData>(TASK_BUFFER_SIZE);
 
+        session.upstream_start = Instant::now();
+
         conn.send_bytes_vectored(req_pkt).await?;
 
         // bi-directional proxy
@@ -146,15 +157,12 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
                                  conn: &mut PoolConnection<RedisConnection>,
                                  dw_conn: &mut PoolConnection<RedisConnection>,
                                  _ctx: &mut FilterContext) -> anyhow::Result<()> {
-        let (auth_status_upstream, auth_status_dw) = tokio::try_join!(
-                conn.init_from_session(req_pkt.cmd_type, &session.authed_info, session.db),
-                dw_conn.init_from_session(req_pkt.cmd_type, &session.authed_info, session.db))?;
-        match (auth_status_upstream, auth_status_dw) {
-            (AuthStatus::Authed, AuthStatus::Authed) => {}
-            (_, _) => {
-                session.write_downstream(b"-NOAUTH Authentication required.\r\n").await?;
-                return Ok(());
-            }
+        let auth_status =
+            conn.init_from_session(req_pkt.cmd_type, &session.authed_info, session.db).await?;
+
+        if auth_status != AuthStatus::Authed {
+            session.write_downstream(b"-NOAUTH Authentication required.\r\n").await?;
+            return Ok(());
         }
 
         session.upstream_start = Instant::now();
@@ -170,11 +178,9 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
         return match join_result {
             (Ok((upstream_resp_ok, upstream_pkts, upstream_resp_size)),
                 Ok((dw_resp_ok, dw_pkts, _))) => {
-                if CmdType::AUTH == req_pkt.cmd_type {
-                    if !upstream_resp_ok {
-                        session.authed_info = None;
-                    }
-                }
+                
+                get_handler(req_pkt.cmd_type).map(|h| 
+                    h.handler_session_after_resp(session, upstream_resp_ok));
                 session.res_size += upstream_resp_size;
                 session.res_is_ok = upstream_resp_ok && dw_resp_ok;
 
@@ -200,10 +206,9 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
                 session.res_is_ok = res_framed_data.res_is_ok;
             }
             session.res_size += res_framed_data.data.len();
-            if CmdType::AUTH == cmd_type && res_framed_data.is_done {
-                if !res_framed_data.res_is_ok {
-                    session.authed_info = None;
-                }
+            if res_framed_data.is_done {
+                get_handler(cmd_type).map(|h| 
+                    h.handler_session_after_resp(session, res_framed_data.res_is_ok));
             }
 
             session.write_downstream(&res_framed_data.data).await?;
@@ -223,8 +228,9 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
         while let Some(Ok(data)) = conn.r.next().await {
             let is_done = data.is_done;
 
-            if CmdType::AUTH == cmd_type && is_done {
-                conn.update_authed_info(data.res_is_ok);
+            if is_done {
+                get_handler(cmd_type).map(|h|
+                    h.handler_coon_after_resp(conn, data.res_is_ok));
             }
             tx_upstream.send(data).await?;
             if is_done {

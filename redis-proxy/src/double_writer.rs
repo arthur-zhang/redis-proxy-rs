@@ -27,7 +27,8 @@ impl DoubleWriter {
             upstream_conf.config_center,
             upstream_conf.local_routes.clone(),
             etcd_client).await?;
-        let conn_option = upstream_conf.address.parse::<RedisConnectionOption>().unwrap();
+        let mut conn_option = upstream_conf.address.parse::<RedisConnectionOption>().unwrap();
+        conn_option.set_auth_after_connect(true);
         let pool: poolx::Pool<RedisConnection> = upstream_conf.conn_pool_conf.new_pool_opt()
             .connect_lazy_with(conn_option);
 

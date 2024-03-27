@@ -10,14 +10,16 @@ use tokio_util::codec::FramedRead;
 
 use redis_codec_core::req_decoder::ReqDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
-use redis_command_gen::CmdType;
 use redis_proxy_common::ReqPkt;
 
+use crate::client_flags::ClientFlags;
+use crate::handler::get_handler;
 use crate::upstream_conn_pool::{AuthInfo, RedisConnection};
 
 pub struct Session {
     downstream_reader: FramedRead<OwnedReadHalf, ReqDecoder>,
     downstream_writer: OwnedWriteHalf,
+    client_flags: ClientFlags,
     pub upstream_conn: Option<PoolConnection<RedisConnection>>,
     pub dw_conn: Option<PoolConnection<RedisConnection>>,
     pub authed_info: Option<AuthInfo>,
@@ -39,6 +41,7 @@ impl Session {
         Session {
             downstream_reader: r,
             downstream_writer: w,
+            client_flags: ClientFlags::None,
             upstream_conn: None,
             dw_conn: None,
             authed_info: None,
@@ -58,14 +61,14 @@ impl Session {
         self.res_size = 0;
         self.req_start = self.downstream_reader.decoder().req_start();
         let cmd_type = req_pkt.cmd_type;
-
-        if cmd_type == CmdType::SELECT {
-            self.on_select_db(req_pkt);
-        } else if cmd_type == CmdType::AUTH {
-            self.on_auth(req_pkt);
-        }
+        
+        get_handler(cmd_type).map(|h| h.init_from_req(self, req_pkt));
     }
 
+    #[inline]
+    pub fn set_client_flags(&mut self, flags: ClientFlags) {
+        self.client_flags |= flags;
+    }
 
     #[inline]
     pub async fn send_resp_to_downstream(&mut self, data: Bytes) -> anyhow::Result<()> {
@@ -91,41 +94,5 @@ impl Session {
     pub async fn write_downstream(&mut self, data: &[u8]) -> anyhow::Result<()> {
         self.downstream_writer.write_all(data).await?;
         Ok(())
-    }
-}
-
-fn convert_to_u64(vec: &[u8]) -> Option<u64> {
-    let mut result = 0u64;
-    for &byte in vec {
-        if byte >= b'0' && byte <= b'9' {
-            result = result * 10 + (byte - b'0') as u64;
-        } else {
-            return None;
-        }
-    }
-    Some(result)
-}
-
-impl Session {
-    fn on_select_db(&mut self, req_pkt: &ReqPkt) {
-        if req_pkt.bulk_args.len() <= 1 {
-            return;
-        }
-        let db = &req_pkt.bulk_args[1];
-        let db = convert_to_u64(db.as_ref()).unwrap_or(0);
-        self.db = db;
-    }
-    pub fn on_auth(&mut self, req_pkt: &ReqPkt) {
-        if req_pkt.bulk_args.len() <= 1 {
-            return;
-        }
-        self.authed_info = Some(AuthInfo {
-            username: if req_pkt.bulk_args.len() > 2 {
-                Some(req_pkt.bulk_args[1].as_ref().to_vec())
-            } else {
-                None
-            },
-            password: req_pkt.bulk_args[req_pkt.bulk_args.len() - 1].as_ref().to_vec(),
-        });
     }
 }

@@ -11,4 +11,7 @@ pub mod session;
 pub mod double_writer;
 pub mod etcd_client;
 pub mod filter_trait;
+pub mod client_flags;
+pub mod handler;
+
 pub use smol_str::*;

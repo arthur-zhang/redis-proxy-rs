@@ -15,16 +15,16 @@ pub fn to_lower_effective(origin: &[u8]) -> Vec<u8> {
     target
 }
 
-pub fn is_write_cmd(cmd: &CmdType) -> bool {
+pub fn has_flag(cmd: &CmdType, flag: CommandFlags) -> bool {
     if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
-        return cmd.command_flags.contains(CommandFlags::Write);
+        return cmd.command_flags.contains(flag);
     }
     return false;
 }
 
-pub fn is_readonly_cmd(cmd: &CmdType) -> bool {
+pub fn is_group_of(cmd: &CmdType, group: Group) -> bool {
     if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
-        return cmd.command_flags.contains(CommandFlags::Readonly);
+        return cmd.group == group;
     }
     return false;
 }
@@ -32,13 +32,6 @@ pub fn is_readonly_cmd(cmd: &CmdType) -> bool {
 pub fn has_key(cmd: &CmdType) -> bool {
     if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
         return cmd.key_specs.is_some();
-    }
-    return false;
-}
-
-pub fn is_connection_cmd(cmd: &CmdType) -> bool {
-    if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
-        return cmd.group == Group::Connection;
     }
     return false;
 }
@@ -174,6 +167,7 @@ mod test {
 
     use bytes::Bytes;
 
+    use redis_command::CommandFlags;
     use redis_command_gen::CmdType;
 
     #[test]
@@ -184,19 +178,11 @@ mod test {
     }
 
     #[test]
-    fn test_is_write_cmd() {
+    fn test_has_flag() {
         let cmd = CmdType::from_str("SET").unwrap();
-        assert_eq!(super::is_write_cmd(&cmd), true);
+        assert_eq!(super::has_flag(&cmd, CommandFlags::Write), true);
         let cmd = CmdType::from_str("GET").unwrap();
-        assert_eq!(super::is_write_cmd(&cmd), false);
-    }
-
-    #[test]
-    fn test_is_connection_cmd() {
-        let cmd = CmdType::from_str("AUTH").unwrap();
-        assert_eq!(super::is_connection_cmd(&cmd), true);
-        let cmd = CmdType::from_str("GET").unwrap();
-        assert_eq!(super::is_connection_cmd(&cmd), false);
+        assert_eq!(super::has_flag(&cmd, CommandFlags::Write), false);
     }
 
     #[test]
