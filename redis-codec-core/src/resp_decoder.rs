@@ -42,7 +42,7 @@ impl Decoder for RespPktDecoder {
         while p.has_remaining() || self.state == State::ValueComplete {
             match self.state {
                 State::ValueRootStart => {
-                    self.stack.push(RespType::PlaceHolder);
+                    self.stack.push(RespType::Null);
                     self.state = State::ValueStart;
                     res_is_ok = false;
                     is_done = false;
@@ -50,9 +50,9 @@ impl Decoder for RespPktDecoder {
                 State::ValueStart => {
                     self.pending_integer.reset();
                     match p[0] {
-                        b'*' => {
+                        b'*' | b'~' | b'>' => {
+                            self.update_top_resp_type(RespType::Collection(Collection::default()));
                             self.state = State::IntegerStart;
-                            self.update_top_resp_type(RespType::Array(Arr::default()));
                             res_is_ok = true;
                         }
                         b'$' => {
@@ -75,11 +75,61 @@ impl Decoder for RespPktDecoder {
                             self.state = State::IntegerStart;
                             res_is_ok = true;
                         }
+                        // the following is resp3 type
+
+                        // The null data type represents non-existent values. "_\r\n"
                         b'_' => {
-                            self.update_top_resp_type(RespType::Null);
-                            self.state = State::CR;
+                            self.update_top_resp_type(RespType::SimpleString);
+                            self.state = State::SimpleString;
                             res_is_ok = true;
                         }
+                        // RESP booleans are encoded as follows: "#<t|f>\r\n"
+                        b'#' => {
+                            self.update_top_resp_type(RespType::SimpleString);
+                            self.state = State::SimpleString;
+                            res_is_ok = true;
+                        }
+                        // The Double RESP type encodes a double-precision floating point value. Doubles are encoded as follows:
+                        // ,[<+|->]<integral>[.<fractional>][<E|e>[sign]<exponent>]\r\n
+                        b',' => {
+                            self.update_top_resp_type(RespType::SimpleString);
+                            self.state = State::SimpleString;
+                            res_is_ok = true;
+                        }
+                        //This type can encode integer values outside the range of signed 64-bit integers.
+                        // Big numbers use the following encoding:
+                        // ([+|-]<number>\r\n
+                        b'(' => {
+                            self.update_top_resp_type(RespType::SimpleString);
+                            self.state = State::SimpleString;
+                            res_is_ok = true;
+                        }
+                        // This type combines the purpose of simple errors with the expressive power of bulk strings.
+                        // It is encoded as:
+                        // !<length>\r\n<error>\r\n
+                        b'!' => {
+                            self.update_top_resp_type(RespType::BulkString);
+                            self.state = State::IntegerStart;
+                            res_is_ok = false;
+                        }
+                        // This type is similar to the bulk string, with the addition of providing a hint about the data's encoding.
+                        // A verbatim string's RESP encoding is as follows:
+                        // =<length>\r\n<encoding>:<data>\r\n
+                        b'=' => {
+                            self.update_top_resp_type(RespType::BulkString);
+                            self.state = State::IntegerStart;
+                            res_is_ok = true;
+                        }
+                        // Maps
+                        // The RESP map encodes a collection of key-value tuples, i.e., a dictionary or a hash.
+                        // It is encoded as follows:
+                        // %<number-of-entries>\r\n<key-1><value-1>...<key-n><value-n>
+                        b'%' => {
+                            self.update_top_resp_type(RespType::Map(Collection::default()));
+                            self.state = State::IntegerStart;
+                            res_is_ok = true;
+                        }
+
                         _ => { return Err(DecodeError::InvalidProtocol); }
                     }
                     p.advance(1);
@@ -105,21 +155,27 @@ impl Decoder for RespPktDecoder {
                     ensure!(p[0] == LF, DecodeError::InvalidProtocol);
                     p.advance(1);
                     let current_value = self.stack.last_mut().ok_or(DecodeError::InvalidProtocol)?;
+                    let is_map_type = matches!(current_value, RespType::Map(_));
                     match current_value {
-                        RespType::Array(ref mut arr) => {
+                        RespType::Collection(arr) | RespType::Map(arr) => {
                             if self.pending_integer.neg {
                                 // null array, convert to null
-                                self.update_top_resp_type(RespType::PlaceHolder);
+                                self.update_top_resp_type(RespType::Null);
                                 self.state = State::ValueComplete;
                             } else if self.pending_integer.value == 0 {
                                 // empty array
                                 self.state = State::ValueComplete;
                             } else {
-                                arr.size = self.pending_integer.value as usize;
-                                self.stack.push(RespType::PlaceHolder);
+                                if is_map_type {
+                                    arr.size = 2 * self.pending_integer.value as usize;
+                                } else {
+                                    arr.size = self.pending_integer.value as usize;
+                                }
+                                self.stack.push(RespType::Null);
                                 self.state = State::ValueStart;
                             }
                         }
+
                         RespType::Integer => {
                             self.state = State::ValueComplete;
                         }
@@ -159,6 +215,7 @@ impl Decoder for RespPktDecoder {
                     }
                     p.advance(1);
                 }
+
                 State::ValueComplete => {
                     ensure!(!self.stack.is_empty(), DecodeError::InvalidProtocol);
                     let _ = self.stack.pop();
@@ -171,14 +228,17 @@ impl Decoder for RespPktDecoder {
                     }
                     let cur_value = self.stack.last_mut().unwrap();
 
-                    if let RespType::Array(arr) = cur_value {
-                        if arr.cur_idx < arr.size - 1 {
-                            arr.cur_idx += 1;
-                            self.stack.push(RespType::PlaceHolder);
-                            self.state = State::ValueStart;
+                    match cur_value {
+                        RespType::Collection(col) | RespType::Map(col) => {
+                            if col.cur_idx < col.size - 1 {
+                                col.cur_idx += 1;
+                                self.stack.push(RespType::Null);
+                                self.state = State::ValueStart;
+                            }
                         }
-                    } else {
-                        return Err(DecodeError::InvalidProtocol);
+                        _ => {
+                            return Err(DecodeError::InvalidProtocol);
+                        }
                     }
                 }
             }
@@ -213,17 +273,17 @@ enum State {
 
 #[derive(Debug, Clone)]
 enum RespType {
-    PlaceHolder,
+    Null,
     SimpleString,
     BulkString,
     Integer,
     Error,
-    Array(Arr),
-    Null,
+    Collection(Collection),
+    Map(Collection),
 }
 
 #[derive(Debug, Clone, Default)]
-struct Arr {
+struct Collection {
     size: usize,
     cur_idx: usize,
 }
@@ -346,16 +406,6 @@ mod tests {
     }
 
     #[test]
-    fn test_array() {
-        let content = include_bytes!("/Users/arthur/Downloads/resp.txt.pcapng").as_ref();
-
-        let mut bytes_mut = BytesMut::from(content);
-        let mut decoder = RespPktDecoder::new();
-        let result = decoder.decode(&mut bytes_mut).unwrap().unwrap();
-        debug!("result: {:?}", std::str::from_utf8(&result.data[0..100]));
-    }
-
-    #[test]
     fn test_not_exist() {
         let bytes = "$-1\r\n".as_bytes();
         let mut decoder = RespPktDecoder::new();
@@ -373,5 +423,87 @@ mod tests {
         assert_eq!(result.data.as_ref(), "_\r\n".as_bytes());
         assert_eq!(result.res_is_ok, true);
         assert_eq!(result.is_done, true);
+    }
+
+    #[test]
+    fn test_boolean() {
+        let bytes = "#t\r\n".as_bytes();
+        let mut decoder = RespPktDecoder::new();
+        let mut buf = BytesMut::from(bytes);
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        assert_eq!(result.data.as_ref(), "#t\r\n".as_bytes());
+        assert_eq!(result.res_is_ok, true);
+        assert_eq!(result.is_done, true);
+    }
+
+    #[test]
+    fn test_double() {
+        let bytes = ",+1.23\r\n".as_bytes();
+        let mut decoder = RespPktDecoder::new();
+        let mut buf = BytesMut::from(bytes);
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        assert_eq!(result.data.as_ref(), ",+1.23\r\n".as_bytes());
+        assert_eq!(result.res_is_ok, true);
+        assert_eq!(result.is_done, true);
+    }
+
+    #[test]
+    fn test_bulk_err() {
+        let bytes = "!21\r\nSYNTAX invalid syntax\r\n".as_bytes();
+        let mut decoder = RespPktDecoder::new();
+        let mut buf = BytesMut::from(bytes);
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        assert_eq!(result.data.as_ref(), "!21\r\nSYNTAX invalid syntax\r\n".as_bytes());
+        assert_eq!(result.res_is_ok, false);
+        assert_eq!(result.is_done, true);
+    }
+
+    #[test]
+    fn test_verbatim() {
+        let bytes = "=15\r\ntxt:Some string\r\n".as_bytes();
+        let mut decoder = RespPktDecoder::new();
+        let mut buf = BytesMut::from(bytes);
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        assert_eq!(result.data.as_ref(), "=15\r\ntxt:Some string\r\n".as_bytes());
+        assert_eq!(result.res_is_ok, true);
+        assert_eq!(result.is_done, true);
+    }
+
+    #[test]
+    fn test_map() {
+        let bytes = "%2\r\n+first\r\n:1\r\n+second\r\n:2\r\n".as_bytes();
+        let mut decoder = RespPktDecoder::new();
+        let mut buf = BytesMut::from(bytes);
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        assert_eq!(result.data.as_ref(), bytes);
+        assert_eq!(result.res_is_ok, true);
+        assert_eq!(result.is_done, true);
+    }
+
+    #[test]
+    fn test_set() {
+        let bytes = "~3\r\n+hello\r\n+world\r\n+foo\r\n".as_bytes();
+        let mut decoder = RespPktDecoder::new();
+        let mut buf = BytesMut::from(bytes);
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        assert_eq!(result.data.as_ref(), bytes);
+        assert_eq!(result.res_is_ok, true);
+        assert_eq!(result.is_done, true);
+    }
+
+    #[test]
+    fn test_push() {
+        let bytes = ">3\r\n+hello\r\n+world\r\n+foo\r\n".as_bytes();
+        let mut decoder = RespPktDecoder::new();
+        let mut buf = BytesMut::from(bytes);
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        assert_eq!(result.data.as_ref(), bytes);
+        assert_eq!(result.res_is_ok, true);
+        assert_eq!(result.is_done, true);
+    }
+
+    #[test]
+    fn test_stream_data(){
+        
     }
 }
