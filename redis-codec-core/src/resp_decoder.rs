@@ -42,7 +42,7 @@ impl Decoder for RespPktDecoder {
         while p.has_remaining() || self.state == State::ValueComplete {
             match self.state {
                 State::ValueRootStart => {
-                    self.stack.push(RespType::Null);
+                    self.stack.push(RespType::PlaceHolder);
                     self.state = State::ValueStart;
                     res_is_ok = false;
                     is_done = false;
@@ -75,6 +75,11 @@ impl Decoder for RespPktDecoder {
                             self.state = State::IntegerStart;
                             res_is_ok = true;
                         }
+                        b'_' => {
+                            self.update_top_resp_type(RespType::Null);
+                            self.state = State::CR;
+                            res_is_ok = true;
+                        }
                         _ => { return Err(DecodeError::InvalidProtocol); }
                     }
                     p.advance(1);
@@ -104,14 +109,14 @@ impl Decoder for RespPktDecoder {
                         RespType::Array(ref mut arr) => {
                             if self.pending_integer.neg {
                                 // null array, convert to null
-                                self.update_top_resp_type(RespType::Null);
+                                self.update_top_resp_type(RespType::PlaceHolder);
                                 self.state = State::ValueComplete;
                             } else if self.pending_integer.value == 0 {
                                 // empty array
                                 self.state = State::ValueComplete;
                             } else {
                                 arr.size = self.pending_integer.value as usize;
-                                self.stack.push(RespType::Null);
+                                self.stack.push(RespType::PlaceHolder);
                                 self.state = State::ValueStart;
                             }
                         }
@@ -169,7 +174,7 @@ impl Decoder for RespPktDecoder {
                     if let RespType::Array(arr) = cur_value {
                         if arr.cur_idx < arr.size - 1 {
                             arr.cur_idx += 1;
-                            self.stack.push(RespType::Null);
+                            self.stack.push(RespType::PlaceHolder);
                             self.state = State::ValueStart;
                         }
                     } else {
@@ -208,12 +213,13 @@ enum State {
 
 #[derive(Debug, Clone)]
 enum RespType {
-    Null,
+    PlaceHolder,
     SimpleString,
     BulkString,
     Integer,
     Error,
     Array(Arr),
+    Null,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -356,5 +362,16 @@ mod tests {
         let mut buf = BytesMut::from(bytes);
         let result = decoder.decode(&mut buf).unwrap().unwrap();
         println!("result:{:?}", result);
+    }
+
+    #[test]
+    fn test_null() {
+        let bytes = "_\r\n".as_bytes();
+        let mut decoder = RespPktDecoder::new();
+        let mut buf = BytesMut::from(bytes);
+        let result = decoder.decode(&mut buf).unwrap().unwrap();
+        assert_eq!(result.data.as_ref(), "_\r\n".as_bytes());
+        assert_eq!(result.res_is_ok, true);
+        assert_eq!(result.is_done, true);
     }
 }
