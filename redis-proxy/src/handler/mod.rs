@@ -7,18 +7,22 @@ use redis_proxy_common::ReqPkt;
 
 use crate::handler::auth::Auth;
 use crate::handler::select::Select;
+use crate::handler::transaction::{Discard, Exec, Multi};
 use crate::session::Session;
 use crate::upstream_conn_pool::RedisConnection;
 
 mod auth;
-mod multi;
 mod select;
+mod transaction;
 
 lazy_static! {
     static ref HANDLER_MAP: HashMap<CmdType, Box<dyn CommandHandler>> = {
         let mut handlers: HashMap<CmdType, Box<dyn CommandHandler>> = HashMap::new();
         handlers.insert(CmdType::AUTH, Box::new(Auth));
         handlers.insert(CmdType::SELECT, Box::new(Select));
+        handlers.insert(CmdType::MULTI, Box::new(Multi));
+        handlers.insert(CmdType::EXEC, Box::new(Exec));
+        handlers.insert(CmdType::DISCARD, Box::new(Discard));
         handlers
     };
 }

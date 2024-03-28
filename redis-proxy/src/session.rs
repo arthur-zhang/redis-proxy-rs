@@ -12,14 +12,14 @@ use redis_codec_core::req_decoder::ReqDecoder;
 use redis_codec_core::resp_decoder::ResFramedData;
 use redis_proxy_common::ReqPkt;
 
-use crate::client_flags::ClientFlags;
+use crate::client_flags::SessionFlags;
 use crate::handler::get_handler;
 use crate::upstream_conn_pool::{AuthInfo, RedisConnection};
 
 pub struct Session {
     downstream_reader: FramedRead<OwnedReadHalf, ReqDecoder>,
     downstream_writer: OwnedWriteHalf,
-    client_flags: ClientFlags,
+    flags: SessionFlags,
     pub upstream_conn: Option<PoolConnection<RedisConnection>>,
     pub dw_conn: Option<PoolConnection<RedisConnection>>,
     pub authed_info: Option<AuthInfo>,
@@ -41,7 +41,7 @@ impl Session {
         Session {
             downstream_reader: r,
             downstream_writer: w,
-            client_flags: ClientFlags::None,
+            flags: SessionFlags::None,
             upstream_conn: None,
             dw_conn: None,
             authed_info: None,
@@ -61,13 +61,23 @@ impl Session {
         self.res_size = 0;
         self.req_start = self.downstream_reader.decoder().req_start();
         let cmd_type = req_pkt.cmd_type;
-        
+
         get_handler(cmd_type).map(|h| h.init_from_req(self, req_pkt));
     }
 
     #[inline]
-    pub fn set_client_flags(&mut self, flags: ClientFlags) {
-        self.client_flags |= flags;
+    pub fn insert_client_flags(&mut self, flags: SessionFlags) {
+        self.flags.insert(flags);
+    }
+
+    #[inline]
+    pub fn remove_client_flags(&mut self, flags: SessionFlags) {
+        self.flags.remove(flags);
+    }
+
+    #[inline]
+    pub fn contains_client_flags(&self, flags: SessionFlags) -> bool {
+        self.flags.contains(flags)
     }
 
     #[inline]

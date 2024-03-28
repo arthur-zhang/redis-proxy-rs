@@ -13,6 +13,7 @@ use redis_command_gen::CmdType;
 use redis_proxy_common::command::utils::{has_flag, has_key, is_group_of};
 use redis_proxy_common::ReqPkt;
 
+use crate::client_flags::SessionFlags;
 use crate::double_writer::DoubleWriter;
 use crate::filter_trait::{Filter, FilterContext};
 use crate::handler::get_handler;
@@ -28,9 +29,13 @@ pub struct RedisProxy<P> {
 }
 
 impl<P> RedisProxy<P> {
-    fn should_double_write(&self, header_frame: &ReqPkt) -> bool {
+    fn should_double_write(&self, session: &Session, header_frame: &&ReqPkt) -> bool {
         //is group of transaction
         if is_group_of(&header_frame.cmd_type, Group::Transactions) {
+            return true;
+        }
+        if session.contains_client_flags(SessionFlags::InTrasactions)
+            || session.contains_client_flags(SessionFlags::InWatching){
             return true;
         }
         // not a write command, ignore it.
@@ -77,7 +82,7 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
                                       req_pkt: &ReqPkt,
                                       ctx: &mut FilterContext) -> anyhow::Result<()> {
         let start = Instant::now();
-        if self.should_double_write(&req_pkt) {
+        if self.should_double_write(session, &req_pkt) {
             match (&session.upstream_conn.is_none(), &session.dw_conn.is_none()) {
                 (false, false) => {
                     // do nothing
@@ -178,8 +183,8 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
         return match join_result {
             (Ok((upstream_resp_ok, upstream_pkts, upstream_resp_size)),
                 Ok((dw_resp_ok, dw_pkts, _))) => {
-                
-                get_handler(req_pkt.cmd_type).map(|h| 
+
+                get_handler(req_pkt.cmd_type).map(|h|
                     h.handler_session_after_resp(session, upstream_resp_ok));
                 session.res_size += upstream_resp_size;
                 session.res_is_ok = upstream_resp_ok && dw_resp_ok;
@@ -205,9 +210,11 @@ impl<P> RedisProxy<P> where P: Filter + Send + Sync {
                 session.upstream_elapsed = session.upstream_start.elapsed();
                 session.res_is_ok = res_framed_data.res_is_ok;
             }
+
             session.res_size += res_framed_data.data.len();
+
             if res_framed_data.is_done {
-                get_handler(cmd_type).map(|h| 
+                get_handler(cmd_type).map(|h|
                     h.handler_session_after_resp(session, res_framed_data.res_is_ok));
             }
 
