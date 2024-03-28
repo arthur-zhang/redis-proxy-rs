@@ -20,6 +20,7 @@ use redis_codec_core::resp_decoder::{ResFramedData, RespPktDecoder};
 use redis_command_gen::CmdType;
 use redis_proxy_common::ReqPkt;
 
+use crate::handler::get_handler;
 use crate::prometheus::{CONN_UPSTREAM, METRICS};
 
 pub type Pool = poolx::Pool<RedisConnection>;
@@ -40,6 +41,15 @@ pub struct AuthInfo {
 pub struct RedisConnectionOption {
     counter: AtomicU64,
     addr: String,
+    password: Option<String>,
+    username: Option<String>,
+    auth_after_connect: bool,
+}
+
+impl RedisConnectionOption {
+    pub fn set_auth_after_connect(&mut self, auth_after_connect: bool) {
+        self.auth_after_connect = auth_after_connect;
+    }
 }
 
 impl Clone for RedisConnectionOption {
@@ -47,6 +57,9 @@ impl Clone for RedisConnectionOption {
         Self {
             counter: Default::default(),
             addr: self.addr.clone(),
+            password: self.password.clone(),
+            username: self.username.clone(),
+            auth_after_connect: self.auth_after_connect,
         }
     }
 }
@@ -57,6 +70,7 @@ pub struct RedisConnection {
     pub r: FramedRead<OwnedReadHalf, RespPktDecoder>,
     pub w: OwnedWriteHalf,
     pub session_attr: SessionAttr,
+    pub modify_auth_info: bool,
 }
 
 #[derive(PartialOrd, PartialEq)]
@@ -66,7 +80,7 @@ pub enum AuthStatus {
 }
 
 impl RedisConnection {
-    async fn select_db(&mut self, db: u64) -> anyhow::Result<()> {
+    pub async fn select_db(&mut self, db: u64) -> anyhow::Result<()> {
         let db_index = format!("{}", db);
         let cmd = format!("*2\r\n$6\r\nselect\r\n${}\r\n{}\r\n", db_index.len(), db_index);
         let (ok, _) = self.query_with_resp(cmd.as_bytes()).await?;
@@ -160,6 +174,9 @@ impl RedisConnection {
     }
 
     pub fn update_authed_info(&mut self, authed_ok: bool) {
+        if !self.modify_auth_info {
+            return;
+        }
         if authed_ok {
             self.authed_info = self.session_attr.authed_info.clone();
         } else {
@@ -167,7 +184,7 @@ impl RedisConnection {
         }
     }
 
-    async fn auth_connection_if_needed(
+    pub async fn auth_connection_if_needed(
         &mut self,
         session_authed_info: &Option<AuthInfo>,
     ) -> anyhow::Result<AuthStatus> {
@@ -232,9 +249,8 @@ impl RedisConnection {
                     total_size += it.data.len();
                     result.push(it);
                     if is_done {
-                        if CmdType::AUTH == pkt.cmd_type {
-                            self.update_authed_info(res_is_ok);
-                        }
+                        get_handler(pkt.cmd_type).map(|h|
+                            h.handler_coon_after_resp(self, res_is_ok));
                         return Ok((res_is_ok, result, total_size));
                     }
                 }
@@ -355,8 +371,11 @@ impl ConnectOptions for RedisConnectionOption {
         // todo fix unwrap
         let host = url.host_str().unwrap();
         let port = url.port().unwrap_or(6379);
+        let username = url.username();
+        let username = if username.is_empty() { None } else { Some(username.to_string()) };
+        let password = url.password().map(|s| s.to_string());
         let addr = format!("{}:{}", host, port);
-        Ok(Self { counter: AtomicU64::new(0), addr })
+        Ok(Self { counter: AtomicU64::new(0), addr, password, username, auth_after_connect: false })
     }
 
     fn connect(&self) -> BoxFuture<'_, Result<Self::Connection, Error>> where Self::Connection: Sized {
@@ -368,13 +387,25 @@ impl ConnectOptions for RedisConnectionOption {
                 METRICS.connections.with_label_values(&[CONN_UPSTREAM]).inc();
                 let (r, w) = conn.into_split();
 
-                Ok(RedisConnection {
+                let mut conn = RedisConnection {
                     id: self.counter.fetch_add(1, Relaxed),
                     authed_info: None,
                     r: FramedRead::new(r, RespPktDecoder::new()),
                     w,
                     session_attr: SessionAttr::default(),
-                })
+                    modify_auth_info: !self.auth_after_connect
+                };
+                if self.auth_after_connect && self.password.is_some() {
+                    let auth_result = conn.auth_connection(&AuthInfo {
+                        username: self.username.as_ref().map(|s| s.as_bytes().to_vec()),
+                        password: self.password.as_ref().unwrap().as_bytes().to_vec()
+                    }).await?;
+                    if auth_result != AuthStatus::Authed {
+                        return Err(Error::Other(anyhow!("auth after connection failed")));
+                    }
+                }
+
+                Ok(conn)
             }
         })
     }
@@ -397,6 +428,7 @@ mod tests {
             r: FramedRead::new(r, RespPktDecoder::new()),
             w,
             session_attr: SessionAttr::default(),
+            modify_auth_info: true,
         };
 
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
