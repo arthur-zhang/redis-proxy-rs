@@ -16,24 +16,15 @@ pub fn to_lower_effective(origin: &[u8]) -> Vec<u8> {
 }
 
 pub fn has_flag(cmd: &CmdType, flag: CommandFlags) -> bool {
-    if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
-        return cmd.command_flags.contains(flag);
-    }
-    return false;
+    matches!(COMMAND_ATTRIBUTES.get(cmd), Some(cmd) if cmd.command_flags.contains(flag))
 }
 
 pub fn is_group_of(cmd: &CmdType, group: Group) -> bool {
-    if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
-        return cmd.group == group;
-    }
-    return false;
+    matches!(COMMAND_ATTRIBUTES.get(cmd), Some(cmd) if cmd.group == group)
 }
 
 pub fn has_key(cmd: &CmdType) -> bool {
-    if let Some(cmd) = COMMAND_ATTRIBUTES.get(cmd) {
-        return cmd.key_specs.is_some();
-    }
-    return false;
+    matches!(COMMAND_ATTRIBUTES.get(cmd), Some(cmd) if cmd.key_specs.is_some())
 }
 
 pub fn get_cmd_key_bulks<'a>(cmd: &CmdType, bulk_args: &'a Vec<Bytes>) -> Option<Vec<&'a [u8]>> {
